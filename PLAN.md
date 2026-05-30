@@ -5,11 +5,42 @@
 | QMD (TypeScript) | GMD (Go) |
 |---|---|
 | `node-llama-cpp` (local GGUF models) | OpenAI-compatible API (any provider) |
-| `better-sqlite3` + `sqlite-vec` | [entgo.io](https://entgo.io) (SQLite via `modernc.org/sqlite` **or** Postgres, no CGO) |
-| SQLite FTS5 + sqlite-vec for retrieval | [Typesense](https://typesense.org) for full-text + vector search |
+| `better-sqlite3` + `sqlite-vec` | [Typesense](https://typesense.org) — no operational DB |
+| SQLite FTS5 + sqlite-vec for retrieval | Typesense full-text + vector hybrid search (single query) |
 | YAML config | [CUE](https://cuelang.org) config (global + project-local) |
 | Manual `--collection` required | Auto-detected from project root + CWD |
 | CLI only | CLI + REST API + MCP server |
+
+---
+
+## 🚧 Implementation Status
+
+### Phase 1: Scaffold + Config + Data Layer — 🔄 In Progress
+- [x] CUE schema (`config/schema/*.cue`) with pipeline defaults
+- [x] Config loader (global + project-local unification via CUE)
+- [x] Project root detection (walk up from CWD)
+- [x] Typesense v4 client wrapper (schema mgmt, hybrid/text search, CRUD)
+- [x] `Runtime` struct with Typesense lifecycle (no operational DB)
+- [ ] Hash field in Typesense chunks schema for content-based change detection
+- [x] `gmd init` command
+- [x] Makefile with CGO-free build targets
+- [x] No `internal/` — all packages importable
+
+### Phase 2: Indexing — 🔄 In Progress (LLM client done)
+- [x] LLM client (`llm/client.go`): embeddings, chat, rerank
+- [ ] Markdown chunker (heading-aware breakpoints)
+- [ ] File scanner + SHA-256 dedup via Typesense hash field
+- [ ] Batch embedding + Typesense upsert
+- [ ] CLI commands: `update`, `embed`, `status`
+
+### Phase 3: Search Pipeline — ⏳ Not Started
+- [ ] Strong signal detection
+- [ ] LLM query expansion
+- [ ] Typesense hybrid search wrapper
+- [ ] RRF fusion + rerank + position blending
+- [ ] Result formatting
+
+### Phase 4–7: CLI, REST API, MCP, Polish — ⏳ Not Started
 
 ---
 
@@ -23,10 +54,10 @@
 | **Manual dedup by filepath** | ✅ `group_by=collection,path` collapses chunk results | Typesense handles grouping |
 | **Query expansion** (LLM lex/vec/hyde) | ⚠️ Synonyms are complementary but don't replace LLM | LLM expansion kept; synonyms optionally layered on |
 | **RRF fusion across expansion variants** | ❌ Typesense operates on a single query | Custom Go code (RRF across variant result sets) |
-| **LLM reranking** | ❌ No external reranking API in Typesense | Custom Go code (OpenAI-compatible rerank API) |
+| **LLM reranking** | ❌ Typesense has no rerank | Custom Go code (LLM API rerank endpoint) |
 | **Position-aware blending** (RRF + reranker) | ❌ Application-side logic | Custom Go code |
 | **Chunking** (markdown headings + AST) | ❌ Typesense indexes whole documents or existing chunks | Custom Go code (port from QMD) |
-| **Content-addressable dedup** (SHA-256) | ❌ Typesense is not a source-of-truth DB | Ent operational DB |
+| **Content-addressable dedup** (SHA-256) | ✅ `hash` field on Typesense chunk documents | Filter by `path` + compare hash |
 
 ### Simplified Search Pipeline
 
@@ -57,41 +88,32 @@ gmd/
 │   │   └── main.go
 │   └── gmd-mcp/                 # MCP server
 │       └── main.go
-├── internal/
-│   ├── store/                   # Core engine — orchestrates indexing, search, lifecycle
-│   │   └── store.go
-│   ├── api/                     # REST API server
-│   │   ├── server.go            #   HTTP server setup, middleware, routes
-│   │   ├── handlers.go          #   endpoint handlers
-│   │   └── middleware.go        #   logging, auth, CORS, rate limiting
-│   ├── llm/                     # OpenAI-compatible LLM client
-│   │   └── client.go            #   embeddings, chat (query expansion), reranking
-│   ├── indexer/                 # File scanning + chunking + indexing pipeline
-│   │   └── indexer.go
-│   ├── search/                  # Search pipeline orchestration
-│   │   └── search.go            #   expansion → typesense calls → RRF → rerank → blend
-│   ├── chunking/                # Document chunking
-│   │   └── markdown.go          #   heading-based (port of ./qmd/src/store.ts chunking)
-│   ├── ts/                      # Typesense client wrapper
-│   │   └── client.go            #   schema setup, document CRUD, hybrid search
-│   ├── ent/                     # Ent schema definitions
-│   │   ├── schema/
-│   │   │   ├── collection.go    #   collection config (synced from CUE)
-│   │   │   ├── document.go      #   content-addressable storage (hash → content)
-│   │   │   ├── indexeddoc.go    #   file → collection mapping, active flag
-│   │   │   └── llmcache.go      #   LLM response cache
-│   │   └── generate.go
-│   ├── config/                  # CUE configuration
-│   │   ├── schema/              #   CUE schema files (embedded via go:embed)
-│   │   │   ├── types.cue        #     shared type definitions
-│   │   │   ├── pipeline.cue     #     pipeline parameter schema + defaults
-│   │   │   └── config.cue       #     root config schema
-│   │   ├── config.go            #   config loading, merging, validation
-│   │   └── project.go           #   project root detection
-│   └── output/                  # Output formatters
-│       ├── formatter.go         #   (port of ./qmd/src/cli/formatter.ts)
-│       └── snippet.go
-├── ent/                         # Generated Ent code
+├── config/
+│   ├── config.go                # CUE config loading, merging, validation
+│   ├── project.go               #   project root detection
+│   └── schema/                  #   CUE schema files (embedded via go:embed)
+│       ├── types.cue            #     shared type definitions
+│       ├── pipeline.cue         #     pipeline parameter schema + defaults
+│       └── config.cue           #     root config schema
+├── runtime/                     # Core engine — orchestrates indexing, search, lifecycle
+│   └── runtime.go
+├── ts/                          # Typesense client wrapper
+│   └── client.go                #   schema setup, document CRUD, hybrid search, hash-based dedup
+├── llm/                         # OpenAI-compatible LLM client
+│   └── client.go                #   embeddings, chat, reranking
+├── search/                      # Search pipeline orchestration (TBD)
+│   └── search.go
+├── chunking/                    # Document chunking (TBD)
+│   └── markdown.go
+├── indexer/                     # File scanning + chunking + indexing pipeline (TBD)
+│   └── indexer.go
+├── api/                         # REST API server (TBD)
+│   ├── server.go
+│   ├── handlers.go
+│   └── middleware.go
+├── output/                      # Output formatters (TBD)
+│   ├── formatter.go
+│   └── snippet.go
 ├── go.mod
 ├── go.sum
 ├── Makefile
@@ -102,20 +124,14 @@ gmd/
 
 ## 3. Storage Architecture
 
-### Ent (SQLite / Postgres) — Operational DB
+There is no operational database. Typesense is the sole data store. CUE config is the
+source of truth for collection definitions; the filesystem is the source of truth for
+document content.
 
-Metadata, content store, and cache. Not searched directly. No CGO: `modernc.org/sqlite` or `pgx`.
+### Typesense — Search Index + Change Detection
 
-| Schema | Purpose | Source |
-|---|---|---|
-| `Collection` | Collection definitions (name, path, glob, ignore, context, includeByDefault) | Synced from CUE config |
-| `Document` | Content-addressable (hash PK, content, created_at) | `content` table |
-| `IndexedDocument` | Collection → document mapping (path, title, hash FK, active, indexed_at) | `documents` table |
-| `LLMCache` | Cached LLM responses (request hash PK, result, model, created_at) | `llm_cache` table |
-
-### Typesense — Search Index
-
-Chunks are indexed as individual Typesense documents with `group_by` for document-level collapse:
+Chunks are indexed as individual Typesense documents with `group_by` for document-level
+collapse and a `hash` field for content-based change detection:
 
 ```json
 {
@@ -125,6 +141,7 @@ Chunks are indexed as individual Typesense documents with `group_by` for documen
     {"name": "path",       "type": "string", "facet": true},
     {"name": "title",      "type": "string"},
     {"name": "content",    "type": "string"},
+    {"name": "hash",       "type": "string"},            ← SHA-256 of source file
     {"name": "chunk_seq",  "type": "int32"},
     {"name": "total_chunks","type": "int32"},
     {"name": "embedding",  "type": "float[]", "num_dim": 768}
@@ -132,15 +149,18 @@ Chunks are indexed as individual Typesense documents with `group_by` for documen
 }
 ```
 
-Search uses `group_by=collection,path` with `group_limit=1` to return one result per document (best chunk).
+Indexing uses filter-by-path + hash comparison to skip unchanged files without
+re-chunking or re-embedding. Search uses `group_by=collection,path` with
+`group_limit=1` to return one result per document (best chunk).
 
 ### Embedding Strategy: External (Go → OpenAI API)
 
-Typesense supports both auto-embedding (server-side) and external embeddings. GMD uses **external embeddings**:
+Typesense supports both auto-embedding (server-side) and external embeddings. GMD uses
+**external embeddings**:
 
 | Step | What Happens |
 |---|---|
-| **Index time** | Go chunks documents → calls OpenAI-compatible API for embeddings → upserts `{ content, embedding, ... }` to Typesense |
+| **Index time** | Go chunks documents → calls OpenAI-compatible API for embeddings → upserts `{ content, embedding, ... }` with `hash` to Typesense |
 | **Search time** | Go embeds query text via API → sends `vector_query` param to Typesense hybrid search |
 | **Why external?** | User controls the embedding model in GMD config (not locked to Typesense-supported models). Consistent with "OpenAI-compatible module" requirement. |
 
@@ -159,17 +179,16 @@ For each collection defined in merged config:
   ↓
 Filesystem scan (filepath.Walk + glob pattern matching)
   ↓
-SHA-256 hash each file → compare with Ent Document table
-  ├─ New/changed → store content in Ent Document, flag for indexing
-  └─ Unchanged → skip
+SHA-256 hash each file → query Typesense for matching path + hash
+  ├─ Chunk exists with same hash → skip (no re-chunking or re-embedding)
+  ├─ Chunk exists with different hash → delete stale chunks, re-index
+  └─ No chunks for path → index from scratch
   ↓
 Chunking (heading-aware breakpoints, target tokens + overlap from CUE config)
   ↓
 Batch embedding via OpenAI-compatible API
   ↓
-Upsert chunks into Typesense (delete old chunks for path, insert new)
-  ↓
-Update Ent IndexedDocument metadata (hash, active=true, indexed_at)
+Upsert chunks into Typesense (hash included on every chunk document)
 ```
 
 ### Search Pipeline
@@ -203,7 +222,7 @@ RRF Fusion across all variant result sets
 Best-chunk selection per candidate
   → Apply intent-weighted keyword scoring to find best chunk per doc
   ↓
-LLM Reranking (OpenAI-compatible rerank API or chat-based)
+LLM Reranking (LLM API rerank endpoint)
   → Score each (query, chunk) pair for relevance
   ↓
 Position-Aware Blending (thresholds + weights from CUE config)
@@ -228,7 +247,7 @@ Return final ranked results
 
 ## 5. API Server
 
-`gmd serve` starts an HTTP server exposing all GMD operations as REST endpoints. Shares the same `Store` backend as the CLI and MCP server.
+`gmd serve` starts an HTTP server exposing all GMD operations as REST endpoints. Shares the same `Runtime` backend as the CLI and MCP server.
 
 | Endpoint | Method | Description | Analogous CLI |
 |---|---|---|---|
@@ -255,9 +274,6 @@ Return final ranked results
 
 | Module | Purpose |
 |---|---|
-| `entgo.io/ent` | Schema management + generated CRUD |
-| `modernc.org/sqlite` | CGO-free SQLite driver |
-| `github.com/jackc/pgx/v5` | Postgres driver |
 | `github.com/typesense/typesense-go` | Typesense client |
 | `github.com/openai/openai-go` | OpenAI-compatible API client |
 | `cuelang.org/go` | CUE config loading, validation, unification |
@@ -273,18 +289,16 @@ Return final ranked results
 - Embed schema via `//go:embed`
 - Implement Go config loader: load global CUE → detect project root → load project-local CUE → unify → validate → export to Go struct
 - Implement project root detection (walk up from CWD looking for `.gmd/` or `gmd.cue`)
-- Initialize Ent schemas (Collection, Document, IndexedDocument, LLMCache)
-- Configure Ent driver (SQLite via `modernc.org/sqlite`, Postgres optionally)
 - Implement Typesense client wrapper (schema creation, document CRUD, hybrid search)
-- `Store` struct with `Open()` / `Close()` lifecycle
+- `Runtime` struct with `Open()` / `Close()` lifecycle
 - `gmd init` command: creates `.gmd/config.cue` in project root
 
 ### Phase 2: Indexing
 - File scanning with glob matching (respecting ignore patterns)
-- Content-addressed storage (SHA-256 hashing, Ent dedup)
+- Content-addressed dedup via Typesense hash field (filter by path → compare hash → skip or re-index)
 - Markdown chunking (heading-aware breakpoints, parameters from CUE config)
 - Batch embedding pipeline (OpenAI-compatible API, retry logic, progress)
-- Typesense upsert (delete stale chunks for path, insert new set)
+- Typesense upsert (delete stale chunks for path, insert new set with hash)
 - Progress reporting (CLI output)
 
 ### Phase 3: Search Pipeline
@@ -292,7 +306,7 @@ Return final ranked results
 - LLM query expansion (chat completion with grammar-like constraint for lex/vec/hyde)
 - Typesense hybrid search wrapper (`q` + `vector_query` + `group_by`)
 - RRF fusion across expansion variants (k, weights, bonuses from CUE config)
-- LLM reranking (dedicated rerank endpoint or chat-based fallback)
+- LLM reranking (LLM API rerank endpoint; skip if unsupported)
 - Position-aware blending (thresholds + weights from CUE config)
 - Result formatting with snippets
 
@@ -336,11 +350,13 @@ Each chunk is a separate Typesense document. The `group_by=collection,path` para
 ### 8c. External embeddings (not Typesense auto-embedding)
 Embeddings computed in Go via OpenAI-compatible API, stored in Typesense's `float[]` field. Gives model flexibility.
 
-### 8d. LLM reranking via API
-Preferred: dedicated `/v1/rerank` endpoint (Cohere, Jina, etc.). Fallback: chat completion with relevance judgment + logprobs extraction.
+### 8d. LLM reranking via the `/v1/rerank` endpoint
+Reranking uses the LLM API's `/v1/rerank` endpoint (same base URL, same API key as embeddings and chat). This is the Jina/Cohere-compatible cross-encoder rerank format supported natively by vLLM and other OpenAI-compatible providers. It mirrors the original QMD approach of using a dedicated reranker model via `context.rankAll()`. If the provider does not support `/v1/rerank`, reranking is skipped.
 
-### 8e. Content-addressable storage in Ent
-SHA-256 hashing for dedup and change detection. Typesense is the search index, not the source of truth.
+### 8e. Content-addressable dedup via Typesense hash field
+SHA-256 hash stored on every chunk document. On re-index, filter by `path`, compare hash — if
+unchanged, skip the file entirely (no re-chunking, no re-embedding). Typesense doubles as both
+search index and change-detection source of truth.
 
 ### 8f. CUE as the sole config language
 No YAML fallback. CUE handles global + project-local config with structural sharing and validation. The config loader:
@@ -356,13 +372,13 @@ No YAML fallback. CUE handles global + project-local config with structural shar
 Walk up from CWD checking for `.gmd/` dir or `gmd.cue` file. Once found, that's the project root. Collections have paths relative to project root. CWD-based collection matching uses path prefix comparison.
 
 ### 8h. No CGO
-SQLite via `modernc.org/sqlite`, Postgres via `pgx`. CI enforces `CGO_ENABLED=0`.
+No CGO dependencies. CI enforces `CGO_ENABLED=0`.
 
 ### 8i. OpenAI-compatible, not OpenAI-specific
 The `llm.Client` abstraction wraps any OpenAI-compatible provider via `base_url` + `api_key`.
 
 ### 8j. REST API as a first-class interface alongside CLI and MCP
-`gmd serve` provides a full REST API sharing the same `Store` backend. Three interfaces (CLI, REST, MCP) serve different use cases: interactive use, programmatic/scripting, and AI agent integration. The API uses stdlib `net/http` (Go 1.22+ enhanced ServeMux) to avoid external HTTP router dependencies.
+`gmd serve` provides a full REST API sharing the same `Runtime` backend. Three interfaces (CLI, REST, MCP) serve different use cases: interactive use, programmatic/scripting, and AI agent integration. The API uses stdlib `net/http` (Go 1.22+ enhanced ServeMux) to avoid external HTTP router dependencies.
 
 ---
 
@@ -383,13 +399,7 @@ Config: {
 		rerank_model:       "jina-reranker-v2-base-en"
 	}
 
-	// Operational DB
-	storage: {
-		driver: "sqlite"            // "sqlite" or "postgres"
-		dsn:    "~/.cache/gmd/gmd.db"
-	}
-
-	// Search engine
+	// Search engine (Typesense is the sole data store)
 	typesense: {
 		host:    "http://localhost:8108"
 		api_key: "xyz"
@@ -458,7 +468,7 @@ Config: {
 
 | Concern | Approach |
 |---|---|
-| Existing QMD SQLite DB | Optional `gmd import-qmd` command: read QMD's `collection`/`content`/`documents` tables, migrate to Ent + Typesense + CUE config |
+| Existing QMD SQLite DB | Optional `gmd import-qmd` command: read QMD's `collection`/`content`/`documents` tables, migrate to Typesense + CUE config |
 | Typesense server setup | Must be running (Docker compose provided, docs for self-host/cloud) |
 | API key for LLM | Default to `OPENAI_API_KEY` env var; docs for Ollama/local setups (no key needed) |
 | CGO-free CI | `CGO_ENABLED=0 go build ./...` in CI pipeline |
@@ -481,7 +491,7 @@ Config: {
 
 | QMD | GMD | Why |
 |---|---|---|
-| `better-sqlite3` + `sqlite-vec` | Ent (SQLite/Postgres) + Typesense | No CGO, Typesense for search |
+| `better-sqlite3` + `sqlite-vec` | Typesense | No CGO, single data store for search + metadata |
 | `node-llama-cpp` (local GGUF) | OpenAI-compatible API | User's requirement |
 | Two searches per variant (FTS + vec) | One hybrid search per variant | Typesense does both + fusion |
 | Manual chunk dedup | `group_by=collection,path` | Typesense built-in |
@@ -514,21 +524,9 @@ All resources are in the `gmd` namespace, pinned to node `nitrogen` via `nodeSel
 | NodePort | `gmd-ts-nodeport` → 30336 (8108), 32402 (8808) |
 | Health check | `curl 192.168.4.26:30336/health` → `{"ok":true}` |
 
-### PostgreSQL (CNPG)
-
-| Resource | Detail |
-|---|---|
-| CRD | `Cluster` (`postgresql.cnpg.io/v1`) |
-| Name | `gmd-psql` |
-| Port | 5432 |
-| RW ClusterIP | `gmd-psql-rw` |
-| NodePort | `gmd-psql-nodeport` → 30712 |
-| Verify | `echo > /dev/tcp/192.168.4.26/30712` → connected |
-
 ### Files
 
 ```
 k8s/
-├── typesense.yaml   # TypesenseCluster + NodePort Service
-└── postgres.yaml    # Cluster + NodePort Service
+└── typesense.yaml   # TypesenseCluster + NodePort Service
 ```

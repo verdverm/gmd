@@ -493,3 +493,42 @@ Config: {
 | Manual `--collection` flag | Auto-detected from CWD + project root | Zero-config in project dirs |
 | Fixed pipeline parameters | All pipeline knobs exposed in CUE schema | Power-user customization |
 | CLI only | CLI + REST API + MCP server | `gmd serve`, `gmd mcp`, and `gmd <subcommand>` |
+
+---
+
+## 13. K8s Infrastructure (gmd namespace)
+
+These resources already exist and are managed manually via `kubectl apply -f k8s/`. They will eventually be codified into a project config file.
+
+All resources are in the `gmd` namespace, pinned to node `nitrogen` via `nodeSelector`.
+
+### Typesense
+
+| Resource | Detail |
+|---|---|
+| CRD | `TypesenseCluster` (`ts.opentelekomcloud.com/v1alpha1`) |
+| Name | `gmd-ts` |
+| API port | 8108 |
+| Health port | 8808 |
+| ClusterIP | `gmd-ts-svc` (8108, 8808) |
+| NodePort | `gmd-ts-nodeport` → 30336 (8108), 32402 (8808) |
+| Health check | `curl 192.168.4.26:30336/health` → `{"ok":true}` |
+
+### PostgreSQL (CNPG)
+
+| Resource | Detail |
+|---|---|
+| CRD | `Cluster` (`postgresql.cnpg.io/v1`) |
+| Name | `gmd-psql` |
+| Port | 5432 |
+| RW ClusterIP | `gmd-psql-rw` |
+| NodePort | `gmd-psql-nodeport` → 30712 |
+| Verify | `echo > /dev/tcp/192.168.4.26/30712` → connected |
+
+### Files
+
+```
+k8s/
+├── typesense.yaml   # TypesenseCluster + NodePort Service
+└── postgres.yaml    # Cluster + NodePort Service
+```

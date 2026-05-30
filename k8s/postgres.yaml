@@ -1,0 +1,27 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  namespace: gmd
+  name: gmd-psql
+spec:
+  affinity:
+    nodeSelector:
+      kubernetes.io/hostname: nitrogen
+  instances: 1
+  storage:
+    size: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: gmd
+  name: gmd-psql-nodeport
+spec:
+  type: NodePort
+  selector:
+    cnpg.io/cluster: gmd-psql
+    cnpg.io/instanceRole: primary
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: postgres

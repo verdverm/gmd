@@ -7,6 +7,7 @@ gmd update                     # index your markdown files
 gmd query "how do I deploy?"   # full hybrid search
 gmd search "error X"           # fast text-only search
 gmd status                     # see what's indexed
+gmd agents summary             # get AGENTS.md for AI assistants
 ```
 
 ## Requirements
@@ -116,6 +117,7 @@ Run `gmd query` from within `myproject/docs/` and the `myapp` collection is sele
 | `gmd multi-get <pattern>` | Batch fetch documents |
 | `gmd collection list` | List collections |
 | `gmd init` | Create `.gmd/config.cue` in the current directory |
+| `gmd agents [size]` | Output AGENTS.md content for AI coding assistants |
 | `gmd serve` | Start REST API server |
 | `gmd mcp` | Start MCP server (for AI agent integration) |
 | `gmd doctor` | Run diagnostics |

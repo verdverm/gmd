@@ -8,7 +8,9 @@ gmd requires three OpenAI-compatible models — you need them running before `gm
 |---|---|---|---|
 | **embedding** | `google/embeddinggemma-300m` | 300M | Google |
 | **expansion** | `Qwen/Qwen3-1.7B` | 1.7B | Alibaba |
-- **Qwen/Qwen3-Reranker-0.6B** is Apache 2.0, openly available, and confirmed compatible with vLLM's `--task rerank`.
+| **rerank** | `Qwen/Qwen3-Reranker-0.6B` | 600M | Alibaba |
+
+> `Qwen/Qwen3-Reranker-0.6B` is Apache 2.0, openly available, and confirmed compatible with vLLM's `--task rerank`.
 
 ## vLLM
 

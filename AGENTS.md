@@ -40,6 +40,7 @@ gmd doctor                             # Diagnostics
 gmd cleanup                            # Remove stale chunks for deleted files
 gmd serve [--port] [--host]            # REST API server (stub, Phase 5)
 gmd mcp [--http]                       # MCP server (stub, Phase 6)
+gmd agents [oneline|summary|detailed|full]  # Output AGENTS.md content for users
 ```
 
 ## Architecture
@@ -54,6 +55,7 @@ pkg/ts/           Typesense client wrapper (chunks collection, hybrid/text searc
 pkg/llm/          OpenAI-compatible API client (embeddings, chat, rerank)
 pkg/output/       Result formatting (CLI, JSON)
 pkg/runtime/      Runtime struct — owns Typesense client lifecycle
+pkg/agents/       Embedded AGENTS.md content (oneline/summary/detailed/full)
 models/           vLLM serve scripts + systemd units for 3 LLM models
 k8s/              Typesense Kubernetes manifest
 docs/             Configuration reference
@@ -98,5 +100,7 @@ Project root detected by walking up from CWD looking for `.gmd/` sentinel.
 - New CLI commands go in `cmd/gmd/<name>.go` and register in `main.go` init().
 - New library packages go under `pkg/<name>/`.
 - Tests live alongside source files (`*_test.go`).
+- The `gmd agents` command outputs embedded content from `pkg/agents/content/`. Update those
+  markdown files when CLI commands or architecture change.
 - Never commit `bin/` or `qmd/` (both in .gitignore).
 - Always include `.sessions/` when making commits.

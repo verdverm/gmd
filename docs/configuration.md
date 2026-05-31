@@ -1,6 +1,16 @@
 # Configuration
 
-gmd uses [CUE](https://cuelang.org) for configuration. Global config lives at `~/.config/gmd/config.cue` and project-local config at `<project-root>/.gmd/config.cue`. They are merged at load time — project values override global defaults.
+gmd uses [CUE](https://cuelang.org) for configuration. There is no YAML fallback.
+
+## Config loading order
+
+Configuration is loaded in three layers and unified at runtime (later layers override earlier):
+
+1. **Embedded schema** — built into the binary (`pkg/config/schema/*.cue`), provides all defaults
+2. **Global** — `~/.config/gmd/config.cue` (optional), shared across all projects
+3. **Project** — `<project-root>/.gmd/config.cue` (optional), project-specific overrides
+
+The project root is detected by walking up from the current working directory looking for a `.gmd/` directory. Create one with `gmd init`.
 
 ## Global config
 
@@ -45,6 +55,23 @@ prevents name collisions when multiple projects share a Typesense instance.
 to the directory name). If unspecified, it defaults to the project root directory
 name. The prefix is applied transparently — all CLI commands accept the original
 collection name and translate it internally.
+
+## Project config
+
+The project-local config at `.gmd/config.cue` only needs to specify what differs
+from the global config and embedded defaults. A minimal project config:
+
+```cue
+package gmd
+
+Config: {
+  collections: myapp: {
+    path:    "docs"
+    pattern: "**/*.md"
+    context: "MyApp user documentation"
+  }
+}
+```
 
 ## Collection fields
 

@@ -66,12 +66,13 @@ All commands backed by `pkg/` code:
 - [x] `gmd ls` — list indexed documents via `pkg/ts`
 - [x] `gmd doctor` — diagnostics via `pkg/config` + `pkg/runtime` + `pkg/ts`
 - [x] `gmd cleanup` — stale chunk detection via `pkg/indexer` + `pkg/ts`
+- [x] `gmd agents` — embedded AGENTS.md content for AI coding assistants (oneline/summary/detailed/full)
 
-### Phase 5: REST API Server — Not Started
-- [ ] `gmd serve` — `api/` directory empty, no `pkg/` code exists yet
+### Phase 5: REST API Server — Stub Exists
+- [ ] `gmd serve` — HTTP handler code not implemented; CLI stub with `--host`/`--port` flags in `cmd/gmd/serve.go`
 
-### Phase 6: MCP Server — Not Started
-- [ ] `gmd mcp` — no MCP library or server code exists yet
+### Phase 6: MCP Server — Stub Exists
+- [ ] `gmd mcp` — MCP protocol code not implemented; CLI stub with `--http` flag in `cmd/gmd/mcp.go`
 
 ### Phase 7: Polish — Not Started
 - [ ] LLM cache integration
@@ -114,7 +115,7 @@ Per variant: Typesense hybrid search (text + vector fused internally, grouped by
 Each variant goes from **2 queries + custom fusion** (QMD) to **1 query** (GMD).
 
 
-## 3. Storage Architecture
+## 2. Storage Architecture
 
 There is no operational database. Typesense is the sole data store. CUE config is the
 source of truth for collection definitions; the filesystem is the source of truth for
@@ -157,7 +158,7 @@ Typesense supports both auto-embedding (server-side) and external embeddings. GM
 | **Why external?** | User controls the embedding model in GMD config (not locked to Typesense-supported models). Consistent with "OpenAI-compatible module" requirement. |
 
 
-## 4. Data Flow
+## 3. Data Flow
 
 ### Indexing Pipeline
 
@@ -235,7 +236,7 @@ Return final ranked results
 | `gmd query` | Full pipeline: expansion → hybrid → RRF → rerank → blend | All 3 models |
 
 
-## 5. API Server
+## 4. API Server
 
 `gmd serve` starts an HTTP server exposing all GMD operations as REST endpoints. Shares the same `Runtime` backend as the CLI and MCP server.
 
@@ -259,7 +260,7 @@ Return final ranked results
 **Implementation**: Uses Go 1.22+ `net/http` with enhanced `ServeMux` for routing (no external router dependency). Standard middleware: request logging, recovery, CORS, optional API key authentication.
 
 
-## 6. Key Dependencies (Go)
+## 5. Key Dependencies (Go)
 
 | Module | Purpose |
 |---|---|
@@ -270,7 +271,7 @@ Return final ranked results
 | `golang.org/x/sync` | errgroup, semaphore for parallel work |
 
 
-## 7. Implementation Phases
+## 6. Implementation Phases
 
 ### Phase 1: Scaffold + Config + Data Layer
 - Define CUE schema (types.cue, pipeline.cue, config.cue) with all pipeline knobs + defaults
@@ -327,26 +328,26 @@ Auto-detection integration: `status` shows project root + matched collections, `
 - Documentation, CI/CD with `CGO_ENABLED=0` check
 
 
-## 8. Key Design Decisions
+## 7. Key Design Decisions
 
-### 8a. Typesense handles per-query fusion; Go handles cross-variant fusion
+### 7a. Typesense handles per-query fusion; Go handles cross-variant fusion
 Typesense's built-in hybrid search fuses text + vector rankings for a single query. But GMD generates multiple expansion variants (lex/vec/hyde) and needs RRF fusion across them. That cross-variant fusion stays in Go.
 
-### 8b. Chunks as Typesense documents with grouping
+### 7b. Chunks as Typesense documents with grouping
 Each chunk is a separate Typesense document. The `group_by=collection,path` parameter collapses chunk results to document level.
 
-### 8c. External embeddings (not Typesense auto-embedding)
+### 7c. External embeddings (not Typesense auto-embedding)
 Embeddings computed in Go via OpenAI-compatible API, stored in Typesense's `float[]` field. Gives model flexibility.
 
-### 8d. LLM reranking via the `/v1/rerank` endpoint
+### 7d. LLM reranking via the `/v1/rerank` endpoint
 Reranking uses the LLM API's `/v1/rerank` endpoint (same base URL, same API key as embeddings and chat). This is the Jina/Cohere-compatible cross-encoder rerank format supported natively by vLLM and other OpenAI-compatible providers. It mirrors the original QMD approach of using a dedicated reranker model via `context.rankAll()`. If the provider does not support `/v1/rerank`, reranking is skipped.
 
-### 8e. Content-addressable dedup via Typesense hash field
+### 7e. Content-addressable dedup via Typesense hash field
 SHA-256 hash stored on every chunk document. On re-index, filter by `path`, compare hash — if
 unchanged, skip the file entirely (no re-chunking, no re-embedding). Typesense doubles as both
 search index and change-detection source of truth.
 
-### 8f. CUE as the sole config language
+### 7f. CUE as the sole config language
 No YAML fallback. CUE handles global + project-local config with structural sharing and validation. The config loader:
 1. Embeds built-in schema
 2. Loads global `~/.config/gmd/config.cue` (optional)
@@ -356,20 +357,20 @@ No YAML fallback. CUE handles global + project-local config with structural shar
 6. Validates against schema
 7. Exports validated Go struct
 
-### 8g. Project auto-detection by sentinel walk
+### 7g. Project auto-detection by sentinel walk
 Walk up from CWD checking for `.gmd/` dir. Once found, that's the project root. Collections have paths relative to project root. CWD-based collection matching uses path prefix comparison.
 
-### 8h. No CGO
+### 7h. No CGO
 No CGO dependencies. CI enforces `CGO_ENABLED=0`.
 
-### 8i. OpenAI-compatible, not OpenAI-specific
+### 7i. OpenAI-compatible, not OpenAI-specific
 The `llm.Client` abstraction wraps any OpenAI-compatible provider via `base_url` + `api_key`.
 
-### 8j. REST API as a first-class interface alongside CLI and MCP
+### 7j. REST API as a first-class interface alongside CLI and MCP
 `gmd serve` provides a full REST API sharing the same `Runtime` backend. Three interfaces (CLI, REST, MCP) serve different use cases: interactive use, programmatic/scripting, and AI agent integration. The API uses stdlib `net/http` (Go 1.22+ enhanced ServeMux) to avoid external HTTP router dependencies.
 
 
-## 9. Configuration (CUE)
+## 8. Configuration (CUE)
 
 ### Global config: `~/.config/gmd/config.cue`
 
@@ -450,7 +451,7 @@ Config: {
 | Max results | `pipeline.output.maxResults` | 5 | Default result count |
 
 
-## 10. Migration from QMD
+## 9. Migration from QMD
 
 | Concern | Approach |
 |---|---|
@@ -461,7 +462,7 @@ Config: {
 | Converting QMD YAML to CUE | `gmd import-qmd` generates `~/.config/gmd/config.cue` from existing YAML config |
 
 
-## 11. What Stays the Same (from QMD)
+## 10. What Stays the Same (from QMD)
 
 - Query expansion prompt format and grammar (`lex`/`vec`/`hyde` lines)
 - RRF fusion formula with weights and top-rank bonuses
@@ -470,9 +471,9 @@ Config: {
 - Chunking strategy: heading-aware breakpoints with configurable token target
 - Output formatters (CLI, JSON, CSV, MD, XML, files)
 - MCP server tools and resources
-- All CLI commands
+- Core CLI commands (search, vsearch, query, update, embed, status, etc.)
 
-## 12. What Changes
+## 11. What Changes
 
 | QMD | GMD | Why |
 |---|---|---|
@@ -488,25 +489,16 @@ Config: {
 | Manual `--collection` flag | Auto-detected from CWD + project root | Zero-config in project dirs |
 | Fixed pipeline parameters | All pipeline knobs exposed in CUE schema | Power-user customization |
 | CLI only | CLI + REST API + MCP server | `gmd serve`, `gmd mcp`, and `gmd <subcommand>` |
+| No agent docs | `gmd agents` embedded content (oneline/summary/detailed/full) | AI agent onboarding without external docs |
 
 
-## 13. K8s Infrastructure (gmd namespace)
+## 12. K8s Infrastructure (gmd namespace)
 
-These resources already exist and are managed manually via `kubectl apply -f k8s/`. They will eventually be codified into a project config file.
+These resources already exist and are managed via `kubectl apply -f k8s/`. See
+[k8s/README.md](k8s/README.md) for operational details.
 
 All resources are in the `gmd` namespace, pinned to node `nitrogen` via `nodeSelector`.
-
-### Typesense
-
-| Resource | Detail |
-|---|---|
-| CRD | `TypesenseCluster` (`ts.opentelekomcloud.com/v1alpha1`) |
-| Name | `gmd-ts` |
-| API port | 8108 |
-| Health port | 8808 |
-| ClusterIP | `gmd-ts-svc` (8108, 8808) |
-| NodePort | `gmd-ts-nodeport` → 30336 (8108), 32402 (8808) |
-| Health check | `curl 192.168.4.26:30336/health` → `{"ok":true}` |
+Typesense is deployed as a `TypesenseCluster` CRD and exposed via NodePort services.
 
 ### Files
 
@@ -516,8 +508,8 @@ k8s/
 ```
 
 
-## 14. TODO (Next)
+## 13. TODO (Next)
 
-- **Tests** — zero test files; need unit + integration tests across all packages
+- **Tests** — some coverage exists; need integration tests across all packages
 - **Partial failure handling** — indexer needs transactional upsert (all-or-nothing per file) and retry/backoff for LLM API errors
 - **Typesense resilience** — no health check, retry, or timeout logic; needs graceful degradation when Typesense is down

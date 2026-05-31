@@ -205,15 +205,10 @@ func tryReadGlobalConfig() (string, error) {
 }
 
 func tryReadProjectConfig(root string) (string, error) {
-	paths := []string{
-		filepath.Join(root, "gmd.cue"),
-		filepath.Join(root, sentinelDir, "config.cue"),
-	}
-	for _, p := range paths {
-		data, err := os.ReadFile(p)
-		if err == nil {
-			return string(data), nil
-		}
+	p := filepath.Join(root, sentinelDir, "config.cue")
+	data, err := os.ReadFile(p)
+	if err == nil {
+		return string(data), nil
 	}
 	return "", fmt.Errorf("no project config found")
 }

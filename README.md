@@ -9,8 +9,6 @@ gmd search "error X"           # fast text-only search
 gmd status                     # see what's indexed
 ```
 
----
-
 ## Quick start
 
 ### 1. Install
@@ -84,15 +82,28 @@ gmd status              # verify docs are indexed
 gmd query "your question here"    # full hybrid search
 ```
 
----
+## Requirements
+
+- **Typesense** — must be running (Docker, Kubernetes, or cloud)
+- **Three LLM models** — must be served by an OpenAI-compatible API (vLLM, Ollama, OpenAI, etc.):
+
+  | Model | Purpose | Default |
+  |---|---|---|
+  | embedding | Converts document chunks into vector embeddings for similarity search | `google/embeddinggemma-300m` |
+  | expansion | Generates query variants (lexical, vector, HyDE) to improve recall | `Qwen/Qwen3-1.7B` |
+  | rerank | Re-scores search results for relevance | `Qwen/Qwen3-Reranker-0.6B` |
+
+  See [`models/`](models/) for vLLM serve scripts and systemd service files.
+
+- **Go 1.25+** — to build from source
 
 ## Project config
 
-Place a `gmd.cue` or `.gmd/config.cue` in your project root for per-project settings.
+Place a `.gmd/config.cue` in your project root for per-project settings.
 Collections are auto-detected from the current working directory.
 
 ```cue
-// myproject/gmd.cue
+// myproject/.gmd/config.cue
 package gmd
 
 Config: {
@@ -109,8 +120,6 @@ Config: {
 ```
 
 Run `gmd query` from within `myproject/docs/` and the `myapp` collection is selected automatically.
-
----
 
 ## Commands
 
@@ -138,8 +147,6 @@ Search flags:
 --limit, -n          max results (default: 5)
 --format, -f         output format: cli, json (default: cli)
 ```
-
----
 
 ## How it works
 
@@ -176,8 +183,6 @@ Results
 - **No operational DB:** Typesense is the sole data store — filesystem is source of truth
 - **Content-addressable:** changes detected by querying Typesense hash field, no local state needed
 
----
-
 ## Config reference
 
 All pipeline parameters have defaults — you only need to set what you want to override.
@@ -211,25 +216,6 @@ All pipeline parameters have defaults — you only need to set what you want to 
 | `pipeline.output.defaultFormat` | `cli` | Output format |
 | `pipeline.output.maxResults` | 5 | Default result count |
 
----
-
-## Requirements
-
-- **Typesense** — must be running (Docker, Kubernetes, or cloud)
-- **Three LLM models** — must be served by an OpenAI-compatible API (vLLM, Ollama, OpenAI, etc.):
-
-  | Model | Purpose | Default |
-  |---|---|---|
-  | embedding | Converts document chunks into vector embeddings for similarity search | `google/embeddinggemma-300m` |
-  | expansion | Generates query variants (lexical, vector, HyDE) to improve recall | `Qwen/Qwen3-1.7B` |
-  | rerank | Re-scores search results for relevance | `Qwen/Qwen3-Reranker-0.6B` |
-
-  See [`models/`](models/) for vLLM serve scripts and systemd service files.
-
-- **Go 1.25+** — to build from source
-
----
-
 ## REST API
 
 `gmd serve` starts an HTTP server on `:8181`.
@@ -244,23 +230,3 @@ All pipeline parameters have defaults — you only need to set what you want to 
 | `/documents/{path}` | GET | Get document by path |
 | `/collections` | GET | List collections |
 | `/update` | POST | Trigger reindex |
-
----
-
-## MCP server
-
-`gmd mcp` starts an MCP server for AI agent integration (supports stdio and Streamable HTTP).
-
----
-
-## Architecture
-
-Built without CGO dependencies. Three interfaces share one backend:
-
-```
-CLI (gmd query ...) ──┐
-REST API (gmd serve) ──┼── Runtime ── Typesense + LLM API
-MCP (gmd mcp) ────────┘
-```
-
-Config uses [CUE](https://cuelang.org) — global (`~/.config/gmd/config.cue`) and project-local (`<root>/gmd.cue` or `<root>/.gmd/config.cue`) settings are unified and validated at load time.

@@ -298,7 +298,7 @@ Return final ranked results
 - Define CUE schema (types.cue, pipeline.cue, config.cue) with all pipeline knobs + defaults
 - Embed schema via `//go:embed`
 - Implement Go config loader: load global CUE → detect project root → load project-local CUE → unify → validate → export to Go struct
-- Implement project root detection (walk up from CWD looking for `.gmd/` or `gmd.cue`)
+- Implement project root detection (walk up from CWD looking for `.gmd/`)
 - Implement Typesense client wrapper (schema creation, document CRUD, hybrid search)
 - `Runtime` struct with `Open()` / `Close()` lifecycle
 - `gmd init` command: creates `.gmd/config.cue` in project root
@@ -374,13 +374,13 @@ No YAML fallback. CUE handles global + project-local config with structural shar
 1. Embeds built-in schema
 2. Loads global `~/.config/gmd/config.cue` (optional)
 3. Detects project root by walking up from CWD
-4. Loads `<project-root>/gmd.cue` or `<project-root>/.gmd/config.cue` (optional)
+4. Loads `<project-root>/.gmd/config.cue` (optional)
 5. Unifies: `built-in & global & project-local`
 6. Validates against schema
 7. Exports validated Go struct
 
 ### 8g. Project auto-detection by sentinel walk
-Walk up from CWD checking for `.gmd/` dir or `gmd.cue` file. Once found, that's the project root. Collections have paths relative to project root. CWD-based collection matching uses path prefix comparison.
+Walk up from CWD checking for `.gmd/` dir. Once found, that's the project root. Collections have paths relative to project root. CWD-based collection matching uses path prefix comparison.
 
 ### 8h. No CGO
 No CGO dependencies. CI enforces `CGO_ENABLED=0`.
@@ -429,7 +429,7 @@ Config: {
 }
 ```
 
-### Project-local config: `<project-root>/gmd.cue`
+### Project-local config: `<project-root>/.gmd/config.cue`
 
 ```cue
 package gmd

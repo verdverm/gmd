@@ -8,12 +8,11 @@ import (
 
 const (
 	sentinelDir      = ".gmd"
-	sentinelFile     = "gmd.cue"
 	globalConfigDir  = ".config/gmd"
 	globalConfigFile = "config.cue"
 )
 
-// FindProjectRoot walks up from start looking for a .gmd/ directory or gmd.cue file.
+// FindProjectRoot walks up from start looking for a .gmd/ directory.
 // Returns the absolute path to the project root, or empty string if not found.
 func FindProjectRoot(start string) string {
 	abs, err := filepath.Abs(start)
@@ -24,10 +23,6 @@ func FindProjectRoot(start string) string {
 	for {
 		info, err := os.Stat(filepath.Join(dir, sentinelDir))
 		if err == nil && info.IsDir() {
-			return dir
-		}
-		info, err = os.Stat(filepath.Join(dir, sentinelFile))
-		if err == nil && !info.IsDir() {
 			return dir
 		}
 		parent := filepath.Dir(dir)

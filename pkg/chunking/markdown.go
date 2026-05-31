@@ -2,8 +2,11 @@ package chunking
 
 import (
 	"math"
+	"regexp"
 	"strings"
 	"unicode/utf8"
+
+	"gopkg.in/yaml.v3"
 )
 
 const charsPerToken = 4
@@ -13,6 +16,8 @@ type Chunk struct {
 	Title       string
 	ChunkSeq    int
 	TotalChunks int
+	Links       []string               // outgoing [[wikilinks]]
+	Frontmatter map[string]interface{} // extracted frontmatter fields
 }
 
 type Config struct {
@@ -84,6 +89,48 @@ func extractHeadings(lines []string) []headingInfo {
 		}
 	}
 	return headings
+}
+
+var wikilinkRe = regexp.MustCompile(`\[\[([^\]|#]+)(?:[|#][^\]]+)?\]\]`)
+
+func ExtractWikilinks(content string) []string {
+	matches := wikilinkRe.FindAllStringSubmatch(content, -1)
+	seen := make(map[string]bool)
+	var links []string
+	for _, m := range matches {
+		target := strings.TrimSpace(m[1])
+		if !seen[target] && target != "" {
+			seen[target] = true
+			links = append(links, target)
+		}
+	}
+	return links
+}
+
+var frontmatterRe = regexp.MustCompile(`^---\s*\n([\s\S]*?)\n---\s*\n`)
+
+func ExtractFrontmatter(content string) (map[string]interface{}, string) {
+	match := frontmatterRe.FindStringSubmatch(content)
+	if match == nil {
+		return nil, content
+	}
+	var fm map[string]interface{}
+	if err := yaml.Unmarshal([]byte(match[1]), &fm); err != nil {
+		return nil, content
+	}
+	remaining := content[len(match[0]):]
+	return fm, remaining
+}
+
+func ChunkMarkdownWithMeta(content string, cfg Config) ([]Chunk, []string, map[string]interface{}) {
+	fm, stripped := ExtractFrontmatter(content)
+	links := ExtractWikilinks(stripped)
+	chunks := ChunkMarkdown(stripped, cfg)
+	for i := range chunks {
+		chunks[i].Links = links
+		chunks[i].Frontmatter = fm
+	}
+	return chunks, links, fm
 }
 
 func ChunkMarkdown(content string, cfg Config) []Chunk {

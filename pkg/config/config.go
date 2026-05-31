@@ -117,14 +117,36 @@ type PipelineConfig struct {
 	Output       OutputConfig       `json:"output"`
 }
 
+// WikiConfig maps from the CUE WikiConfig schema.
+type WikiConfig struct {
+	Enabled     bool               `json:"enabled"`
+	IndexFile   string             `json:"indexFile"`
+	LogFile     string             `json:"logFile"`
+	GraphLinks  bool               `json:"graphLinks"`
+	Frontmatter *FrontmatterConfig `json:"frontmatter,omitempty"`
+}
+
+// FrontmatterConfig maps from the CUE frontmatter field config.
+type FrontmatterConfig struct {
+	Fields map[string]FrontmatterField `json:"fields"`
+}
+
+// FrontmatterField maps from the CUE FrontmatterField schema.
+type FrontmatterField struct {
+	Type  string `json:"type"`
+	Facet bool   `json:"facet"`
+	Sort  bool   `json:"sort"`
+}
+
 // CollectionConfig maps from the CUE CollectionConfig schema.
 // The collection name is the map key in Config.Collections, not a field in this struct.
 type CollectionConfig struct {
-	Path             string   `json:"path"`
-	Pattern          string   `json:"pattern"`
-	Ignore           []string `json:"ignore,omitempty"`
-	Context          string   `json:"context,omitempty"`
-	IncludeByDefault bool     `json:"includeByDefault"`
+	Path             string      `json:"path"`
+	Pattern          string      `json:"pattern"`
+	Ignore           []string    `json:"ignore,omitempty"`
+	Context          string      `json:"context,omitempty"`
+	IncludeByDefault bool        `json:"includeByDefault"`
+	Wiki             *WikiConfig `json:"wiki,omitempty"`
 }
 
 //go:embed schema/*.cue

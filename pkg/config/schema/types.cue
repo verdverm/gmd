@@ -80,6 +80,24 @@ PipelineConfig: {
 	output:       OutputConfig
 }
 
+// FrontmatterField defines a typed key extracted from YAML frontmatter.
+FrontmatterField: {
+	type:  "string" | "string[]" | "int32" | "float64" | "bool"
+	facet?: bool | *false
+	sort?:  bool | *false
+}
+
+// WikiConfig activates wiki-aware behavior for a collection.
+WikiConfig: {
+	enabled:        bool | *true
+	indexFile:      string | *"_index.md"
+	logFile:        string | *"_log.md"
+	graphLinks:     bool | *true
+	frontmatter?: {                         // optional per-wiki frontmatter config
+		fields: [string]: FrontmatterField
+	}
+}
+
 // CollectionConfig defines a document collection to index.
 // The collection name is the map key, not a field inside the struct.
 CollectionConfig: {
@@ -88,6 +106,7 @@ CollectionConfig: {
 	ignore?: [...string]
 	context?:          string
 	includeByDefault?: bool | *true
+	wiki?:             WikiConfig | *null   // optional, activates wiki mode
 }
 
 // ProjectConfig is the root configuration object.

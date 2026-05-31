@@ -8,6 +8,7 @@ require (
 	github.com/openai/openai-go/v3 v3.37.0
 	github.com/spf13/cobra v1.10.2
 	github.com/typesense/typesense-go/v4 v4.0.0-alpha2
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (

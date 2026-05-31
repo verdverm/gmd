@@ -43,6 +43,9 @@ func searchRun(args []string, mode search.SearchMode) error {
 			collections = config.MatchCollectionsByCWD(cfg, cwd)
 		}
 	}
+	for i, c := range collections {
+		collections[i] = cfg.CollectionKey(c)
+	}
 
 	params := search.SearchParams{
 		Query:       args[0],

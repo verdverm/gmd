@@ -8,6 +8,7 @@ gmd uses [CUE](https://cuelang.org) for configuration. Global config lives at `~
 package gmd
 
 Config: {
+  project:  "my-project"         # prefix for collection keys (auto-detected by gmd init)
   llm: {
     embedding_base_url:  "http://localhost:8001/v1"
     expansion_base_url:  "http://localhost:8002/v1"
@@ -22,6 +23,7 @@ Config: {
   collections: docs: {
     path:    "~/documents"
     pattern: "**/*.md"
+    ignore:  ["node_modules/**"]   # glob patterns to exclude
     context: "Technical documentation"
   }
 }
@@ -32,6 +34,27 @@ API keys are read from environment variables:
 - `GMD_TYPESENSE_API_KEY` — API key for typesense
 
 If not set, gmd will fail.
+
+## Project key
+
+The `project` field acts as a namespace prefix for collection keys in Typesense.
+A collection named `docs` in project `myapp` is stored as `myapp-docs`. This
+prevents name collisions when multiple projects share a Typesense instance.
+
+`gmd init` auto-detects the project name from the git remote URL (falling back
+to the directory name). If unspecified, it defaults to the project root directory
+name. The prefix is applied transparently — all CLI commands accept the original
+collection name and translate it internally.
+
+## Collection fields
+
+| Field | Type | Description |
+|---|---|---|
+| `path` | string | Directory path relative to project root (required) |
+| `pattern` | string | Glob pattern for matching files (supports `doublestar`) |
+| `ignore` | `[...string]` | Glob patterns for files to skip during indexing |
+| `context` | string | Description used in query expansion prompts |
+| `includeByDefault` | bool | Whether collection is searched by default (default: true) |
 
 ## Pipeline reference
 

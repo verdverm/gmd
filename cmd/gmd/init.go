@@ -3,10 +3,23 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
+
+func detectProjectName(dir string) string {
+	if out, err := exec.Command("git", "-C", dir, "remote", "get-url", "origin").Output(); err == nil {
+		url := strings.TrimSpace(string(out))
+		url = strings.TrimSuffix(url, ".git")
+		if idx := strings.LastIndexByte(url, '/'); idx >= 0 {
+			return url[idx+1:]
+		}
+	}
+	return filepath.Base(dir)
+}
 
 var initCmd = &cobra.Command{
 	Use:   "init",
@@ -24,9 +37,11 @@ var initCmd = &cobra.Command{
 		if _, err := os.Stat(configPath); err == nil {
 			return fmt.Errorf("config already exists at %s", configPath)
 		}
-		defaultConfig := `package gmd
+		project := detectProjectName(dir)
+		defaultConfig := fmt.Sprintf(`package gmd
 
 Config: {
+	project:  %q
 	llm: {
 		embedding_base_url:  "http://localhost:8001/v1"
 		expansion_base_url:  "http://localhost:8002/v1"
@@ -44,7 +59,7 @@ Config: {
 		context: "Project documentation"
 	}
 }
-`
+`, project)
 		if err := os.WriteFile(configPath, []byte(defaultConfig), 0644); err != nil {
 			return fmt.Errorf("writing config: %w", err)
 		}

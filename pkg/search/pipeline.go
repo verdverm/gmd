@@ -84,8 +84,7 @@ func (p *Pipeline) vectorSearch(ctx context.Context, params SearchParams) ([]Res
 	if err != nil {
 		return nil, fmt.Errorf("embedding query: %w", err)
 	}
-	results, err := p.ts.HybridSearch(ctx, ts.HybridSearchParams{
-		Query:       "",
+	results, err := p.ts.VectorSearch(ctx, ts.HybridSearchParams{
 		QueryVector: embedding,
 		Collections: params.Collections,
 		Limit:       limit,

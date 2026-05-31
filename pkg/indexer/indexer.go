@@ -237,7 +237,7 @@ func (idx *Indexer) processFile(ctx context.Context, fsys fs.FS, fsPath, relPath
 	docChunks := make([]ts.ChunkDocument, len(rawChunks))
 	for i, c := range rawChunks {
 		docChunks[i] = ts.ChunkDocument{
-			Collection:  collection,
+			Collection:  idx.cfg.CollectionKey(collection),
 			Path:        relPath,
 			Title:       c.Title,
 			Content:     c.Content,
@@ -337,7 +337,7 @@ func (idx *Indexer) StalePaths(ctx context.Context, collection string) ([]string
 		return nil, fmt.Errorf("collection %q not found", collection)
 	}
 
-	filter := fmt.Sprintf("collection:=%s", collection)
+	filter := fmt.Sprintf("collection:=%s", idx.cfg.CollectionKey(collection))
 	indexedPaths, err := idx.ts.SearchDistinctPaths(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("searching indexed paths: %w", err)

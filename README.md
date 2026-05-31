@@ -64,9 +64,11 @@ Create a `.gmd/config.cue` in your project root (`gmd init` does this automatica
 package gmd
 
 Config: {
+  project:  "myapp"                # auto-detected from git remote or dir name
   collections: myapp: {
     path:    "docs"
     pattern: "**/*.{md,mdx}"
+    ignore:  ["node_modules/**"]    # skip these patterns
     context: "MyApp user documentation"
   }
   llm: {

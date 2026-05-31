@@ -91,7 +91,7 @@ func (c *Client) EnsureSchema(ctx context.Context, numDim int) error {
 // UpsertChunks inserts or replaces a batch of chunk documents for a given path.
 func (c *Client) UpsertChunks(ctx context.Context, chunks []ChunkDocument) error {
 	for _, ch := range chunks {
-		_, err := c.client.Collection(chunksCollection).Documents().Upsert(ctx, ch, nil)
+		_, err := c.client.Collection(chunksCollection).Documents().Upsert(ctx, ch, &api.DocumentIndexParameters{})
 		if err != nil {
 			return fmt.Errorf("upserting chunk %s: %w", ch.Path, err)
 		}
@@ -185,21 +185,16 @@ func (c *Client) GetHashByPath(ctx context.Context, path string) (string, error)
 		return "", fmt.Errorf("searching hash for %s: %w", path, err)
 	}
 
-	if resp.GroupedHits == nil || len(*resp.GroupedHits) == 0 {
+	if resp.Hits == nil || len(*resp.Hits) == 0 {
 		return "", nil
 	}
 
-	for _, group := range *resp.GroupedHits {
-		if len(group.Hits) == 0 {
-			continue
-		}
-		doc := group.Hits[0].Document
-		if doc == nil {
-			continue
-		}
-		if v, ok := (*doc)["hash"]; ok {
-			return fmt.Sprint(v), nil
-		}
+	doc := (*resp.Hits)[0].Document
+	if doc == nil {
+		return "", nil
+	}
+	if v, ok := (*doc)["hash"]; ok {
+		return fmt.Sprint(v), nil
 	}
 
 	return "", nil
@@ -208,8 +203,10 @@ func (c *Client) GetHashByPath(ctx context.Context, path string) (string, error)
 // DeleteChunksByPath removes all chunks for a given file path.
 func (c *Client) DeleteChunksByPath(ctx context.Context, path string) error {
 	filter := fmt.Sprintf("path:=%s", path)
+	batchSize := 10000
 	_, err := c.client.Collection(chunksCollection).Documents().Delete(ctx, &api.DeleteDocumentsParams{
-		FilterBy: &filter,
+		FilterBy:  &filter,
+		BatchSize: &batchSize,
 	})
 	if err != nil {
 		return fmt.Errorf("deleting chunks for %s: %w", path, err)
@@ -238,18 +235,18 @@ type HybridSearchParams struct {
 }
 
 // HybridSearch performs a hybrid (text + vector) search grouped by collection and path.
+// Uses POST MultiSearch when a vector query is present to avoid the 4000-char URL limit.
 func (c *Client) HybridSearch(ctx context.Context, params HybridSearchParams) ([]HybridSearchResult, error) {
+	if len(params.QueryVector) > 0 {
+		return c.multiSearch(ctx, params, params.Query)
+	}
+
 	searchParams := &api.SearchCollectionParams{
 		Q:          &params.Query,
 		QueryBy:    stringPtr("content"),
 		GroupBy:    stringPtr("collection,path"),
 		GroupLimit: intPtr(params.GroupLimit),
 		PerPage:    intPtr(params.Limit),
-	}
-
-	if len(params.QueryVector) > 0 {
-		vec := fmt.Sprintf("embedding:(%v)", formatVector(params.QueryVector))
-		searchParams.VectorQuery = &vec
 	}
 
 	if params.FilterBy != "" {
@@ -265,6 +262,64 @@ func (c *Client) HybridSearch(ctx context.Context, params HybridSearchParams) ([
 	}
 
 	return groupedHitsToResults(resp), nil
+}
+
+// VectorSearch performs a vector-only search using the POST-based MultiSearch endpoint.
+func (c *Client) VectorSearch(ctx context.Context, params HybridSearchParams) ([]HybridSearchResult, error) {
+	return c.multiSearch(ctx, params, "*")
+}
+
+// multiSearch is the unified MultiSearch POST implementation used by both
+// HybridSearch (with a text query) and VectorSearch (with "*" as fallback text).
+func (c *Client) multiSearch(ctx context.Context, params HybridSearchParams, textQuery string) ([]HybridSearchResult, error) {
+	collection := chunksCollection
+	vec := fmt.Sprintf("embedding:([%v])", formatVector(params.QueryVector))
+
+	searchItem := api.MultiSearchCollectionParameters{
+		Collection:  &collection,
+		Q:           &textQuery,
+		QueryBy:     stringPtr("content"),
+		VectorQuery: &vec,
+		GroupBy:     stringPtr("collection,path"),
+		GroupLimit:  intPtr(params.GroupLimit),
+		PerPage:     intPtr(params.Limit),
+	}
+
+	if params.FilterBy != "" {
+		searchItem.FilterBy = &params.FilterBy
+	} else if len(params.Collections) > 0 {
+		filter := buildCollectionFilter(params.Collections)
+		searchItem.FilterBy = &filter
+	}
+
+	body := api.MultiSearchSearchesParameter{
+		Searches: []api.MultiSearchCollectionParameters{searchItem},
+	}
+
+	resp, err := c.client.MultiSearch.Perform(ctx, nil, body)
+	if err != nil {
+		return nil, fmt.Errorf("multi search: %w", err)
+	}
+
+	if len(resp.Results) == 0 {
+		return nil, nil
+	}
+
+	resultItem := resp.Results[0]
+	if resultItem.GroupedHits == nil {
+		return nil, nil
+	}
+
+	var results []HybridSearchResult
+	for _, group := range *resultItem.GroupedHits {
+		if len(group.Hits) == 0 {
+			continue
+		}
+		hit := group.Hits[0]
+		r := hitToResult(hit)
+		results = append(results, r)
+	}
+	return results, nil
 }
 
 // TextSearch performs a text-only search (no vector).
@@ -335,6 +390,9 @@ func hitToResult(hit api.SearchResultHit) HybridSearchResult {
 			r.Score = s
 		}
 	}
+	if r.Score == 0 && hit.VectorDistance != nil {
+		r.Score = 1.0 - float64(*hit.VectorDistance)
+	}
 	return r
 }
 
@@ -354,12 +412,12 @@ func formatVector(v []float64) string {
 	if len(v) == 0 {
 		return ""
 	}
-	b := make([]byte, 0, len(v)*10)
+	b := make([]byte, 0, len(v)*6)
 	for i, f := range v {
 		if i > 0 {
 			b = append(b, ',')
 		}
-		b = append(b, []byte(fmt.Sprintf("%f", f))...)
+		b = strconv.AppendFloat(b, f, 'f', 2, 64)
 	}
 	return string(b)
 }
@@ -367,8 +425,10 @@ func formatVector(v []float64) string {
 // DeleteChunksByCollection removes all chunks for a given collection name.
 func (c *Client) DeleteChunksByCollection(ctx context.Context, name string) error {
 	filter := fmt.Sprintf("collection:=%s", name)
+	batchSize := 10000
 	_, err := c.client.Collection(chunksCollection).Documents().Delete(ctx, &api.DeleteDocumentsParams{
-		FilterBy: &filter,
+		FilterBy:  &filter,
+		BatchSize: &batchSize,
 	})
 	if err != nil {
 		return fmt.Errorf("deleting chunks for collection %s: %w", name, err)
@@ -379,47 +439,58 @@ func (c *Client) DeleteChunksByCollection(ctx context.Context, name string) erro
 // SearchDistinctPaths returns all distinct document paths in Typesense.
 // Optional filter can restrict by collection or other fields.
 func (c *Client) SearchDistinctPaths(ctx context.Context, filter string) ([]string, error) {
-	limit := 10000
+	perPage := 250
 	groupLimit := 1
-	searchParams := &api.SearchCollectionParams{
-		Q:          stringPtr(""),
-		QueryBy:    stringPtr("content"),
-		GroupBy:    stringPtr("path"),
-		GroupLimit: &groupLimit,
-		PerPage:    &limit,
-	}
-	if filter != "" {
-		searchParams.FilterBy = &filter
-	}
-
-	resp, err := c.client.Collection(chunksCollection).Documents().Search(ctx, searchParams)
-	if err != nil {
-		return nil, fmt.Errorf("searching distinct paths: %w", err)
-	}
-
-	var paths []string
-	if resp.GroupedHits == nil {
-		return paths, nil
-	}
-
+	var allPaths []string
 	seen := make(map[string]bool)
-	for _, group := range *resp.GroupedHits {
-		if len(group.Hits) == 0 {
-			continue
+	page := 1
+
+	for {
+		searchParams := &api.SearchCollectionParams{
+			Q:          stringPtr(""),
+			QueryBy:    stringPtr("content"),
+			GroupBy:    stringPtr("path"),
+			GroupLimit: &groupLimit,
+			PerPage:    &perPage,
+			Page:       &page,
 		}
-		doc := group.Hits[0].Document
-		if doc == nil {
-			continue
+		if filter != "" {
+			searchParams.FilterBy = &filter
 		}
-		if v, ok := (*doc)["path"]; ok {
-			p := fmt.Sprint(v)
-			if !seen[p] {
-				paths = append(paths, p)
-				seen[p] = true
+
+		resp, err := c.client.Collection(chunksCollection).Documents().Search(ctx, searchParams)
+		if err != nil {
+			return nil, fmt.Errorf("searching distinct paths: %w", err)
+		}
+
+		if resp.GroupedHits == nil || len(*resp.GroupedHits) == 0 {
+			break
+		}
+
+		for _, group := range *resp.GroupedHits {
+			if len(group.Hits) == 0 {
+				continue
+			}
+			doc := group.Hits[0].Document
+			if doc == nil {
+				continue
+			}
+			if v, ok := (*doc)["path"]; ok {
+				p := fmt.Sprint(v)
+				if !seen[p] {
+					allPaths = append(allPaths, p)
+					seen[p] = true
+				}
 			}
 		}
+
+		if len(*resp.GroupedHits) < perPage {
+			break
+		}
+		page++
 	}
-	return paths, nil
+
+	return allPaths, nil
 }
 
 // SearchChunksByPath searches for chunks matching a given path filter.

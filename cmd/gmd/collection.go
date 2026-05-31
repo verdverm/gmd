@@ -86,7 +86,7 @@ var collectionRemoveCmd = &cobra.Command{
 			return err
 		}
 
-		if err := r.TSClient().DeleteChunksByCollection(context.Background(), name); err != nil {
+		if err := r.TSClient().DeleteChunksByCollection(context.Background(), r.Config().CollectionKey(name)); err != nil {
 			return fmt.Errorf("deleting chunks for %q: %w", name, err)
 		}
 
@@ -143,11 +143,12 @@ var collectionShowCmd = &cobra.Command{
 		}
 		fmt.Printf("includeByDefault: %v\n", col.IncludeByDefault)
 
-		counts, err := r.TSClient().CountByCollection(context.Background(), []string{name})
+		key := r.Config().CollectionKey(name)
+		counts, err := r.TSClient().CountByCollection(context.Background(), []string{key})
 		if err != nil {
 			fmt.Printf("chunks:  (error counting: %v)\n", err)
 		} else {
-			fmt.Printf("chunks:  %d\n", counts[name])
+			fmt.Printf("chunks:  %d\n", counts[key])
 		}
 		return nil
 	},

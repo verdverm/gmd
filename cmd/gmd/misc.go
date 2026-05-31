@@ -75,11 +75,12 @@ var doctorCmd = &cobra.Command{
 		if len(cfg.Collections) > 0 {
 			fmt.Printf("OK     %d collection(s) configured\n", len(cfg.Collections))
 			for name := range cfg.Collections {
-				cnt, err := r.TSClient().CountByCollection(context.Background(), []string{name})
+				key := cfg.CollectionKey(name)
+				cnt, err := r.TSClient().CountByCollection(context.Background(), []string{key})
 				if err != nil {
 					fmt.Printf("  %s: (error: %v)\n", name, err)
 				} else {
-					fmt.Printf("  %s: %d chunks\n", name, cnt[name])
+					fmt.Printf("  %s: %d chunks\n", name, cnt[key])
 				}
 			}
 		} else {

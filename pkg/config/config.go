@@ -17,6 +17,16 @@ type Config struct {
 	Pipeline    PipelineConfig              `json:"pipeline"`
 	Collections map[string]CollectionConfig `json:"collections"`
 	ProjectRoot string                      `json:"-"`
+	Project     string                      `json:"project,omitempty"`
+}
+
+// CollectionKey returns the project-prefixed key for a collection name.
+// This avoids name collisions on shared Typesense instances.
+func (c *Config) CollectionKey(name string) string {
+	if c.Project == "" {
+		return name
+	}
+	return c.Project + "-" + name
 }
 
 // LLMConfig maps from the CUE LLMConfig schema.
@@ -191,6 +201,9 @@ func Load(cwd string) (*Config, error) {
 	cfg.Typesense.APIKey = os.Getenv("GMD_TYPESENSE_API_KEY")
 
 	cfg.ProjectRoot = projectRoot
+	if cfg.Project == "" && projectRoot != "" {
+		cfg.Project = filepath.Base(projectRoot)
+	}
 
 	return &cfg, nil
 }

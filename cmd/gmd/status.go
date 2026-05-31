@@ -36,20 +36,24 @@ var statusCmd = &cobra.Command{
 		fmt.Printf("Total Chunks:  %d\n", totalDocs)
 		fmt.Println()
 
-		colNames := make([]string, 0, len(cfg.Collections))
+		colKeys := make([]string, 0, len(cfg.Collections))
+		colNameForKey := make(map[string]string, len(cfg.Collections))
 		for name := range cfg.Collections {
-			colNames = append(colNames, name)
+			key := cfg.CollectionKey(name)
+			colKeys = append(colKeys, key)
+			colNameForKey[key] = name
 		}
 
-		if len(colNames) > 0 {
-			counts, err := r.TSClient().CountByCollection(ctx, colNames)
+		if len(colKeys) > 0 {
+			counts, err := r.TSClient().CountByCollection(ctx, colKeys)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Warning: cannot get collection counts: %v\n", err)
 			}
 			fmt.Println("Collections:")
-			for _, name := range colNames {
+			for _, key := range colKeys {
+				name := colNameForKey[key]
 				col := cfg.Collections[name]
-				count := counts[name]
+				count := counts[key]
 				fmt.Printf("  %s:\n", name)
 				fmt.Printf("    Path:    %s\n", col.Path)
 				if col.Pattern != "" {

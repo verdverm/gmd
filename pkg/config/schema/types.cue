@@ -92,6 +92,7 @@ CollectionConfig: {
 
 // ProjectConfig is the root configuration object.
 ProjectConfig: {
+	project?:    string
 	llm:         LLMConfig
 	typesense:   TypesenseConfig
 	pipeline?:   PipelineConfig

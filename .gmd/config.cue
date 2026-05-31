@@ -15,6 +15,7 @@ Config: {
 	collections: docs: {
 		path:    "."
 		pattern: "**/*.md"
+		ignore:  ["qmd/**", "node_modules/**", "tmp/**"]
 		context: "Project documentation"
 	}
 }

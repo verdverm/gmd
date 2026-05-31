@@ -69,8 +69,14 @@ func searchRun(args []string, mode search.SearchMode) error {
 
 var searchCmd = &cobra.Command{
 	Use:   "search <query>",
-	Short: "Full-text keyword search (no vector, no expansion)",
-	Args:  cobra.ExactArgs(1),
+	Short: "Full-text keyword search only — fast, no LLM overhead",
+	Long: `Performs a text-only keyword search against indexed documents using
+Typesense full-text matching. No embeddings, vector search, or LLM
+calls are involved — this is the fastest search mode.
+
+Use this for quick lookups by exact terms or phrases. For semantic
+understanding and relevance-ranked results, use 'gmd query' instead.`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return searchRun(args, search.ModeText)
 	},
@@ -78,8 +84,14 @@ var searchCmd = &cobra.Command{
 
 var vsearchCmd = &cobra.Command{
 	Use:   "vsearch <query>",
-	Short: "Vector similarity search (no text)",
-	Args:  cobra.ExactArgs(1),
+	Short: "Vector similarity search — semantic matching via embeddings",
+	Long: `Embeds the query and performs a vector similarity search using cosine
+distance against document chunk embeddings in Typesense.
+
+This finds semantically related content even when exact keywords don't
+match. No query expansion or reranking is performed — for the full
+pipeline with those features, use 'gmd query' instead.`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return searchRun(args, search.ModeVector)
 	},
@@ -87,8 +99,19 @@ var vsearchCmd = &cobra.Command{
 
 var queryCmd = &cobra.Command{
 	Use:   "query <query>",
-	Short: "Full hybrid pipeline (expansion, RRF, rerank, blend)",
-	Args:  cobra.ExactArgs(1),
+	Short: "Full hybrid search pipeline — expansion, RRF fusion, rerank, blend",
+	Long: `Runs the complete search pipeline for best-quality results:
+
+  1. Strong signal detection — fast path if a top result is obvious
+  2. LLM query expansion — generates lex, vec, and HyDE variants
+  3. Hybrid search — text + vector for each variant, grouped by doc
+  4. RRF fusion — merges results across all variants with weights
+  5. LLM reranking — re-scores candidates for relevance
+  6. Position blending — tiers results by position with configurable weights
+
+This is the recommended command for general-purpose search. Use
+'gmd search' for fast keyword lookups without LLM overhead.`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return searchRun(args, search.ModeHybrid)
 	},

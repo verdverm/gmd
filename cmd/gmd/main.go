@@ -11,10 +11,15 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "gmd",
-	Short: "GMD - Markdown search engine",
-	Long: `GMD is a local search engine for markdown files.
-It indexes markdown documents and provides full-text, vector, and hybrid search.
-Powered by Typesense for search, no operational database required.`,
+	Short: "Markdown search engine — index, search, and retrieve local docs",
+	Long: `GMD indexes local markdown files and provides full-text, vector, and hybrid
+search backed by Typesense with LLM-powered query expansion and reranking.
+
+Getting started:
+  gmd init        create .gmd/config.cue
+  gmd update      index all collections
+  gmd query ...   full hybrid search pipeline
+  gmd agents      output AGENTS.md content for AI coding assistants`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
@@ -59,6 +64,7 @@ func init() {
 	rootCmd.AddCommand(cleanupCmd)
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(mcpCmd)
+	rootCmd.AddCommand(agentsCmd)
 }
 
 func main() {

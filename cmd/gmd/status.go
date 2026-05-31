@@ -10,7 +10,12 @@ import (
 
 var statusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "Show index and collection health",
+	Short: "Report index health and per-collection chunk counts",
+	Long: `Displays the project root, total indexed chunks, and a breakdown of each
+collection with its path, file pattern, and chunk count.
+
+Use this to verify the index is populated and to see which collections
+are active.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {

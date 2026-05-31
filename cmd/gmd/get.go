@@ -12,8 +12,13 @@ var getPath string
 
 var getCmd = &cobra.Command{
 	Use:   "get <path>",
-	Short: "Get document content by path",
-	Args:  cobra.ExactArgs(1),
+	Short: "Retrieve full document content by file path",
+	Long: `Fetches the complete content of a document from the index by its relative
+file path. Results are displayed with collection name and relevance score.
+
+Example:
+  gmd get docs/guides/deployment.md`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {

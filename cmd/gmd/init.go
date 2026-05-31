@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/verdverm/gmd/pkg/agents"
 )
 
 func detectProjectName(dir string) string {
@@ -23,7 +24,13 @@ func detectProjectName(dir string) string {
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Initialize GMD configuration in the current directory",
+	Short: "Create .gmd/config.cue in the current directory",
+	Long: `Creates a .gmd/ directory with a default config.cue file in the current
+directory, making it a GMD project root.
+
+The generated config includes sensible defaults for LLM endpoints and
+Typesense. Edit .gmd/config.cue to customize collections and settings,
+then run 'gmd update' to index your files.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dir, err := os.Getwd()
 		if err != nil {
@@ -64,6 +71,12 @@ Config: {
 			return fmt.Errorf("writing config: %w", err)
 		}
 		fmt.Printf("Created GMD config at %s\n", configPath)
+		fmt.Println()
+		fmt.Println("Tip: run 'gmd agents' to get AGENTS.md content for your AI coding assistant.")
+		fmt.Println()
+		fmt.Println(agents.MustGetContent(agents.Oneline))
+		fmt.Println()
+		fmt.Println(agents.MustGetContent(agents.Summary))
 		return nil
 	},
 }

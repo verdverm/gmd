@@ -10,12 +10,15 @@ var mcpHTTP bool
 
 var mcpCmd = &cobra.Command{
 	Use:   "mcp",
-	Short: "Start the MCP server (stdio or HTTP)",
-	Long: `Starts the MCP server for AI agent integration.
-Supports stdio transport (default) and Streamable HTTP.
+	Short: "Start the MCP server for AI agent integration",
+	Long: `Launches a Model Context Protocol server that lets AI coding assistants
+(like Claude, Cursor, VS Code Copilot) interact with GMD directly.
 
-When run without arguments, starts in stdio mode (for IDE integration).
-Use --http to start in HTTP mode.`,
+Two transport modes:
+  stdio  (default)  for IDE plugins that spawn the process
+  HTTP   (--http)   for network-accessible MCP clients
+
+When run without arguments, starts in stdio mode.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		_, err := getRuntime()
 		if err != nil {

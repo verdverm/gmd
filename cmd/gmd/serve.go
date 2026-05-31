@@ -15,6 +15,17 @@ var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Start the REST API server",
 	Long: `Starts an HTTP server exposing all GMD operations as REST endpoints.
+
+Endpoints:
+  GET  /health           liveness check
+  GET  /status            index and collection health
+  POST /search            full-text search
+  POST /vsearch           vector search
+  POST /query             full hybrid pipeline
+  GET  /documents/{path}  get document by path
+  GET  /collections       list collections
+  POST /update            trigger reindex
+
 Default: http://localhost:8181`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		_, err := getRuntime()

@@ -48,7 +48,13 @@ func runIndex(msg string) error {
 
 var updateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "Index or re-index all collections",
+	Short: "Scan, chunk, embed, and index all collections",
+	Long: `Scans all configured collections for markdown files, chunks them with
+heading-aware breakpoints, generates embeddings via the configured LLM,
+and upserts everything into Typesense.
+
+Unchanged files are skipped via SHA-256 dedup. Run this after editing
+config or changing files to keep the index in sync.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runIndex("Update")
 	},
@@ -56,7 +62,12 @@ var updateCmd = &cobra.Command{
 
 var embedCmd = &cobra.Command{
 	Use:   "embed",
-	Short: "Re-embed all documents (when embedding model changes)",
+	Short: "Re-embed all documents without re-chunking",
+	Long: `Re-generates embeddings for all indexed documents and updates them in
+Typesense. Chunks are not regenerated — only embeddings are recomputed.
+
+use this after changing the embedding model in config to avoid a full
+re-index. For a complete rebuild, use 'gmd update' instead.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runIndex("Embed")
 	},

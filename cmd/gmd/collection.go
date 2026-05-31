@@ -11,8 +11,18 @@ import (
 
 var collectionCmd = &cobra.Command{
 	Use:   "collection [add|list|remove|rename|show|include|exclude]",
-	Short: "Manage collections",
-	Long:  `Manage document collections: add, list, remove, rename, show, include, exclude.`,
+	Short: "Manage collections — add, list, remove, rename, show, include, exclude",
+	Long: `Collections define which files to index. Each collection has a root path
+and a glob pattern for matching files.
+
+Subcommands:
+  add       create a new collection with --path and --pattern
+  list      show all configured collections
+  remove    delete a collection and its indexed chunks
+  rename    change a collection's name
+  show      display collection details and chunk count
+  include   set the file pattern for a collection
+  exclude   add an ignore pattern to a collection`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
@@ -23,8 +33,11 @@ var collAddPattern string
 
 var collectionAddCmd = &cobra.Command{
 	Use:   "add <name>",
-	Short: "Add a new collection",
-	Args:  cobra.ExactArgs(1),
+	Short: "Add a new collection to the config",
+	Long: `Creates a new collection entry in the project config with the given name,
+root path, and file glob pattern. After adding, run 'gmd update' to index
+the collection's files.`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {
@@ -39,7 +52,9 @@ var collectionAddCmd = &cobra.Command{
 
 var collectionListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List all collections",
+	Short: "List all configured collections with paths and patterns",
+	Long: `Displays every collection's name, root path, file pattern, and context
+description. Does not query Typesense — shows config only.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {
@@ -73,8 +88,10 @@ var collectionListCmd = &cobra.Command{
 
 var collectionRemoveCmd = &cobra.Command{
 	Use:   "remove <name>",
-	Short: "Remove a collection and its chunks",
-	Args:  cobra.ExactArgs(1),
+	Short: "Delete a collection and all its indexed chunks",
+	Long: `Removes the collection from the config and deletes all associated chunks
+from Typesense. This operation is immediate and cannot be undone.`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {
@@ -97,8 +114,11 @@ var collectionRemoveCmd = &cobra.Command{
 
 var collectionRenameCmd = &cobra.Command{
 	Use:   "rename <old> <new>",
-	Short: "Rename a collection",
-	Args:  cobra.ExactArgs(2),
+	Short: "Rename a collection in the config",
+	Long: `Renames a collection without affecting its indexed chunks. The old name
+is updated in the config only — existing Typesense data is preserved
+under the new collection key.`,
+	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {
@@ -118,8 +138,10 @@ var collectionRenameCmd = &cobra.Command{
 
 var collectionShowCmd = &cobra.Command{
 	Use:   "show <name>",
-	Short: "Show collection details",
-	Args:  cobra.ExactArgs(1),
+	Short: "Show collection config details and chunk count",
+	Long: `Displays the full configuration for a collection (path, pattern, ignore
+rules, context) along with the current chunk count queried from Typesense.`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {
@@ -156,8 +178,11 @@ var collectionShowCmd = &cobra.Command{
 
 var collectionIncludeCmd = &cobra.Command{
 	Use:   "include <name> <pattern>",
-	Short: "Set the file pattern for a collection",
-	Args:  cobra.ExactArgs(2),
+	Short: "Set the file glob pattern for a collection",
+	Long: `Updates the file-matching pattern for a collection (e.g. "**/*.md").
+Run 'gmd update' after changing the pattern to re-index with the new
+matching rules.`,
+	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {
@@ -169,8 +194,13 @@ var collectionIncludeCmd = &cobra.Command{
 
 var collectionExcludeCmd = &cobra.Command{
 	Use:   "exclude <name> <pattern>",
-	Short: "Add a file ignore pattern to a collection",
-	Args:  cobra.ExactArgs(2),
+	Short: "Add an ignore pattern to exclude files from a collection",
+	Long: `Adds a glob pattern to the collection's ignore list. Matching files will
+be skipped during indexing. Multiple patterns can be added.
+
+Example:
+  gmd collection exclude docs "node_modules/**"`,
+	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {

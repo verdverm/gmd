@@ -12,8 +12,13 @@ import (
 )
 
 var lsCmd = &cobra.Command{
-	Use:   "ls",
-	Short: "List indexed documents",
+	Use:   "ls [collection]",
+	Short: "List indexed documents with scores",
+	Long: `Queries Typesense for all indexed documents and displays their paths,
+collection names, and relevance scores.
+
+Optionally filter by collection name. Useful for verifying what has been
+indexed and browsing available content.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {
@@ -48,7 +53,15 @@ var lsCmd = &cobra.Command{
 
 var doctorCmd = &cobra.Command{
 	Use:   "doctor",
-	Short: "Run diagnostics on GMD configuration and index",
+	Short: "Run diagnostics on config, Typesense, and LLM endpoints",
+	Long: `Checks the health of all GMD dependencies:
+
+  - Config loading and project root detection
+  - Typesense connectivity and chunk counts
+  - LLM endpoint reachability and model availability
+
+Reports OK, WARN, or FAIL for each check. Use this to troubleshoot
+when search returns no results or indexing fails.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {
@@ -130,7 +143,12 @@ var doctorCmd = &cobra.Command{
 
 var cleanupCmd = &cobra.Command{
 	Use:   "cleanup",
-	Short: "Remove stale chunks for deleted or changed files",
+	Short: "Remove stale chunks for files that no longer exist",
+	Long: `Scans all collections and removes indexed chunks whose source files have
+been deleted from disk. This keeps the Typesense index clean after files
+are moved or removed.
+
+Run this periodically or after large file reorganizations.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {

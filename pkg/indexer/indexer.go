@@ -354,6 +354,17 @@ func (idx *Indexer) StalePaths(ctx context.Context, collection string) ([]string
 		fullPath := filepath.Join(colPath, p)
 		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
 			stale = append(stale, p)
+			continue
+		}
+		for _, ig := range col.Ignore {
+			if matched, _ := doublestar.Match(ig, p); matched {
+				stale = append(stale, p)
+				break
+			}
+			if strings.HasPrefix(p, ig) {
+				stale = append(stale, p)
+				break
+			}
 		}
 	}
 	return stale, nil

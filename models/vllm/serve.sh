@@ -40,7 +40,8 @@ RERANK_MODEL="${GMD_RERANK_MODEL:-Qwen/Qwen3-Reranker-0.6B}"
 RERANK_PORT=8003
 #RERANK_MEM_GB=20
 RERANK_GPU_UTIL=0.1553
-RERANK_FLAGS="--port $RERANK_PORT --max-model-len 8192"
+RERANK_HF_OVERRIDES='{"architectures":["Qwen3ForSequenceClassification"],"classifier_from_token":["no","yes"],"is_original_qwen3_reranker":true}'
+RERANK_FLAGS="--port $RERANK_PORT --max-model-len 8192 --hf_overrides $RERANK_HF_OVERRIDES"
 
 # --- GPU detection ---
 

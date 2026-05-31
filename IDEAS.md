@@ -231,3 +231,88 @@ The chunking boundary logic should skip lines between the opening `---` and clos
 - **Multi-get max bytes** ([qmd#666](https://github.com/tobi/qmd/pull/666)) - expose Typesense `multi_get` max response size.
 - **Concurrent writer `busy_timeout`** ([qmd#686](https://github.com/tobi/qmd/pull/686)) - Typesense handles this natively but worth noting for embedding pipeline concurrency.
 - **Model config documentation** ([qmd#678](https://github.com/tobi/qmd/issues/678)) - document how to configure embedding/expansion/rerank models in CUE.
+
+---
+
+## LLM Wiki Integration (Karpathy Pattern)
+
+Andrej Karpathy's [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) (April 2026) proposes a pattern where an LLM incrementally builds and maintains a persistent, interlinked wiki from raw sources — shifting from query-time RAG retrieval to a compounding knowledge artifact. Karpathy explicitly calls out **qmd** as the recommended search engine for wikis that outgrow a single `index.md`. This is a natural integration point for GMD.
+
+### The Pattern in Brief
+
+Three layers:
+- **Raw sources** — immutable originals (articles, papers, transcripts)
+- **The wiki** — LLM-generated markdown (entities, concepts, comparisons, synthesis) with `[[wikilinks]]`
+- **The schema** — instructions (CLAUDE.md/AGENTS.md) governing ingest/query/lint workflows
+
+Two special files: `index.md` (content catalog) and `log.md` (chronological record). At small scale the LLM navigates via the index; beyond ~100 sources a search engine becomes necessary.
+
+### Where GMD Fits
+
+| Role | Tool |
+|---|---|
+| Wiki search engine | GMD (via CLI and MCP) |
+| Wiki content indexing | `gmd collection add wiki/` |
+| Agent integration | `gmd mcp` exposes search as native tool |
+| Embedding + rerank | GMD's LLM pipeline for hybrid search |
+
+A typical LLM wiki agent workflow:
+1. Schema instructs agent to use GMD's MCP tools for `search`, `multi-get`
+2. On query, agent calls GMD search instead of reading `index.md` linearly
+3. GMD returns ranked chunks with paths → agent reads full pages
+4. On ingest, agent triggers `gmd update wiki/` to keep index current
+
+### Integration Ideas
+
+#### Auto-index on ingest
+- Schema instructs LLM to run `gmd update wiki/` after every ingest
+- Optionally scoped: `gmd update -c wiki-<project>`
+- Keeps the search index synchronized without manual steps
+
+#### Query pipeline via GMD MCP
+- Agent calls `gmd mcp` search tool with the user's question
+- GMD returns ranked chunks with paths
+- Agent reads top-N full pages and synthesizes answer
+- Answer can be filed back as a new wiki page (compounding)
+
+#### Wiki-specific GMD commands
+- `gmd wiki init` — bootstrap a Karpathy-style wiki directory (raw/, wiki/, CLAUDE.md skeleton)
+- `gmd wiki lint` — run GMD search + LLM to surface contradictions, orphans, stale claims
+- `gmd wiki ingest <path|url>` — drop source, trigger re-index
+- `gmd wiki status` — page count, source count, embedding coverage
+
+#### Structured schema fields
+Wiki pages carry YAML frontmatter (type, tags, source refs). GMD's frontmatter extraction (see section above) would index these as typed, facetable fields — enabling filter-by-type, tag drill-down, sort-by-date.
+
+#### MCP tool additions
+Beyond the current `search`/`get`/`multi-get` tools:
+- `search-wiki` — scoped to wiki collections, returns page paths with summaries
+- `wiki-query` — hybrid search + LLM rerank tailored for wiki navigation
+- `graph-neighbors` — given a page, return linked pages (via [[wikilinks]]) for graph traversal
+
+#### Use case: research deep-dive
+A user reading papers on a topic over weeks:
+1. Drops PDF summary into `raw/` → tells agent to ingest
+2. Agent reads, writes concept page, updates entities, cross-references
+3. Agent runs `gmd update wiki/` to refresh index
+4. Next session: user asks a cross-cutting question
+5. Agent searches via GMD MCP, finds relevant pages across 5 sources
+6. Synthesizes answer, files as new synthesis page
+7. Lint pass catches contradiction between two sources → flags for user review
+
+#### Related ecosystem
+The LLM Wiki idea has spawned dozens of implementations. Notable for GMD alignment:
+- **llm-wiki-compiler** (atomicstrata/llmwiki) — 1.3k★, TS compiler + MCP server, explicit GMD/qmd mention
+- **WikiMind** (HAL-9909) — BM25-only, no embeddings, uses qmd as sole search backend
+- **claude-obsidian** (AgriciDaniel) — Claude Code plugin, git-backed, pure markdown
+- **OmegaWiki** (skyllwt) — 740★, 26 Claude Code skills for paper lifecycle
+- **llm-wiki-manager** (sametbrr) — 8 operating modes, Python bookkeeping scripts
+- **Synthadoc** (axoviq-ai) — adversarial review + claim-level provenance
+- Various CLAUDE.md template repos — single-file bootstrap, zero dependencies
+
+### Priorities
+
+1. **MCP integration first** — GMD's existing MCP server is already usable; document the LLM wiki use case in `gmd mcp` help and examples
+2. **Auto-index on ingest** — lightweight script or MCP tool that runs `gmd update` after wiki content changes
+3. **`gmd wiki` subcommands** — if the pattern gains traction, dedicated init/lint/ingest commands
+4. **Frontmatter-aware wiki indexing** — combine with the frontmatter extraction section above for facetable wiki metadata

@@ -15,28 +15,28 @@
 
 ## 🚧 Implementation Status
 
-### Phase 1: Scaffold + Config + Data Layer — 🔄 In Progress
+### Phase 1: Scaffold + Config + Data Layer — ✅ Done
 - [x] CUE schema (`config/schema/*.cue`) with pipeline defaults
 - [x] Config loader (global + project-local unification via CUE)
 - [x] Project root detection (walk up from CWD)
 - [x] Typesense v4 client wrapper (schema mgmt, hybrid/text search, CRUD)
 - [x] `Runtime` struct with Typesense lifecycle (no operational DB)
-- [ ] Hash field in Typesense chunks schema for content-based change detection
+- [x] Hash field in Typesense chunks schema for content-based change detection
 - [x] `gmd init` command
 - [x] Makefile with CGO-free build targets
 - [x] No `internal/` — all packages importable
 
-### Phase 2: Indexing — 🔄 In Progress (LLM client done)
+### Phase 2: Indexing — ✅ Done
 - [x] LLM client (`llm/client.go`): embeddings, chat, rerank
-- [ ] Markdown chunker (heading-aware breakpoints)
-- [ ] File scanner + SHA-256 dedup via Typesense hash field
-- [ ] Batch embedding + Typesense upsert
-- [ ] CLI commands: `update`, `embed`, `status`
+- [x] Markdown chunker (heading-aware breakpoints)
+- [x] File scanner + SHA-256 dedup via Typesense hash field
+- [x] Batch embedding + Typesense upsert
+- [x] CLI commands: `update`, `embed`
 
-### Phase 3: Search Pipeline — ⏳ Not Started
+### Phase 3: Search Pipeline — 🔄 In Progress (Typesense hybrid search infra exists)
 - [ ] Strong signal detection
 - [ ] LLM query expansion
-- [ ] Typesense hybrid search wrapper
+- [x] Typesense hybrid search wrapper (`ts/client.go` — not yet wired into pipeline)
 - [ ] RRF fusion + rerank + position blending
 - [ ] Result formatting
 
@@ -84,10 +84,18 @@ Each variant goes from **2 queries + custom fusion** (QMD) to **1 query** (GMD).
 ```
 gmd/
 ├── cmd/
-│   ├── gmd/                     # Main CLI
-│   │   └── main.go
-│   └── gmd-mcp/                 # MCP server
-│       └── main.go
+│   └── gmd/                     # Main CLI (all subcommands including mcp + serve)
+│       ├── main.go
+│       ├── init.go
+│       ├── status.go
+│       ├── update_embed.go
+│       ├── search.go            # stub
+│       ├── get.go               # stub
+│       ├── collection.go        # stub
+│       ├── context.go           # stub
+│       ├── misc.go              # stub
+│       ├── serve.go             # stub
+│       └── mcp.go               # stub
 ├── config/
 │   ├── config.go                # CUE config loading, merging, validation
 │   ├── project.go               #   project root detection
@@ -102,18 +110,18 @@ gmd/
 ├── llm/                         # OpenAI-compatible LLM client
 │   └── client.go                #   embeddings, chat, reranking
 ├── search/                      # Search pipeline orchestration (TBD)
-│   └── search.go
-├── chunking/                    # Document chunking (TBD)
-│   └── markdown.go
-├── indexer/                     # File scanning + chunking + indexing pipeline (TBD)
-│   └── indexer.go
+│   └── search.go                #   (file TBD)
+├── chunking/                    # Document chunking
+│   └── markdown.go              #   heading-aware chunker
+├── indexer/                     # File scanning + chunking + indexing pipeline
+│   └── indexer.go               #   scan, hash dedup, chunk, embed, upsert
 ├── api/                         # REST API server (TBD)
-│   ├── server.go
-│   ├── handlers.go
-│   └── middleware.go
+│   ├── server.go                #   (file TBD)
+│   ├── handlers.go              #   (file TBD)
+│   └── middleware.go            #   (file TBD)
 ├── output/                      # Output formatters (TBD)
-│   ├── formatter.go
-│   └── snippet.go
+│   ├── formatter.go             #   (file TBD)
+│   └── snippet.go               #   (file TBD)
 ├── go.mod
 ├── go.sum
 ├── Makefile
@@ -310,22 +318,23 @@ Return final ranked results
 - Position-aware blending (thresholds + weights from CUE config)
 - Result formatting with snippets
 
-### Phase 4: CLI
+### Phase 4: CLI — 🔄 Commands Registered, Stubs Implemented
 All QMD commands, ported:
 `status` `update` `embed` `search` `vsearch` `query` `get` `multi-get`
 `collection [add|list|remove|rename|show|include|exclude]`
 `context [add|list|rm]` `ls` `init` `doctor` `cleanup` `mcp` `serve`
+`import-qmd` (migration helper: reads QMD SQLite DB → Typesense + CUE config)
 
 Auto-detection integration: `status` shows project root + matched collections, `query`/`search`/`vsearch` auto-select collections from CWD.
 
-### Phase 5: REST API Server
+### Phase 5: REST API Server — 🔄 Stub Exists
 - HTTP server setup (Go 1.22+ `net/http` ServeMux, middleware stack)
 - Endpoint handlers for all 10 routes (health, status, search, vsearch, query, documents, multi-get, collections, update, embed)
 - Request validation, JSON response formatting, error handling
 - CORS, rate limiting, optional API key auth via CUE config
 - `gmd serve` command with `--port` and `--host` flags
 
-### Phase 6: MCP Server
+### Phase 6: MCP Server — 🔄 Stub Exists
 - MCP tools: `query`, `get`, `multi_get`, `status`
 - MCP resource: `gmd://{+path}`
 - Transports: stdio and Streamable HTTP
@@ -530,3 +539,11 @@ All resources are in the `gmd` namespace, pinned to node `nitrogen` via `nodeSel
 k8s/
 └── typesense.yaml   # TypesenseCluster + NodePort Service
 ```
+
+---
+
+## 14. TODO (Next)
+
+- **Tests** — zero test files; need unit + integration tests across all packages
+- **Partial failure handling** — indexer needs transactional upsert (all-or-nothing per file) and retry/backoff for LLM API errors
+- **Typesense resilience** — no health check, retry, or timeout logic; needs graceful degradation when Typesense is down

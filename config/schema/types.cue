@@ -1,12 +1,17 @@
 package gmd
 
 // LLMConfig defines the OpenAI-compatible provider settings.
+// Each model role can optionally use a different base_url (e.g. separate
+// vLLM servers on different ports). When empty, the global base_url is used.
 LLMConfig: {
-	base_url:         string
-	api_key:          string | *""
-	embedding_model:  string | *"nomic-embed-text-v1.5"
-	expansion_model:  string | *"qwen2.5:7b"
-	rerank_model:     string | *"jina-reranker-v2-base-en"
+	base_url:            string
+	api_key:             string | *""
+	embedding_model:     string | *"google/embeddinggemma-300m"
+	expansion_model:  string | *"Qwen/Qwen3-1.7B"
+	rerank_model:        string | *"Qwen/Qwen3-Reranker-0.6B"
+	embedding_base_url?: string
+	expansion_base_url?: string
+	rerank_base_url?:    string
 }
 
 // TypesenseConfig defines the search engine connection settings.

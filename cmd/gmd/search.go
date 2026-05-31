@@ -30,6 +30,9 @@ func searchRun(args []string, mode search.SearchMode) error {
 		EmbeddingModel: cfg.LLM.EmbeddingModel,
 		ExpansionModel: cfg.LLM.ExpansionModel,
 		RerankModel:    cfg.LLM.RerankModel,
+		EmbedURL:       cfg.LLM.EmbeddingBaseURL,
+		ExpandURL:      cfg.LLM.ExpansionBaseURL,
+		RerankURL:      cfg.LLM.RerankBaseURL,
 	})
 	p := search.New(cfg, r.TSClient(), llmClient)
 	ctx := context.Background()

@@ -20,11 +20,14 @@ type Config struct {
 
 // LLMConfig maps from the CUE LLMConfig schema.
 type LLMConfig struct {
-	BaseURL        string `json:"base_url"`
-	APIKey         string `json:"api_key"`
-	EmbeddingModel string `json:"embedding_model"`
-	ExpansionModel string `json:"expansion_model"`
-	RerankModel    string `json:"rerank_model"`
+	BaseURL          string `json:"base_url"`
+	APIKey           string `json:"api_key"`
+	EmbeddingModel   string `json:"embedding_model"`
+	ExpansionModel   string `json:"expansion_model"`
+	RerankModel      string `json:"rerank_model"`
+	EmbeddingBaseURL string `json:"embedding_base_url,omitempty"`
+	ExpansionBaseURL string `json:"expansion_base_url,omitempty"`
+	RerankBaseURL    string `json:"rerank_base_url,omitempty"`
 }
 
 // TypesenseConfig maps from the CUE TypesenseConfig schema.

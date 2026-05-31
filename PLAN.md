@@ -405,9 +405,9 @@ Config: {
 	llm: {
 		base_url:           "http://localhost:11434/v1"
 		api_key:            ""   // fallback: OPENAI_API_KEY env
-		embedding_model:    "nomic-embed-text-v1.5"
-		expansion_model:    "qwen2.5:7b"
-		rerank_model:       "jina-reranker-v2-base-en"
+		embedding_model:    "google/embeddinggemma-300m"
+		expansion_model:    "Qwen/Qwen3-1.7B"
+		rerank_model:       "Qwen/Qwen3-Reranker-0.6B"
 	}
 
 	// Search engine (Typesense is the sole data store)

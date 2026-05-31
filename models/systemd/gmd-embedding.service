@@ -1,0 +1,24 @@
+[Unit]
+Description=gmd embedding model (vLLM) — /v1/embeddings
+Documentation=https://github.com/verdverm/gmd
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=%i
+Restart=on-failure
+RestartSec=5
+
+Environment="CUDA_VISIBLE_DEVICES=0"
+Environment="GMD_EMBED_MODEL=google/embeddinggemma-300m"
+Environment="HF_HUB_CACHE=%h/.cache/huggingface"
+
+ExecStart=vllm serve ${GMD_EMBED_MODEL} \
+  --port 8001 \
+  --task embed \
+  --max-model-len 8192 \
+  --gpu-memory-utilization 0.30
+
+[Install]
+WantedBy=default.target

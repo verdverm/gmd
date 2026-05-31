@@ -1,0 +1,24 @@
+[Unit]
+Description=gmd expansion model (vLLM) — /v1/chat/completions
+Documentation=https://github.com/verdverm/gmd
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=%i
+Restart=on-failure
+RestartSec=5
+
+Environment="CUDA_VISIBLE_DEVICES=0"
+Environment="GMD_EXPANSION_MODEL=Qwen/Qwen3-1.7B"
+Environment="HF_HUB_CACHE=%h/.cache/huggingface"
+
+ExecStart=vllm serve ${GMD_EXPANSION_MODEL} \
+  --port 8002 \
+  --task generate \
+  --max-model-len 8192 \
+  --gpu-memory-utilization 0.30
+
+[Install]
+WantedBy=default.target

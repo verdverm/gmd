@@ -26,17 +26,20 @@ DRY_RUN="${DRY_RUN:-}"
 
 EMBEDDING_MODEL="${GMD_EMBED_MODEL:-google/embeddinggemma-300m}"
 EMBEDDING_PORT=8001
-EMBEDDING_MEM_GB=2
-EMBEDDING_FLAGS="--port $EMBEDDING_PORT --max-model-len 8192"
+#EMBEDDING_MEM_GB=3
+EMBEDDING_GPU_UTIL=0.02
+EMBEDDING_FLAGS="--port $EMBEDDING_PORT --max-model-len 2048"
 
 EXPANSION_MODEL="${GMD_EXPANSION_MODEL:-Qwen/Qwen3-1.7B}"
 EXPANSION_PORT=8002
-EXPANSION_MEM_GB=4
+#EXPANSION_MEM_GB=21
+EXPANSION_GPU_UTIL=0.1636
 EXPANSION_FLAGS="--port $EXPANSION_PORT --max-model-len 8192"
 
 RERANK_MODEL="${GMD_RERANK_MODEL:-Qwen/Qwen3-Reranker-0.6B}"
 RERANK_PORT=8003
-RERANK_MEM_GB=1
+#RERANK_MEM_GB=20
+RERANK_GPU_UTIL=0.1553
 RERANK_FLAGS="--port $RERANK_PORT --max-model-len 8192"
 
 # --- GPU detection ---
@@ -58,24 +61,29 @@ fi
 
 # --- helpers ---
 
+MODEL_PIDS=()
+
 start_model() {
   local name=$1 model=$2 port=$3 mem_gb=$4 flags=$5
-  local gpu_mem_util
-  gpu_mem_util=$(awk "BEGIN {printf \"%.2f\", ($mem_gb * 1024) / $TOTAL_GPU_MEM}" 2>/dev/null || echo "0.1")
+  local util_var="${name^^}_GPU_UTIL"
+  local gpu_mem_util="${!util_var:-$(awk "BEGIN {printf \"%.2f\", ($mem_gb * 1024) / $TOTAL_GPU_MEM}" 2>/dev/null || echo "0.1")}"
   echo "Starting $name ($model) on port $port (mem: ${mem_gb}GB, util: $gpu_mem_util)..."
   if [ -n "$DRY_RUN" ]; then
-    echo "[DRY-RUN] vllm serve $model $COMMON_FLAGS $flags --gpu-memory-utilization $gpu_mem_util"
+    echo "[DRY-RUN] VLLM_PROCESS_NAME=${name}::${model} vllm serve $model $COMMON_FLAGS $flags --gpu-memory-utilization $gpu_mem_util"
   else
-    vllm serve "$model" \
+    VLLM_PROCESS_NAME="${name}::${model}" vllm serve "$model" \
       $COMMON_FLAGS \
       $flags \
       --gpu-memory-utilization "$gpu_mem_util" &
+    MODEL_PIDS+=($!)
   fi
 }
 
 cleanup() {
   echo "Shutting down..."
-  pkill -P $$ 2>/dev/null || true
+  for pid in "${MODEL_PIDS[@]}"; do
+    kill "$pid" 2>/dev/null || true
+  done
   wait
   deactivate 2>/dev/null || true
 }
@@ -85,8 +93,8 @@ source "$VLLM_DIR/.venv/bin/activate"
 
 # --- HuggingFace checks ---
 
-if ! command -v huggingface-cli &>/dev/null; then
-  echo "Error: huggingface-cli not found. Install with: pip install huggingface-hub" >&2
+if ! command -v hf &>/dev/null; then
+  echo "Error: hf CLI not found. Install with: pip install huggingface-hub" >&2
   exit 1
 fi
 
@@ -101,9 +109,9 @@ ensure_model() {
   else
     echo "Downloading $name ($model)..."
     if [ -n "$DRY_RUN" ]; then
-      echo "[DRY-RUN] huggingface-cli download $model"
+      echo "[DRY-RUN] hf download $model"
     else
-      huggingface-cli download "$model"
+      hf download "$model"
     fi
   fi
 }
@@ -111,16 +119,16 @@ ensure_model() {
 for_each_model() {
   local action=$1
   if [ $# -eq 1 ]; then
-    $action "embedding" "$EMBEDDING_MODEL" "$EMBEDDING_PORT" "$EMBEDDING_MEM_GB" "$EMBEDDING_FLAGS"
-    $action "expansion" "$EXPANSION_MODEL" "$EXPANSION_PORT" "$EXPANSION_MEM_GB" "$EXPANSION_FLAGS"
-    $action "rerank" "$RERANK_MODEL" "$RERANK_PORT" "$RERANK_MEM_GB" "$RERANK_FLAGS"
+    $action "embedding" "$EMBEDDING_MODEL" "$EMBEDDING_PORT" "${EMBEDDING_MEM_GB:-}" "$EMBEDDING_FLAGS"
+    $action "expansion" "$EXPANSION_MODEL" "$EXPANSION_PORT" "${EXPANSION_MEM_GB:-}" "$EXPANSION_FLAGS"
+    $action "rerank" "$RERANK_MODEL" "$RERANK_PORT" "${RERANK_MEM_GB:-}" "$RERANK_FLAGS"
   else
     shift
     for arg in "$@"; do
       case "$arg" in
-        embedding) $action "embedding" "$EMBEDDING_MODEL" "$EMBEDDING_PORT" "$EMBEDDING_MEM_GB" "$EMBEDDING_FLAGS" ;;
-        expansion) $action "expansion" "$EXPANSION_MODEL" "$EXPANSION_PORT" "$EXPANSION_MEM_GB" "$EXPANSION_FLAGS" ;;
-        rerank)    $action "rerank" "$RERANK_MODEL" "$RERANK_PORT" "$RERANK_MEM_GB" "$RERANK_FLAGS" ;;
+        embedding) $action "embedding" "$EMBEDDING_MODEL" "$EMBEDDING_PORT" "${EMBEDDING_MEM_GB:-}" "$EMBEDDING_FLAGS" ;;
+        expansion) $action "expansion" "$EXPANSION_MODEL" "$EXPANSION_PORT" "${EXPANSION_MEM_GB:-}" "$EXPANSION_FLAGS" ;;
+        rerank)    $action "rerank" "$RERANK_MODEL" "$RERANK_PORT" "${RERANK_MEM_GB:-}" "$RERANK_FLAGS" ;;
         *)         echo "Unknown: $arg (use: embedding, expansion, rerank)" >&2; exit 1 ;;
       esac
     done

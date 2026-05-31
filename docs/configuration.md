@@ -9,15 +9,13 @@ package gmd
 
 Config: {
   llm: {
-    base_url:            "http://localhost:11434/v1"
+    embedding_base_url:  "http://localhost:8001/v1"
+    expansion_base_url:  "http://localhost:8002/v1"
+    rerank_base_url:     "http://localhost:8003/v1"
     api_key:             ""
     embedding_model:     "google/embeddinggemma-300m"
     expansion_model:     "Qwen/Qwen3-1.7B"
     rerank_model:        "Qwen/Qwen3-Reranker-0.6B"
-    // Optional per-model endpoint overrides (for separate vLLM servers)
-    // embedding_base_url: "http://localhost:8001/v1"
-    // expansion_base_url: "http://localhost:8002/v1"
-    // rerank_base_url:    "http://localhost:8003/v1"
   }
   typesense: {
     host:    "http://localhost:8108"
@@ -39,14 +37,13 @@ All parameters have sensible defaults — you only need to set what you want to 
 
 | Parameter | Default | Description |
 |---|---|---|
-| `llm.base_url` | — | OpenAI-compatible API endpoint |
+| `llm.embedding_base_url` | — | Endpoint for embedding model (required) |
+| `llm.expansion_base_url` | — | Endpoint for expansion model (required) |
+| `llm.rerank_base_url` | — | Endpoint for rerank model (required) |
 | `llm.api_key` | `OPENAI_API_KEY` env | API key |
 | `llm.embedding_model` | `google/embeddinggemma-300m` | Model for embeddings |
 | `llm.expansion_model` | `Qwen/Qwen3-1.7B` | Model for query expansion |
 | `llm.rerank_model` | `Qwen/Qwen3-Reranker-0.6B` | Model for reranking |
-| `llm.embedding_base_url` | global `base_url` | Per-model endpoint override for embeddings |
-| `llm.expansion_base_url` | global `base_url` | Per-model endpoint override for query expansion |
-| `llm.rerank_base_url` | global `base_url` | Per-model endpoint override for reranking |
 | `typesense.host` | — | Typesense server URL |
 | `typesense.api_key` | — | Typesense API key |
 | `pipeline.chunk.targetTokens` | 900 | Target tokens per chunk |

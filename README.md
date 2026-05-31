@@ -70,11 +70,9 @@ Config: {
     context: "MyApp user documentation"
   }
   llm: {
-    // Each model can run on its own endpoint (vLLM requires separate servers)
-    base_url:            "http://localhost:8000/v1"
-    embedding_base_url:  "http://localhost:8001/v1"    // optional override
-    expansion_base_url:  "http://localhost:8002/v1"    // optional override
-    rerank_base_url:     "http://localhost:8003/v1"    // optional override
+    embedding_base_url:  "http://localhost:8001/v1"
+    expansion_base_url:  "http://localhost:8002/v1"
+    rerank_base_url:     "http://localhost:8003/v1"
     api_key:             ""
     embedding_model:     "google/embeddinggemma-300m"
     expansion_model:     "Qwen/Qwen3-1.7B"

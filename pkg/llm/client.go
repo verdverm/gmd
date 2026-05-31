@@ -11,17 +11,18 @@ import (
 )
 
 type Client struct {
-	defaultClient  openai.Client
-	embedClient    *openai.Client
-	expandClient   *openai.Client
-	rerankClient   *openai.Client
+	embedClient    openai.Client
+	expandClient   openai.Client
+	rerankClient   openai.Client
 	embeddingModel string
 	expansionModel string
 	rerankModel    string
+	embedURL       string
+	expandURL      string
+	rerankURL      string
 }
 
 type Config struct {
-	BaseURL        string
 	APIKey         string
 	EmbeddingModel string
 	ExpansionModel string
@@ -42,47 +43,22 @@ func newOpenAIClient(baseURL, apiKey string) openai.Client {
 }
 
 func New(cfg Config) *Client {
-	c := &Client{
-		defaultClient:  newOpenAIClient(cfg.BaseURL, cfg.APIKey),
+	return &Client{
+		embedClient:    newOpenAIClient(cfg.EmbedURL, cfg.APIKey),
+		expandClient:   newOpenAIClient(cfg.ExpandURL, cfg.APIKey),
+		rerankClient:   newOpenAIClient(cfg.RerankURL, cfg.APIKey),
 		embeddingModel: cfg.EmbeddingModel,
 		expansionModel: cfg.ExpansionModel,
 		rerankModel:    cfg.RerankModel,
+		embedURL:       cfg.EmbedURL,
+		expandURL:      cfg.ExpandURL,
+		rerankURL:      cfg.RerankURL,
 	}
-	if cfg.EmbedURL != "" {
-		cli := newOpenAIClient(cfg.EmbedURL, cfg.APIKey)
-		c.embedClient = &cli
-	}
-	if cfg.ExpandURL != "" {
-		cli := newOpenAIClient(cfg.ExpandURL, cfg.APIKey)
-		c.expandClient = &cli
-	}
-	if cfg.RerankURL != "" {
-		cli := newOpenAIClient(cfg.RerankURL, cfg.APIKey)
-		c.rerankClient = &cli
-	}
-	return c
 }
 
-func (c *Client) clientForEmbed() openai.Client {
-	if c.embedClient != nil {
-		return *c.embedClient
-	}
-	return c.defaultClient
-}
-
-func (c *Client) clientForExpand() openai.Client {
-	if c.expandClient != nil {
-		return *c.expandClient
-	}
-	return c.defaultClient
-}
-
-func (c *Client) clientForRerank() openai.Client {
-	if c.rerankClient != nil {
-		return *c.rerankClient
-	}
-	return c.defaultClient
-}
+func (c *Client) clientForEmbed() openai.Client  { return c.embedClient }
+func (c *Client) clientForExpand() openai.Client { return c.expandClient }
+func (c *Client) clientForRerank() openai.Client { return c.rerankClient }
 
 func (c *Client) Embed(ctx context.Context, text string) ([]float64, error) {
 	return c.EmbedWithModel(ctx, text, c.embeddingModel)
@@ -177,6 +153,62 @@ type rerankResponse struct {
 		Index          int     `json:"index"`
 		RelevanceScore float64 `json:"relevance_score"`
 	} `json:"results"`
+}
+
+type EndpointStatus struct {
+	Label  string
+	URL    string
+	Model  string
+	OK     bool
+	Models []string
+	Err    string
+}
+
+func (c *Client) CheckEndpoint(ctx context.Context, label, baseURL, model string) EndpointStatus {
+	s := EndpointStatus{Label: label, URL: baseURL, Model: model}
+	cli := newOpenAIClient(baseURL, "")
+	page, err := cli.Models.List(ctx)
+	if err != nil {
+		s.Err = err.Error()
+		return s
+	}
+	s.OK = true
+	for _, m := range page.Data {
+		s.Models = append(s.Models, m.ID)
+	}
+	if model != "" {
+		found := false
+		for _, m := range s.Models {
+			if m == model {
+				found = true
+				break
+			}
+		}
+		if !found {
+			s.Err = "model not found on endpoint"
+			s.OK = false
+		}
+	}
+	return s
+}
+
+func (c *Client) CheckAll(ctx context.Context) []EndpointStatus {
+	endpoints := []struct {
+		label string
+		url   string
+		model string
+	}{
+		{"embedding", c.embedURL, c.embeddingModel},
+		{"expansion", c.expandURL, c.expansionModel},
+		{"rerank", c.rerankURL, c.rerankModel},
+	}
+
+	var results []EndpointStatus
+	for _, ep := range endpoints {
+		s := c.CheckEndpoint(ctx, ep.label, ep.url, ep.model)
+		results = append(results, s)
+	}
+	return results
 }
 
 func (c *Client) Rerank(ctx context.Context, query string, documents []string) ([]RerankResult, error) {

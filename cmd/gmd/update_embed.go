@@ -13,7 +13,6 @@ import (
 func makeLLMClient() *llm.Client {
 	cfg := globalRuntime.Config()
 	return llm.New(llm.Config{
-		BaseURL:        cfg.LLM.BaseURL,
 		APIKey:         cfg.LLM.APIKey,
 		EmbeddingModel: cfg.LLM.EmbeddingModel,
 		ExpansionModel: cfg.LLM.ExpansionModel,

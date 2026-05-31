@@ -27,6 +27,19 @@ var initCmd = &cobra.Command{
 		defaultConfig := `package gmd
 
 Config: {
+	llm: {
+		embedding_base_url:  "http://localhost:8001/v1"
+		expansion_base_url:  "http://localhost:8002/v1"
+		rerank_base_url:     "http://localhost:8003/v1"
+		api_key:             ""
+		embedding_model:     "google/embeddinggemma-300m"
+		expansion_model:     "Qwen/Qwen3-1.7B"
+		rerank_model:        "Qwen/Qwen3-Reranker-0.6B"
+	}
+	typesense: {
+		host:    "http://localhost:8108"
+		api_key: "xyz"
+	}
 	collections: docs: {
 		path:    "."
 		pattern: "**/*.md"

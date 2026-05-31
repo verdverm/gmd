@@ -25,7 +25,6 @@ func searchRun(args []string, mode search.SearchMode) error {
 	}
 	cfg := r.Config()
 	llmClient := llm.New(llm.Config{
-		BaseURL:        cfg.LLM.BaseURL,
 		APIKey:         cfg.LLM.APIKey,
 		EmbeddingModel: cfg.LLM.EmbeddingModel,
 		ExpansionModel: cfg.LLM.ExpansionModel,

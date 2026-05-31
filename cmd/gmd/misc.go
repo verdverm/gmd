@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/verdverm/gmd/pkg/indexer"
+	"github.com/verdverm/gmd/pkg/llm"
 	"github.com/verdverm/gmd/pkg/ts"
 )
 
@@ -68,7 +70,7 @@ var doctorCmd = &cobra.Command{
 			fmt.Printf("FAIL  typesense: %v\n", err)
 			return nil
 		}
-		fmt.Printf("OK     typesense connected, %d total chunks\n", count)
+		fmt.Printf("OK     typesense connected (%s), %d total chunks\n", cfg.Typesense.Host, count)
 
 		if len(cfg.Collections) > 0 {
 			fmt.Printf("OK     %d collection(s) configured\n", len(cfg.Collections))
@@ -84,18 +86,42 @@ var doctorCmd = &cobra.Command{
 			fmt.Println("WARN   no collections configured")
 		}
 
-		if cfg.LLM.BaseURL != "" {
-			fmt.Printf("OK     llm endpoint: %s\n", cfg.LLM.BaseURL)
+		fmt.Println()
+		fmt.Println("LLM Endpoints:")
+		l := llm.New(llm.Config{
+			APIKey:         cfg.LLM.APIKey,
+			EmbeddingModel: cfg.LLM.EmbeddingModel,
+			ExpansionModel: cfg.LLM.ExpansionModel,
+			RerankModel:    cfg.LLM.RerankModel,
+			EmbedURL:       cfg.LLM.EmbeddingBaseURL,
+			ExpandURL:      cfg.LLM.ExpansionBaseURL,
+			RerankURL:      cfg.LLM.RerankBaseURL,
+		})
+		statuses := l.CheckAll(context.Background())
+		for _, s := range statuses {
+			if !s.OK {
+				fmt.Printf("FAIL   %-10s %s  (%s)\n", s.Label, s.URL, s.Err)
+				continue
+			}
+			models := strings.Join(s.Models, ", ")
+			fmt.Printf("OK     %-10s %s  [%s]\n", s.Label, s.URL, models)
 		}
-		if cfg.LLM.EmbeddingModel != "" {
-			fmt.Printf("OK     embedding model: %s\n", cfg.LLM.EmbeddingModel)
+		modelCheck := func(name, model string) {
+			if model == "" {
+				return
+			}
+			for _, s := range statuses {
+				for _, m := range s.Models {
+					if m == model {
+						return
+					}
+				}
+			}
+			fmt.Printf("WARN   %s model not found: %s\n", name, model)
 		}
-		if cfg.LLM.ExpansionModel != "" {
-			fmt.Printf("OK     expansion model: %s\n", cfg.LLM.ExpansionModel)
-		}
-		if cfg.LLM.RerankModel != "" {
-			fmt.Printf("OK     rerank model: %s\n", cfg.LLM.RerankModel)
-		}
+		modelCheck("embedding", cfg.LLM.EmbeddingModel)
+		modelCheck("expansion", cfg.LLM.ExpansionModel)
+		modelCheck("rerank", cfg.LLM.RerankModel)
 
 		return nil
 	},

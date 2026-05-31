@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Config is the validated Go representation of the unified CUE configuration.
@@ -20,14 +21,13 @@ type Config struct {
 
 // LLMConfig maps from the CUE LLMConfig schema.
 type LLMConfig struct {
-	BaseURL          string `json:"base_url"`
 	APIKey           string `json:"api_key"`
 	EmbeddingModel   string `json:"embedding_model"`
 	ExpansionModel   string `json:"expansion_model"`
 	RerankModel      string `json:"rerank_model"`
-	EmbeddingBaseURL string `json:"embedding_base_url,omitempty"`
-	ExpansionBaseURL string `json:"expansion_base_url,omitempty"`
-	RerankBaseURL    string `json:"rerank_base_url,omitempty"`
+	EmbeddingBaseURL string `json:"embedding_base_url"`
+	ExpansionBaseURL string `json:"expansion_base_url"`
+	RerankBaseURL    string `json:"rerank_base_url"`
 }
 
 // TypesenseConfig maps from the CUE TypesenseConfig schema.
@@ -132,7 +132,7 @@ func Load(cwd string) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading embedded schema dir: %w", err)
 	}
-	for _, entry := range entries {
+	for i, entry := range entries {
 		if entry.IsDir() {
 			continue
 		}
@@ -140,7 +140,11 @@ func Load(cwd string) (*Config, error) {
 		if err != nil {
 			return nil, fmt.Errorf("reading %s: %w", entry.Name(), err)
 		}
-		allCUEContent += string(data) + "\n"
+		content := string(data)
+		if i > 0 {
+			content = stripPackageDecl(content)
+		}
+		allCUEContent += content + "\n"
 	}
 
 	val := ctx.CompileString(allCUEContent)
@@ -202,6 +206,18 @@ func tryReadGlobalConfig() (string, error) {
 		return "", err
 	}
 	return string(data), nil
+}
+
+func stripPackageDecl(content string) string {
+	lines := strings.Split(content, "\n")
+	var out []string
+	for _, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), "package ") {
+			continue
+		}
+		out = append(out, line)
+	}
+	return strings.Join(out, "\n")
 }
 
 func tryReadProjectConfig(root string) (string, error) {

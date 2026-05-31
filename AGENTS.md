@@ -1,0 +1,102 @@
+# GMD — Markdown Search Engine (Go port of QMD)
+
+Go rewrite of [qmd](./qmd/) with Typesense as the backing search engine and an
+OpenAI-compatible LLM API for embeddings, query expansion, and reranking.
+
+## Commands
+
+```sh
+go build -o bin/gmd ./cmd/gmd          # Build
+make build                              # Same, with CGO_ENABLED=0
+make test                               # Run all tests
+make lint                               # go vet ./...
+make tidy                               # go mod tidy
+```
+
+## CLI
+
+```sh
+gmd init                               # Create .gmd/config.cue in current dir
+gmd update                             # Index/re-index all collections
+gmd embed                              # Re-embed all documents
+gmd status                             # Index health and per-collection counts
+gmd search <query>                     # Text-only keyword search
+gmd vsearch <query>                    # Vector similarity search
+gmd query <query>                      # Full pipeline: expansion → hybrid → RRF → rerank → blend
+gmd get <path>                         # Get document content by path
+gmd multi-get <pattern>                # Batch fetch documents
+gmd ls [collection]                    # List indexed documents
+gmd collection list                    # List collections
+gmd collection add <name> --path --pattern
+gmd collection show <name>             # Collection details + chunk count
+gmd collection remove <name>
+gmd collection rename <old> <new>
+gmd collection include <name> --pattern
+gmd collection exclude <name> --pattern
+gmd context add <collection> "text"
+gmd context list
+gmd context rm <collection>
+gmd doctor                             # Diagnostics
+gmd cleanup                            # Remove stale chunks for deleted files
+gmd serve [--port] [--host]            # REST API server (stub, Phase 5)
+gmd mcp [--http]                       # MCP server (stub, Phase 6)
+```
+
+## Architecture
+
+```
+cmd/gmd/          CLI entry point (cobra commands)
+pkg/config/       CUE config loading, validation, project detection, CUE AST editing
+pkg/chunking/     Markdown chunker (heading-aware breakpoints)
+pkg/indexer/      File scanning + SHA-256 dedup + chunk → embed → upsert pipeline
+pkg/search/       Search pipeline: signal detection, expansion, RRF fusion, rerank, blend
+pkg/ts/           Typesense client wrapper (chunks collection, hybrid/text search, CRUD)
+pkg/llm/          OpenAI-compatible API client (embeddings, chat, rerank)
+pkg/output/       Result formatting (CLI, JSON)
+pkg/runtime/      Runtime struct — owns Typesense client lifecycle
+models/           vLLM serve scripts + systemd units for 3 LLM models
+k8s/              Typesense Kubernetes manifest
+docs/             Configuration reference
+api/              Reserved for REST API (empty)
+```
+
+## Key Design Decisions
+
+- **No operational DB.** Typesense is the sole data store. Filesystem is source of truth.
+- **Content-addressable dedup.** SHA-256 hash stored on every chunk; unchanged files skip
+  re-chunking and re-embedding.
+- **External embeddings.** Embeddings computed in Go via API, stored in Typesense.
+- **No CGO.** `CGO_ENABLED=0` enforced. No tree-sitter, no sqlite.
+- **CUE config only.** No YAML. Global + project-local CUE files unified at load time.
+- **OpenAI-compatible, not OpenAI-specific.** Any provider via `base_url` + `api_key`.
+- **Chunks as Typesense documents.** `group_by=collection,path` collapses to document level.
+
+## Config
+
+CUE schema lives in `pkg/config/schema/` (embedded via `//go:embed`).
+Global: `~/.config/gmd/config.cue`. Project: `<root>/.gmd/config.cue`.
+Both are optional; defaults come from the embedded schema + `pipeline.cue`.
+Project root detected by walking up from CWD looking for `.gmd/` sentinel.
+
+## Dependencies
+
+| Module | Purpose |
+|---|---|
+| `github.com/typesense/typesense-go/v4` | Typesense client |
+| `github.com/openai/openai-go/v3` | OpenAI-compatible API client |
+| `cuelang.org/go` | CUE config loading, validation, CUE AST editing |
+| `github.com/spf13/cobra` | CLI framework |
+| `github.com/bmatcuk/doublestar/v4` | Glob pattern matching for file scanning |
+
+## Rules
+
+- Never run `gmd update`, `gmd embed`, or `gmd collection add` automatically. Write the command
+  for the user to run.
+- Never modify CUE config files or the Typesense index directly without being asked.
+- Always run `make lint` after code changes.
+- Keep `CGO_ENABLED=0` — never introduce CGO dependencies.
+- New CLI commands go in `cmd/gmd/<name>.go` and register in `main.go` init().
+- New library packages go under `pkg/<name>/`.
+- Tests live alongside source files (`*_test.go`).
+- Never commit `bin/` or `qmd/` (both in .gitignore).
+- Always include `.sessions/` when making commits.

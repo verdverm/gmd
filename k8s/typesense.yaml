@@ -12,7 +12,7 @@ spec:
   image: typesense/typesense:30.2
   replicas: 1
   storage:
-    storageClassName: local-path
+    storageClassName: local-retain
     size: 10Gi
 ---
 apiVersion: v1

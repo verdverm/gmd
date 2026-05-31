@@ -68,7 +68,7 @@ api/              Reserved for REST API (empty)
 - **External embeddings.** Embeddings computed in Go via API, stored in Typesense.
 - **No CGO.** `CGO_ENABLED=0` enforced. No tree-sitter, no sqlite.
 - **CUE config only.** No YAML. Global + project-local CUE files unified at load time.
-- **OpenAI-compatible, not OpenAI-specific.** Any provider via `base_url` + `api_key`.
+- **OpenAI-compatible, not OpenAI-specific.** Any provider via `base_url`. API keys via env vars.
 - **Chunks as Typesense documents.** `group_by=collection,path` collapses to document level.
 
 ## Config

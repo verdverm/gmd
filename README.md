@@ -73,19 +73,18 @@ Config: {
     embedding_base_url:  "http://localhost:8001/v1"
     expansion_base_url:  "http://localhost:8002/v1"
     rerank_base_url:     "http://localhost:8003/v1"
-    api_key:             ""
     embedding_model:     "google/embeddinggemma-300m"
     expansion_model:     "Qwen/Qwen3-1.7B"
     rerank_model:        "Qwen/Qwen3-Reranker-0.6B"
   }
   typesense: {
     host:    "http://localhost:8108"
-    api_key: "xyz"
   }
 }
 ```
 
-If `api_key` is empty, gmd reads `OPENAI_API_KEY` from the environment.
+API keys are read from environment variables: `OPENAI_API_KEY` for LLM endpoints and
+`GMD_TYPESENSE_API_KEY` for Typesense.
 
 For shared settings across projects, create `~/.config/gmd/config.cue` with the same structure — project and global configs are merged automatically, with project values taking precedence.
 

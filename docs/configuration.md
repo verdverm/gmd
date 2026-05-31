@@ -12,14 +12,12 @@ Config: {
     embedding_base_url:  "http://localhost:8001/v1"
     expansion_base_url:  "http://localhost:8002/v1"
     rerank_base_url:     "http://localhost:8003/v1"
-    api_key:             ""
     embedding_model:     "google/embeddinggemma-300m"
     expansion_model:     "Qwen/Qwen3-1.7B"
     rerank_model:        "Qwen/Qwen3-Reranker-0.6B"
   }
   typesense: {
     host:    "http://localhost:8108"
-    api_key: "xyz"
   }
   collections: docs: {
     path:    "~/documents"
@@ -29,7 +27,11 @@ Config: {
 }
 ```
 
-If `api_key` is empty in both config and env, gmd will fail.
+API keys are read from environment variables:
+- `OPENAI_API_KEY` — API key for all LLM endpoints (embedding, expansion, rerank)
+- `GMD_TYPESENSE_API_KEY` — API key for typesense
+
+If not set, gmd will fail.
 
 ## Pipeline reference
 
@@ -40,12 +42,10 @@ All parameters have sensible defaults — you only need to set what you want to 
 | `llm.embedding_base_url` | — | Endpoint for embedding model (required) |
 | `llm.expansion_base_url` | — | Endpoint for expansion model (required) |
 | `llm.rerank_base_url` | — | Endpoint for rerank model (required) |
-| `llm.api_key` | `OPENAI_API_KEY` env | API key |
 | `llm.embedding_model` | `google/embeddinggemma-300m` | Model for embeddings |
 | `llm.expansion_model` | `Qwen/Qwen3-1.7B` | Model for query expansion |
 | `llm.rerank_model` | `Qwen/Qwen3-Reranker-0.6B` | Model for reranking |
 | `typesense.host` | — | Typesense server URL |
-| `typesense.api_key` | — | Typesense API key |
 | `pipeline.chunk.targetTokens` | 900 | Target tokens per chunk |
 | `pipeline.chunk.overlap` | 0.15 | Fraction overlap between chunks |
 | `pipeline.strongSignal.minScore` | 0.85 | BM25 score threshold for strong signal |

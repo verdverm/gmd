@@ -3,7 +3,6 @@ package gmd
 // LLMConfig defines the OpenAI-compatible provider settings.
 // Each model role has its own endpoint URL (vLLM needs separate servers per model).
 LLMConfig: {
-	api_key:             string | *""
 	embedding_model:     string | *"google/embeddinggemma-300m"
 	expansion_model:     string | *"Qwen/Qwen3-1.7B"
 	rerank_model:        string | *"Qwen/Qwen3-Reranker-0.6B"
@@ -15,7 +14,6 @@ LLMConfig: {
 // TypesenseConfig defines the search engine connection settings.
 TypesenseConfig: {
 	host:    string
-	api_key: string
 }
 
 // ChunkConfig defines heading-aware chunking parameters.

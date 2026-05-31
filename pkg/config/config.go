@@ -21,7 +21,7 @@ type Config struct {
 
 // LLMConfig maps from the CUE LLMConfig schema.
 type LLMConfig struct {
-	APIKey           string `json:"api_key"`
+	APIKey           string `json:"-"`
 	EmbeddingModel   string `json:"embedding_model"`
 	ExpansionModel   string `json:"expansion_model"`
 	RerankModel      string `json:"rerank_model"`
@@ -33,7 +33,7 @@ type LLMConfig struct {
 // TypesenseConfig maps from the CUE TypesenseConfig schema.
 type TypesenseConfig struct {
 	Host   string `json:"host"`
-	APIKey string `json:"api_key"`
+	APIKey string `json:"-"`
 }
 
 // ChunkConfig maps from the CUE ChunkConfig schema.
@@ -187,9 +187,8 @@ func Load(cwd string) (*Config, error) {
 		return nil, fmt.Errorf("decoding config: %w", err)
 	}
 
-	if cfg.LLM.APIKey == "" {
-		cfg.LLM.APIKey = os.Getenv("OPENAI_API_KEY")
-	}
+	cfg.LLM.APIKey = os.Getenv("OPENAI_API_KEY")
+	cfg.Typesense.APIKey = os.Getenv("GMD_TYPESENSE_API_KEY")
 
 	cfg.ProjectRoot = projectRoot
 

@@ -13,6 +13,9 @@ gmd search "<terms>"         # Text-only keyword search (fast, no LLM)
 gmd get <path>               # Retrieve document content by file path
 gmd ls [collection]          # List indexed documents
 gmd collection list          # List all collections
+gmd wiki init [--name]        # Create a Karpathy-style LLM Wiki
+gmd wiki ingest <src>         # LLM agent reads source, creates/updates wiki pages
+gmd wiki query "<q>"          # RAG search → LLM synthesis with [[page]] citations
 ```
 
 ## Setup
@@ -40,3 +43,14 @@ gmd collection list          # List all collections
 - Use `gmd get <path>` to retrieve full document content after finding relevant files.
 - Use `gmd ls` to see what documents are currently indexed.
 - If `gmd query` returns no results, check `gmd status` to verify the index is populated.
+
+## LLM Wiki
+
+GMD includes a built-in agent for Karpathy-style compounding knowledge bases:
+
+- `gmd wiki init --name myresearch` — scaffold wiki directory structure + CUE config
+- `gmd wiki ingest paper.md` — LLM reads source, extracts entities/concepts/claims, writes/updates interlinked wiki pages
+- `gmd wiki query "what is..."` — RAG search over wiki → LLM synthesizes answer with [[page]] citations
+- `gmd wiki skills write --target all` — install skill templates for AI agents (Claude Code, Codex, OpenCode)
+- `gmd wiki lint` — check for orphan pages, broken wikilinks, contradictions, knowledge gaps
+- `gmd wiki doctor --fix` — diagnostics + auto-configure MCP servers for detected agents

@@ -82,6 +82,41 @@ Config: {
 | `ignore` | `[...string]` | Glob patterns for files to skip during indexing |
 | `context` | string | Description used in query expansion prompts |
 | `includeByDefault` | bool | Whether collection is searched by default (default: true) |
+| `wiki` | struct | Wiki-specific settings (optional, activates wiki mode) |
+
+### Wiki configuration
+
+When `wiki` is present on a collection, gmd applies wiki-aware behavior:
+
+```cue
+collections: myresearch: {
+  path:    "wiki"
+  pattern: "wiki/**/*.md"
+  ignore:  ["wiki/_index.md", "wiki/_log.md"]
+  context: "AI research knowledge base"
+  wiki: {
+    enabled:    true
+    indexFile:  "_index.md"
+    logFile:    "_log.md"
+    graphLinks: true
+    frontmatter: {
+      fields: {
+        type:   { type: "string",  facet: true }
+        tags:   { type: "string[]", facet: true }
+        status: { type: "string",  facet: true }
+      }
+    }
+  }
+}
+```
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `wiki.enabled` | bool | true | Enable wiki-aware behavior |
+| `wiki.indexFile` | string | `_index.md` | Path to wiki catalog file (skipped during indexing) |
+| `wiki.logFile` | string | `_log.md` | Path to chronological log file (skipped during indexing) |
+| `wiki.graphLinks` | bool | true | Parse `[[wikilinks]]` for graph edges |
+| `wiki.frontmatter.fields` | map | — | YAML frontmatter fields to extract as typed fields in Typesense |
 
 ## Pipeline reference
 

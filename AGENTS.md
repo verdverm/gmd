@@ -41,6 +41,13 @@ gmd cleanup                            # Remove stale chunks for deleted files
 gmd serve [--port] [--host]            # REST API server (stub, Phase 5)
 gmd mcp [--http]                       # MCP server (stub, Phase 6)
 gmd agents [oneline|summary|detailed|full]  # Output AGENTS.md content for users
+gmd wiki init [--name] [--path]        # Create wiki scaffold + CUE config entry
+gmd wiki ingest <src> [--name]         # LLM agent reads source → writes wiki pages
+gmd wiki query "..." [--name] [--save] # Search wiki → LLM synthesis with citations
+gmd wiki graph [--name] [--format]     # Export wikilink graph (dot/mermaid/json)
+gmd wiki lint [--name]                 # Structure + content health checks
+gmd wiki doctor [--name] [--fix]       # Diagnostics + auto-configure agents
+gmd wiki skills [list|show|write]      # Manage embedded agent skill templates
 ```
 
 ## Architecture
@@ -56,6 +63,8 @@ pkg/llm/          OpenAI-compatible API client (embeddings, chat, rerank)
 pkg/output/       Result formatting (CLI, JSON)
 pkg/runtime/      Runtime struct — owns Typesense client lifecycle
 pkg/agents/       Embedded AGENTS.md content (oneline/summary/detailed/full)
+pkg/wiki/         LLM Wiki: scaffold, built-in agent, graph, lint, skills
+pkg/mcp/          MCP server tools (wiki-aware tools)
 models/           vLLM serve scripts + systemd units for 3 LLM models
 k8s/              Typesense Kubernetes manifest
 docs/             Configuration reference

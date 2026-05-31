@@ -122,6 +122,28 @@ Run `gmd query` from within `myproject/docs/` and the `myapp` collection is sele
 | `gmd mcp` | Start MCP server (for AI agent integration) |
 | `gmd doctor` | Run diagnostics |
 | `gmd cleanup` | Remove stale chunks for deleted files |
+| `gmd wiki init` | Create a new Karpathy-style LLM Wiki |
+| `gmd wiki ingest <src>` | Ingest a source into the wiki using built-in LLM agent |
+| `gmd wiki query "..."` | Query the wiki with RAG synthesis |
+| `gmd wiki graph` | Export wikilink graph (dot/mermaid/json) |
+| `gmd wiki lint` | Health checks (orphans, broken links, contradictions) |
+| `gmd wiki skills` | Manage embedded agent skill templates |
+| `gmd wiki doctor` | Diagnostics + auto-configure agent MCP |
+
+## LLM Wiki
+
+gmd can maintain a Karpathy-style compounding knowledge base. The built-in LLM agent
+reads sources, extracts entities/concepts/claims, writes interlinked wiki pages, and keeps
+everything searchable.
+
+```bash
+gmd wiki init --name myresearch      # scaffold wiki directory + config
+gmd wiki ingest paper.md             # LLM reads paper, creates/updates wiki pages
+gmd wiki query "what is..."          # RAG search → LLM synthesis with [[citations]]
+gmd wiki skills write --target all   # install skill templates for AI agents
+```
+
+See the wiki skill templates at `gmd wiki skills list` and `WIKI_SCHEMA.md` for conventions.
 
 Search flags:
 

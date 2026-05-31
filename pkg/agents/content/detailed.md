@@ -145,6 +145,18 @@ Search flags:
 | `gmd mcp [--http]` | Start MCP server for AI agent integration |
 | `gmd doctor` | Run system diagnostics |
 
+### LLM Wiki
+
+| Command | Description |
+|---|---|
+| `gmd wiki init [--name] [--path]` | Scaffold wiki directory structure + CUE config entry |
+| `gmd wiki ingest <source>` | LLM reads source, extracts entities/concepts/claims, writes wiki pages |
+| `gmd wiki query "<question>" [--save]` | RAG search over wiki → LLM synthesis with [[page]] citations |
+| `gmd wiki graph [--format]` | Export wikilink graph as dot, mermaid, or JSON |
+| `gmd wiki lint` | Structure checks (orphans, broken links) + LLM content analysis |
+| `gmd wiki skills [list|show|write]` | Manage embedded skill templates for AI agents |
+| `gmd wiki doctor [--fix]` | Diagnostics + auto-configure MCP servers for detected agents |
+
 ### REST API Endpoints (`gmd serve`)
 
 | Endpoint | Method | Description |
@@ -197,6 +209,8 @@ pkg/ts/           Typesense client wrapper (chunks collection, hybrid/text searc
 pkg/llm/          OpenAI-compatible API client (embeddings, chat, rerank)
 pkg/output/       Result formatting (CLI, JSON)
 pkg/runtime/      Runtime struct — owns Typesense client lifecycle
+pkg/wiki/         LLM Wiki: scaffold, built-in agent, graph, lint, skills
+pkg/mcp/          MCP server tools (wiki-aware tools)
 ```
 
 ## Key Design Decisions

@@ -515,7 +515,7 @@ k8s/
 - **Typesense resilience** — no health check, retry, or timeout logic; needs graceful degradation when Typesense is down
 
 
-## 14. LLM Wiki Integration (Karpathy Pattern)
+## 14. LLM Wiki Integration (Karpathy Pattern) — Done
 
 Andrej Karpathy's [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) (April 2026) proposes a pattern where an LLM agent incrementally builds and maintains a persistent, interlinked markdown wiki from raw sources. It shifts from query-time RAG retrieval to a compounding knowledge artifact. Karpathy explicitly names **qmd** as the recommended search backend for wikis that outgrow simple `index.md` navigation — making GMD (qmd's Go successor) the natural search infrastructure for this ecosystem.
 

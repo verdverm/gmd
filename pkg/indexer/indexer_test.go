@@ -9,6 +9,7 @@ import (
 	"testing/fstest"
 
 	"github.com/verdverm/gmd/pkg/config"
+	"github.com/verdverm/gmd/pkg/ts"
 )
 
 func TestScanFilesFS(t *testing.T) {
@@ -437,5 +438,153 @@ func testConfigWithCollections(t *testing.T, cols map[string]config.CollectionCo
 				NewlineWeight:   1,
 			},
 		},
+	}
+}
+
+type mockTSClient struct {
+	distinctPaths map[string][]string
+	deletePaths   []string
+}
+
+func (m *mockTSClient) SearchDistinctPaths(ctx context.Context, filter string) ([]string, error) {
+	if paths, ok := m.distinctPaths[filter]; ok {
+		return paths, nil
+	}
+	return nil, nil
+}
+
+func (m *mockTSClient) DeleteChunksByPath(ctx context.Context, path string) error {
+	m.deletePaths = append(m.deletePaths, path)
+	return nil
+}
+
+func (m *mockTSClient) GetHashByPath(ctx context.Context, path string) (string, error) {
+	return "", nil
+}
+
+func (m *mockTSClient) UpsertChunks(ctx context.Context, chunks []ts.ChunkDocument) error {
+	return nil
+}
+
+func TestStalePaths(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create a file that exists on disk
+	existing := filepath.Join(dir, "existing.md")
+	if err := os.WriteFile(existing, []byte("# Existing"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &config.Config{
+		ProjectRoot: "/",
+		Collections: map[string]config.CollectionConfig{
+			"test": {
+				Path:    dir,
+				Pattern: "*.md",
+			},
+		},
+	}
+
+	idx := New(cfg, nil, nil)
+
+	// Override ts client
+	mockTS := &mockTSClient{
+		distinctPaths: map[string][]string{
+			"collection:=test": {"existing.md", "deleted.md"},
+		},
+	}
+	idx.ts = mockTS
+
+	t.Run("finds stale paths", func(t *testing.T) {
+		stale, err := idx.StalePaths(context.Background(), "test")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(stale) != 1 || stale[0] != "deleted.md" {
+			t.Errorf("expected [deleted.md], got %v", stale)
+		}
+	})
+
+	t.Run("non-existent collection returns error", func(t *testing.T) {
+		_, err := idx.StalePaths(context.Background(), "nonexistent")
+		if err == nil {
+			t.Fatal("expected error")
+		}
+	})
+}
+
+func TestCleanupDeleted(t *testing.T) {
+	dir := t.TempDir()
+
+	existing := filepath.Join(dir, "keep.md")
+	if err := os.WriteFile(existing, []byte("# Keep"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &config.Config{
+		ProjectRoot: "/",
+		Collections: map[string]config.CollectionConfig{
+			"test": {
+				Path:    dir,
+				Pattern: "*.md",
+			},
+		},
+	}
+
+	idx := New(cfg, nil, nil)
+	idx.ts = &mockTSClient{
+		distinctPaths: map[string][]string{
+			"collection:=test": {"keep.md", "stale.md"},
+		},
+	}
+
+	t.Run("deletes stale chunks", func(t *testing.T) {
+		deleted, err := idx.CleanupDeleted(context.Background(), "test")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if deleted != 1 {
+			t.Errorf("expected 1 deleted, got %d", deleted)
+		}
+	})
+}
+
+func TestCleanupAllCollections(t *testing.T) {
+	dir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(dir, "a.md"), []byte("# A"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &config.Config{
+		ProjectRoot: "/",
+		Collections: map[string]config.CollectionConfig{
+			"docs":  {Path: dir, Pattern: "*.md"},
+			"notes": {Path: dir, Pattern: "*.md"},
+		},
+	}
+
+	idx := New(cfg, nil, nil)
+	idx.ts = &mockTSClient{
+		distinctPaths: map[string][]string{
+			"collection:=docs":  {"a.md"},
+			"collection:=notes": {"b.md"}, // stale
+		},
+	}
+
+	results := idx.CleanupAllCollections(context.Background(), nil)
+	if results["notes"] != 1 {
+		t.Errorf("expected 1 stale in notes, got %d", results["notes"])
+	}
+	if results["docs"] != 0 {
+		t.Errorf("expected 0 stale in docs, got %d", results["docs"])
+	}
+}
+
+func TestStalePathsNonexistentCollection(t *testing.T) {
+	idx := New(&config.Config{}, nil, nil)
+	_, err := idx.StalePaths(context.Background(), "nonexistent")
+	if err == nil {
+		t.Fatal("expected error for nonexistent collection")
 	}
 }

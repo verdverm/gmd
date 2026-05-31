@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/spf13/cobra"
+	"github.com/verdverm/gmd/pkg/config"
 )
 
 var collectionCmd = &cobra.Command{
@@ -17,13 +18,22 @@ var collectionCmd = &cobra.Command{
 	},
 }
 
+var collAddPath string
+var collAddPattern string
+
 var collectionAddCmd = &cobra.Command{
 	Use:   "add <name>",
 	Short: "Add a new collection",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Printf("collection add: %q (not yet implemented, needs config file editing in pkg)\n", args[0])
-		return nil
+		r, err := getRuntime()
+		if err != nil {
+			return err
+		}
+		name := args[0]
+		path := collAddPath
+		pattern := collAddPattern
+		return config.AddCollection(r.Config(), name, path, pattern)
 	},
 }
 
@@ -66,7 +76,21 @@ var collectionRemoveCmd = &cobra.Command{
 	Short: "Remove a collection and its chunks",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Printf("collection remove: %q (not yet implemented, needs config file editing in pkg)\n", args[0])
+		r, err := getRuntime()
+		if err != nil {
+			return err
+		}
+		name := args[0]
+
+		if err := config.RemoveCollection(r.Config(), name); err != nil {
+			return err
+		}
+
+		if err := r.TSClient().DeleteChunksByCollection(context.Background(), name); err != nil {
+			return fmt.Errorf("deleting chunks for %q: %w", name, err)
+		}
+
+		fmt.Printf("Removed collection %q and its chunks.\n", name)
 		return nil
 	},
 }
@@ -76,7 +100,18 @@ var collectionRenameCmd = &cobra.Command{
 	Short: "Rename a collection",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Printf("collection rename: %q -> %q (not yet implemented, needs config file editing in pkg)\n", args[0], args[1])
+		r, err := getRuntime()
+		if err != nil {
+			return err
+		}
+		oldName := args[0]
+		newName := args[1]
+
+		if err := config.RenameCollection(r.Config(), oldName, newName); err != nil {
+			return err
+		}
+
+		fmt.Printf("Renamed collection %q to %q.\n", oldName, newName)
 		return nil
 	},
 }
@@ -120,25 +155,33 @@ var collectionShowCmd = &cobra.Command{
 
 var collectionIncludeCmd = &cobra.Command{
 	Use:   "include <name> <pattern>",
-	Short: "Add a file pattern to a collection",
+	Short: "Set the file pattern for a collection",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Printf("collection include: %q %q (not yet implemented, needs config file editing in pkg)\n", args[0], args[1])
-		return nil
+		r, err := getRuntime()
+		if err != nil {
+			return err
+		}
+		return config.SetCollectionPattern(r.Config(), args[0], args[1])
 	},
 }
 
 var collectionExcludeCmd = &cobra.Command{
 	Use:   "exclude <name> <pattern>",
-	Short: "Remove a file pattern from a collection",
+	Short: "Add a file ignore pattern to a collection",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Printf("collection exclude: %q %q (not yet implemented, needs config file editing in pkg)\n", args[0], args[1])
-		return nil
+		r, err := getRuntime()
+		if err != nil {
+			return err
+		}
+		return config.AddIgnorePattern(r.Config(), args[0], args[1])
 	},
 }
 
 func init() {
+	collectionAddCmd.Flags().StringVarP(&collAddPath, "path", "p", ".", "Collection root path")
+	collectionAddCmd.Flags().StringVarP(&collAddPattern, "pattern", "P", "**/*.md", "File glob pattern")
 	collectionCmd.AddCommand(collectionAddCmd)
 	collectionCmd.AddCommand(collectionListCmd)
 	collectionCmd.AddCommand(collectionRemoveCmd)

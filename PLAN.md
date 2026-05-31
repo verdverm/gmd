@@ -41,9 +41,9 @@
 - [x] Position-aware blending (top/middle/bottom tiers with configurable weights)
 - [x] Result formatting (CLI text + JSON output with snippets)
 
-### Phase 4: CLI Commands — Partial
+### Phase 4: CLI Commands — Done
 
-**Wired (backed by `pkg/`):**
+All commands backed by `pkg/` code:
 - [x] `gmd search` — text-only search via `pkg/search`
 - [x] `gmd vsearch` — vector search via `pkg/search`
 - [x] `gmd query` — full hybrid pipeline via `pkg/search`
@@ -53,19 +53,19 @@
 - [x] `gmd init` — creates `.gmd/config.cue`
 - [x] `gmd collection list` — lists collections from `pkg/config`
 - [x] `gmd collection show` — collection details + chunk count via `pkg/ts`
+- [x] `gmd collection add` — config file editing (CUE AST) + `--path`/`--pattern` flags
+- [x] `gmd collection remove` — config file editing + chunk deletion via `pkg/ts`
+- [x] `gmd collection rename` — config file editing (CUE AST label rename)
+- [x] `gmd collection include` — config file editing (sets pattern field)
+- [x] `gmd collection exclude` — config file editing (adds to ignore list)
+- [x] `gmd context add` — config file editing (sets context field on collection)
+- [x] `gmd context list` — lists context docs from `pkg/config`
+- [x] `gmd context rm` — config file editing (removes context field)
 - [x] `gmd get` — fetch document content via `pkg/ts` (path-filtered search)
+- [x] `gmd multi-get` — batch fetch via `pkg/ts` path filter search
 - [x] `gmd ls` — list indexed documents via `pkg/ts`
 - [x] `gmd doctor` — diagnostics via `pkg/config` + `pkg/runtime` + `pkg/ts`
-
-**Stubs (need new `pkg/` code):**
-- [ ] `gmd collection add` — needs config file editing support in `pkg`
-- [ ] `gmd collection remove` — needs config file editing + chunk deletion
-- [ ] `gmd collection rename` — needs config + Typesense schema rename
-- [ ] `gmd collection include` — needs config file editing
-- [ ] `gmd collection exclude` — needs config file editing
-- [ ] `gmd context [add|list|rm]` — needs context document support in `pkg`
-- [ ] `gmd multi-get` — needs glob-to-Typesense-search mapping in `pkg`
-- [ ] `gmd cleanup` — needs indexer + Typesense stale-chunk detection in `pkg`
+- [x] `gmd cleanup` — stale chunk detection via `pkg/indexer` + `pkg/ts`
 
 ### Phase 5: REST API Server — Not Started
 - [ ] `gmd serve` — `api/` directory empty, no `pkg/` code exists yet

@@ -364,6 +364,85 @@ func formatVector(v []float64) string {
 	return string(b)
 }
 
+// DeleteChunksByCollection removes all chunks for a given collection name.
+func (c *Client) DeleteChunksByCollection(ctx context.Context, name string) error {
+	filter := fmt.Sprintf("collection:=%s", name)
+	_, err := c.client.Collection(chunksCollection).Documents().Delete(ctx, &api.DeleteDocumentsParams{
+		FilterBy: &filter,
+	})
+	if err != nil {
+		return fmt.Errorf("deleting chunks for collection %s: %w", name, err)
+	}
+	return nil
+}
+
+// SearchDistinctPaths returns all distinct document paths in Typesense.
+// Optional filter can restrict by collection or other fields.
+func (c *Client) SearchDistinctPaths(ctx context.Context, filter string) ([]string, error) {
+	limit := 10000
+	groupLimit := 1
+	searchParams := &api.SearchCollectionParams{
+		Q:          stringPtr(""),
+		QueryBy:    stringPtr("content"),
+		GroupBy:    stringPtr("path"),
+		GroupLimit: &groupLimit,
+		PerPage:    &limit,
+	}
+	if filter != "" {
+		searchParams.FilterBy = &filter
+	}
+
+	resp, err := c.client.Collection(chunksCollection).Documents().Search(ctx, searchParams)
+	if err != nil {
+		return nil, fmt.Errorf("searching distinct paths: %w", err)
+	}
+
+	var paths []string
+	if resp.GroupedHits == nil {
+		return paths, nil
+	}
+
+	seen := make(map[string]bool)
+	for _, group := range *resp.GroupedHits {
+		if len(group.Hits) == 0 {
+			continue
+		}
+		doc := group.Hits[0].Document
+		if doc == nil {
+			continue
+		}
+		if v, ok := (*doc)["path"]; ok {
+			p := fmt.Sprint(v)
+			if !seen[p] {
+				paths = append(paths, p)
+				seen[p] = true
+			}
+		}
+	}
+	return paths, nil
+}
+
+// SearchChunksByPath searches for chunks matching a given path filter.
+func (c *Client) SearchChunksByPath(ctx context.Context, filter string, limit int) ([]HybridSearchResult, error) {
+	searchParams := &api.SearchCollectionParams{
+		Q:          stringPtr(""),
+		QueryBy:    stringPtr("content"),
+		GroupBy:    stringPtr("collection,path"),
+		GroupLimit: intPtr(10),
+		PerPage:    intPtr(limit),
+	}
+	if filter != "" {
+		searchParams.FilterBy = &filter
+	}
+
+	resp, err := c.client.Collection(chunksCollection).Documents().Search(ctx, searchParams)
+	if err != nil {
+		return nil, fmt.Errorf("searching chunks by path: %w", err)
+	}
+
+	return groupedHitsToResults(resp), nil
+}
+
 func boolPtr(b bool) *bool       { return &b }
 func intPtr(i int) *int          { return &i }
 func stringPtr(s string) *string { return &s }

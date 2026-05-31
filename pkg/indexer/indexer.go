@@ -16,16 +16,24 @@ import (
 	"github.com/verdverm/gmd/pkg/ts"
 )
 
+// TSClient defines the Typesense operations needed by the indexer.
+type TSClient interface {
+	GetHashByPath(ctx context.Context, path string) (string, error)
+	DeleteChunksByPath(ctx context.Context, path string) error
+	UpsertChunks(ctx context.Context, chunks []ts.ChunkDocument) error
+	SearchDistinctPaths(ctx context.Context, filter string) ([]string, error)
+}
+
 type ProgressFn func(msg string)
 
 type Indexer struct {
 	cfg  *config.Config
-	ts   *ts.Client
+	ts   TSClient
 	llm  *llm.Client
 	fsys fs.FS
 }
 
-func New(cfg *config.Config, tsClient *ts.Client, llmClient *llm.Client) *Indexer {
+func New(cfg *config.Config, tsClient TSClient, llmClient *llm.Client) *Indexer {
 	return &Indexer{
 		cfg: cfg,
 		ts:  tsClient,
@@ -320,4 +328,66 @@ func fileHash(path string) (string, error) {
 	}
 	h := sha256.Sum256(data)
 	return fmt.Sprintf("%x", h), nil
+}
+
+// StalePaths finds paths indexed in Typesense that no longer exist on disk.
+func (idx *Indexer) StalePaths(ctx context.Context, collection string) ([]string, error) {
+	col, ok := idx.cfg.Collections[collection]
+	if !ok {
+		return nil, fmt.Errorf("collection %q not found", collection)
+	}
+
+	filter := fmt.Sprintf("collection:=%s", collection)
+	indexedPaths, err := idx.ts.SearchDistinctPaths(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("searching indexed paths: %w", err)
+	}
+
+	colPath := col.Path
+	if !filepath.IsAbs(colPath) {
+		colPath = filepath.Join(idx.cfg.ProjectRoot, colPath)
+	}
+	colPath = filepath.Clean(colPath)
+
+	var stale []string
+	for _, p := range indexedPaths {
+		fullPath := filepath.Join(colPath, p)
+		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+			stale = append(stale, p)
+		}
+	}
+	return stale, nil
+}
+
+// CleanupDeleted removes all chunks for files that no longer exist on disk.
+func (idx *Indexer) CleanupDeleted(ctx context.Context, collection string) (int, error) {
+	stale, err := idx.StalePaths(ctx, collection)
+	if err != nil {
+		return 0, err
+	}
+
+	var deleted int
+	for _, p := range stale {
+		if err := idx.ts.DeleteChunksByPath(ctx, p); err != nil {
+			return deleted, fmt.Errorf("deleting %s: %w", p, err)
+		}
+		deleted++
+	}
+	return deleted, nil
+}
+
+// CleanupAllCollections runs cleanup for all configured collections.
+func (idx *Indexer) CleanupAllCollections(ctx context.Context, progress ProgressFn) map[string]int {
+	results := make(map[string]int)
+	for name := range idx.cfg.Collections {
+		if progress != nil {
+			progress(fmt.Sprintf("[%s] Cleaning up stale chunks...", name))
+		}
+		deleted, err := idx.CleanupDeleted(ctx, name)
+		if err != nil && progress != nil {
+			progress(fmt.Sprintf("[%s] Error: %v", name, err))
+		}
+		results[name] = deleted
+	}
+	return results
 }

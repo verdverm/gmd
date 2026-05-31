@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/verdverm/gmd/pkg/indexer"
 	"github.com/verdverm/gmd/pkg/ts"
 )
 
@@ -104,7 +105,22 @@ var cleanupCmd = &cobra.Command{
 	Use:   "cleanup",
 	Short: "Remove stale chunks for deleted or changed files",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("cleanup (not yet implemented, needs indexer scanning + ts deletion integration)")
+		r, err := getRuntime()
+		if err != nil {
+			return err
+		}
+
+		idx := indexer.New(r.Config(), r.TSClient(), nil)
+		ctx := context.Background()
+		progress := func(m string) { fmt.Println(m) }
+		results := idx.CleanupAllCollections(ctx, progress)
+
+		total := 0
+		for name, count := range results {
+			fmt.Printf("[%s] Removed %d stale chunks\n", name, count)
+			total += count
+		}
+		fmt.Printf("\nCleanup complete: %d total stale chunks removed.\n", total)
 		return nil
 	},
 }

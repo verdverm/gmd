@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/bmatcuk/doublestar/v4"
 	"github.com/verdverm/gmd/chunking"
 	"github.com/verdverm/gmd/config"
 	"github.com/verdverm/gmd/llm"
@@ -17,9 +19,10 @@ import (
 type ProgressFn func(msg string)
 
 type Indexer struct {
-	cfg *config.Config
-	ts  *ts.Client
-	llm *llm.Client
+	cfg  *config.Config
+	ts   *ts.Client
+	llm  *llm.Client
+	fsys fs.FS
 }
 
 func New(cfg *config.Config, tsClient *ts.Client, llmClient *llm.Client) *Indexer {
@@ -28,6 +31,18 @@ func New(cfg *config.Config, tsClient *ts.Client, llmClient *llm.Client) *Indexe
 		ts:  tsClient,
 		llm: llmClient,
 	}
+}
+
+func (idx *Indexer) WithFS(fsys fs.FS) *Indexer {
+	idx.fsys = fsys
+	return idx
+}
+
+func (idx *Indexer) rootFS() fs.FS {
+	if idx.fsys != nil {
+		return idx.fsys
+	}
+	return os.DirFS("/")
 }
 
 type fileStatus int
@@ -83,13 +98,31 @@ func (idx *Indexer) updateCollection(ctx context.Context, name string, col confi
 		progress(fmt.Sprintf("[%s] Scanning %s", name, colPath))
 	}
 
-	files, err := scanFiles(colPath, col.Pattern, col.Ignore)
+	subRoot := strings.TrimLeft(colPath, "/")
+	fsys := idx.rootFS()
+	if subRoot != "" {
+		var err error
+		fsys, err = fs.Sub(fsys, subRoot)
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("[%s] FS error: %v", name, err))
+			return result
+		}
+	}
+
+	files, err := scanFilesFS(fsys, ".", col.Pattern, col.Ignore)
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("[%s] scan error: %v", name, err))
 		return result
 	}
 
 	result.TotalFiles = len(files)
+
+	colRel := colPath
+	if root != "" {
+		if r, err := filepath.Rel(root, colPath); err == nil {
+			colRel = r
+		}
+	}
 
 	var allChunks []ts.ChunkDocument
 	var indexed int
@@ -101,23 +134,19 @@ func (idx *Indexer) updateCollection(ctx context.Context, name string, col confi
 			break
 		}
 
-		hash, err := fileHash(fi)
+		hash, err := fileHashFS(fsys, fi)
 		if err != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("[%s] hash error %s: %v", name, fi, err))
+			fullPath := filepath.Join(colPath, fi)
+			result.Errors = append(result.Errors, fmt.Sprintf("[%s] hash error %s: %v", name, fullPath, err))
 			continue
 		}
 
-		relPath := fi
-		if root != "" {
-			r, err := filepath.Rel(root, fi)
-			if err == nil {
-				relPath = r
-			}
-		}
+		relPath := filepath.Join(colRel, fi)
 
 		existingHash, err := idx.ts.GetHashByPath(ctx, relPath)
 		if err != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("[%s] query error %s: %v", name, fi, err))
+			fullPath := filepath.Join(colPath, fi)
+			result.Errors = append(result.Errors, fmt.Sprintf("[%s] query error %s: %v", name, fullPath, err))
 			continue
 		}
 
@@ -136,20 +165,23 @@ func (idx *Indexer) updateCollection(ctx context.Context, name string, col confi
 
 		if existingHash != "" {
 			if err := idx.ts.DeleteChunksByPath(ctx, relPath); err != nil {
-				result.Errors = append(result.Errors, fmt.Sprintf("[%s] delete error %s: %v", name, fi, err))
+				fullPath := filepath.Join(colPath, fi)
+				result.Errors = append(result.Errors, fmt.Sprintf("[%s] delete error %s: %v", name, fullPath, err))
 				continue
 			}
 		}
 
-		chunks, err := idx.processFile(ctx, fi, relPath, name, hash)
+		chunks, err := idx.processFile(ctx, fsys, fi, relPath, name, hash)
 		if err != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("[%s] process error %s: %v", name, fi, err))
+			fullPath := filepath.Join(colPath, fi)
+			result.Errors = append(result.Errors, fmt.Sprintf("[%s] process error %s: %v", name, fullPath, err))
 			continue
 		}
 
 		if len(chunks) > 0 {
 			if err := idx.ts.UpsertChunks(ctx, chunks); err != nil {
-				result.Errors = append(result.Errors, fmt.Sprintf("[%s] upsert error %s: %v", name, fi, err))
+				fullPath := filepath.Join(colPath, fi)
+				result.Errors = append(result.Errors, fmt.Sprintf("[%s] upsert error %s: %v", name, fullPath, err))
 				continue
 			}
 		}
@@ -169,27 +201,14 @@ func (idx *Indexer) updateCollection(ctx context.Context, name string, col confi
 	return result
 }
 
-func (idx *Indexer) processFile(ctx context.Context, absPath, relPath, collection, hash string) ([]ts.ChunkDocument, error) {
-	data, err := os.ReadFile(absPath)
+func (idx *Indexer) processFile(ctx context.Context, fsys fs.FS, fsPath, relPath, collection, hash string) ([]ts.ChunkDocument, error) {
+	data, err := fs.ReadFile(fsys, fsPath)
 	if err != nil {
 		return nil, fmt.Errorf("reading file: %w", err)
 	}
 
 	content := string(data)
-	chunkCfg := chunking.Config{
-		TargetTokens: idx.cfg.Pipeline.Chunk.TargetTokens,
-		Overlap:      idx.cfg.Pipeline.Chunk.Overlap,
-		HeadingWeights: chunking.HeadingWeights{
-			H1: idx.cfg.Pipeline.Chunk.HeadingWeights.H1,
-			H2: idx.cfg.Pipeline.Chunk.HeadingWeights.H2,
-			H3: idx.cfg.Pipeline.Chunk.HeadingWeights.H3,
-			H4: idx.cfg.Pipeline.Chunk.HeadingWeights.H4,
-			H5: idx.cfg.Pipeline.Chunk.HeadingWeights.H5,
-			H6: idx.cfg.Pipeline.Chunk.HeadingWeights.H6,
-		},
-		CodeFenceWeight: idx.cfg.Pipeline.Chunk.CodeFenceWeight,
-		NewlineWeight:   idx.cfg.Pipeline.Chunk.NewlineWeight,
-	}
+	chunkCfg := idx.chunkConfig()
 
 	rawChunks := chunking.ChunkMarkdown(content, chunkCfg)
 
@@ -226,71 +245,72 @@ func (idx *Indexer) processFile(ctx context.Context, absPath, relPath, collectio
 	return docChunks, nil
 }
 
-func scanFiles(root, pattern string, ignore []string) ([]string, error) {
-	info, err := os.Stat(root)
+func (idx *Indexer) chunkConfig() chunking.Config {
+	return chunking.Config{
+		TargetTokens: idx.cfg.Pipeline.Chunk.TargetTokens,
+		Overlap:      idx.cfg.Pipeline.Chunk.Overlap,
+		HeadingWeights: chunking.HeadingWeights{
+			H1: idx.cfg.Pipeline.Chunk.HeadingWeights.H1,
+			H2: idx.cfg.Pipeline.Chunk.HeadingWeights.H2,
+			H3: idx.cfg.Pipeline.Chunk.HeadingWeights.H3,
+			H4: idx.cfg.Pipeline.Chunk.HeadingWeights.H4,
+			H5: idx.cfg.Pipeline.Chunk.HeadingWeights.H5,
+			H6: idx.cfg.Pipeline.Chunk.HeadingWeights.H6,
+		},
+		CodeFenceWeight: idx.cfg.Pipeline.Chunk.CodeFenceWeight,
+		NewlineWeight:   idx.cfg.Pipeline.Chunk.NewlineWeight,
+	}
+}
+
+func scanFilesFS(fsys fs.FS, root, pattern string, ignore []string) ([]string, error) {
+	info, err := fs.Stat(fsys, root)
 	if err != nil {
-		return nil, fmt.Errorf("accessing collection path %s: %w", root, err)
+		return nil, fmt.Errorf("accessing collection path: %w", err)
 	}
 	if !info.IsDir() {
 		return []string{root}, nil
 	}
 
-	ignoreSet := make(map[string]bool)
-	for _, ig := range ignore {
-		ignoreSet[ig] = true
-	}
-
-	var files []string
-
-	err = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		rel, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-
-		if rel == "." {
-			return nil
-		}
-
-		for ig := range ignoreSet {
-			if matched, _ := filepath.Match(ig, rel); matched {
-				if info.IsDir() {
-					return filepath.SkipDir
-				}
-				return nil
-			}
-			if strings.HasPrefix(rel, ig) {
-				if info.IsDir() {
-					return filepath.SkipDir
-				}
-				return nil
-			}
-		}
-
-		if info.IsDir() {
-			return nil
-		}
-
-		matched, err := filepath.Match(pattern, rel)
-		if err != nil {
-			return err
-		}
-		if matched {
-			files = append(files, path)
-		}
-
-		return nil
-	})
-
+	pattern = filepath.Join(root, pattern)
+	matches, err := doublestar.Glob(fsys, pattern)
 	if err != nil {
-		return nil, fmt.Errorf("walking %s: %w", root, err)
+		return nil, fmt.Errorf("globbing %s: %w", pattern, err)
+	}
+	if len(matches) == 0 {
+		return nil, nil
 	}
 
+	if len(ignore) == 0 {
+		return matches, nil
+	}
+
+	files := make([]string, 0, len(matches))
+	for _, m := range matches {
+		ignored := false
+		for _, ig := range ignore {
+			if matched, _ := doublestar.Match(ig, m); matched {
+				ignored = true
+				break
+			}
+			if strings.HasPrefix(m, ig) {
+				ignored = true
+				break
+			}
+		}
+		if !ignored {
+			files = append(files, m)
+		}
+	}
 	return files, nil
+}
+
+func fileHashFS(fsys fs.FS, path string) (string, error) {
+	data, err := fs.ReadFile(fsys, path)
+	if err != nil {
+		return "", err
+	}
+	h := sha256.Sum256(data)
+	return fmt.Sprintf("%x", h), nil
 }
 
 func fileHash(path string) (string, error) {

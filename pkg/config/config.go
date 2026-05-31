@@ -14,10 +14,16 @@ import (
 type Config struct {
 	LLM         LLMConfig                   `json:"llm"`
 	Typesense   TypesenseConfig             `json:"typesense"`
+	EXA         EXAConfig                   `json:"exa,omitempty"`
 	Pipeline    PipelineConfig              `json:"pipeline"`
 	Collections map[string]CollectionConfig `json:"collections"`
 	ProjectRoot string                      `json:"-"`
 	Project     string                      `json:"project,omitempty"`
+}
+
+// EXAConfig maps from the CUE EXAConfig schema.
+type EXAConfig struct {
+	APIKey string `json:"-"`
 }
 
 // CollectionKey returns the project-prefixed key for a collection name.
@@ -221,6 +227,7 @@ func Load(cwd string) (*Config, error) {
 
 	cfg.LLM.APIKey = os.Getenv("OPENAI_API_KEY")
 	cfg.Typesense.APIKey = os.Getenv("GMD_TYPESENSE_API_KEY")
+	cfg.EXA.APIKey = os.Getenv("EXA_API_KEY")
 
 	cfg.ProjectRoot = projectRoot
 	if cfg.Project == "" && projectRoot != "" {

@@ -109,11 +109,17 @@ CollectionConfig: {
 	wiki?:             WikiConfig | *null   // optional, activates wiki mode
 }
 
+// EXAConfig defines the EXA web search API settings.
+EXAConfig: {
+	api_key: string | *"" // from EXA_API_KEY env var
+}
+
 // ProjectConfig is the root configuration object.
 ProjectConfig: {
 	project?:    string
 	llm:         LLMConfig
 	typesense:   TypesenseConfig
+	exa?:        EXAConfig
 	pipeline?:   PipelineConfig
 	collections: [string]: CollectionConfig
 }

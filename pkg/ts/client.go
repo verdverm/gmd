@@ -232,6 +232,7 @@ type HybridSearchParams struct {
 	Query       string
 	QueryVector []float64
 	Collections []string
+	FilterBy    string
 	Limit       int
 	GroupLimit  int
 }
@@ -251,7 +252,9 @@ func (c *Client) HybridSearch(ctx context.Context, params HybridSearchParams) ([
 		searchParams.VectorQuery = &vec
 	}
 
-	if len(params.Collections) > 0 {
+	if params.FilterBy != "" {
+		searchParams.FilterBy = &params.FilterBy
+	} else if len(params.Collections) > 0 {
 		filter := buildCollectionFilter(params.Collections)
 		searchParams.FilterBy = &filter
 	}
@@ -274,7 +277,9 @@ func (c *Client) TextSearch(ctx context.Context, params HybridSearchParams) ([]H
 		PerPage:    intPtr(params.Limit),
 	}
 
-	if len(params.Collections) > 0 {
+	if params.FilterBy != "" {
+		searchParams.FilterBy = &params.FilterBy
+	} else if len(params.Collections) > 0 {
 		filter := buildCollectionFilter(params.Collections)
 		searchParams.FilterBy = &filter
 	}

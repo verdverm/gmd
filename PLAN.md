@@ -11,7 +11,6 @@
 | Manual `--collection` required | Auto-detected from project root + CWD |
 | CLI only | CLI + REST API + MCP server |
 
----
 
 ## 🚧 Implementation Status
 
@@ -24,7 +23,7 @@
 - [x] Hash field in Typesense chunks schema for content-based change detection
 - [x] `gmd init` command
 - [x] Makefile with CGO-free build targets
-- [x] No `internal/` — all packages importable
+- [x] Library packages under `pkg/` — all importable
 
 ### Phase 2: Indexing — ✅ Done
 - [x] LLM client (`pkg/llm/client.go`): embeddings, chat, rerank
@@ -42,9 +41,44 @@
 - [x] Position-aware blending (top/middle/bottom tiers with configurable weights)
 - [x] Result formatting (CLI text + JSON output with snippets)
 
-### Phase 4–7: CLI, REST API, MCP, Polish — ⏳ Not Started
+### Phase 4: CLI Commands — 🔄 Partial
 
----
+**Wired (backed by `pkg/`):**
+- [x] `gmd search` — text-only search via `pkg/search`
+- [x] `gmd vsearch` — vector search via `pkg/search`
+- [x] `gmd query` — full hybrid pipeline via `pkg/search`
+- [x] `gmd update` — index/re-index via `pkg/indexer`
+- [x] `gmd embed` — re-embed via `pkg/indexer`
+- [x] `gmd status` — index health via `pkg/runtime` + `pkg/ts`
+- [x] `gmd init` — creates `.gmd/config.cue`
+- [x] `gmd collection list` — lists collections from `pkg/config`
+- [x] `gmd collection show` — collection details + chunk count via `pkg/ts`
+- [x] `gmd get` — fetch document content via `pkg/ts` (path-filtered search)
+- [x] `gmd ls` — list indexed documents via `pkg/ts`
+- [x] `gmd doctor` — diagnostics via `pkg/config` + `pkg/runtime` + `pkg/ts`
+
+**Stubs (need new `pkg/` code):**
+- [ ] `gmd collection add` — needs config file editing support in `pkg`
+- [ ] `gmd collection remove` — needs config file editing + chunk deletion
+- [ ] `gmd collection rename` — needs config + Typesense schema rename
+- [ ] `gmd collection include` — needs config file editing
+- [ ] `gmd collection exclude` — needs config file editing
+- [ ] `gmd context [add|list|rm]` — needs context document support in `pkg`
+- [ ] `gmd multi-get` — needs glob-to-Typesense-search mapping in `pkg`
+- [ ] `gmd cleanup` — needs indexer + Typesense stale-chunk detection in `pkg`
+
+### Phase 5: REST API Server — ⏳ Not Started
+- [ ] `gmd serve` — `api/` directory empty, no `pkg/` code exists yet
+
+### Phase 6: MCP Server — ⏳ Not Started
+- [ ] `gmd mcp` — no MCP library or server code exists yet
+
+### Phase 7: Polish — ⏳ Not Started
+- [ ] LLM cache integration
+- [ ] Benchmark harness (port from `./qmd/src/bench/`)
+- [ ] Error handling, edge cases (empty collections, missing config, Typesense down)
+- [ ] CI/CD with `CGO_ENABLED=0` check
+
 
 ## 1. Typesense ↔ QMD Overlap Analysis
 
@@ -79,59 +113,6 @@ Per variant: Typesense hybrid search (text + vector fused internally, grouped by
 
 Each variant goes from **2 queries + custom fusion** (QMD) to **1 query** (GMD).
 
----
-
-## 2. Project Structure
-
-```
-gmd/
-├── cmd/
-│   └── gmd/                     # Main CLI (all subcommands including mcp + serve)
-│       ├── main.go
-│       ├── init.go
-│       ├── status.go
-│       ├── update_embed.go
-│       ├── search.go
-│       ├── get.go
-│       ├── collection.go
-│       ├── context.go
-│       ├── misc.go
-│       ├── serve.go
-│       └── mcp.go
-├── pkg/
-│   ├── config/
-│   │   ├── config.go            # CUE config loading, merging, validation
-│   │   ├── project.go           #   project root detection
-│   │   └── schema/              #   CUE schema files (embedded via go:embed)
-│   │       ├── types.cue        #     shared type definitions
-│   │       ├── pipeline.cue     #     pipeline parameter schema + defaults
-│   │       └── config.cue       #     root config schema
-│   ├── runtime/                 # Core engine — orchestrates indexing, search, lifecycle
-│   │   └── runtime.go
-│   ├── ts/                      # Typesense client wrapper
-│   │   └── client.go            #   schema setup, document CRUD, hybrid search, hash-based dedup
-│   ├── llm/                     # OpenAI-compatible LLM client
-│   │   └── client.go            #   embeddings, chat, reranking
-│   ├── search/                  # Search pipeline orchestration
-│   │   └── pipeline.go
-│   ├── chunking/                # Document chunking
-│   │   └── markdown.go          #   heading-aware chunker
-│   ├── indexer/                 # File scanning + chunking + indexing pipeline
-│   │   └── indexer.go           #   scan, hash dedup, chunk, embed, upsert
-│   └── output/                  # Output formatters
-│       ├── formatter.go
-│       └── snippet.go
-├── api/                         # REST API server (TBD)
-│   ├── server.go                #   (file TBD)
-│   ├── handlers.go              #   (file TBD)
-│   └── middleware.go            #   (file TBD)
-├── go.mod
-├── go.sum
-├── Makefile
-└── PLAN.md
-```
-
----
 
 ## 3. Storage Architecture
 
@@ -175,7 +156,6 @@ Typesense supports both auto-embedding (server-side) and external embeddings. GM
 | **Search time** | Go embeds query text via API → sends `vector_query` param to Typesense hybrid search |
 | **Why external?** | User controls the embedding model in GMD config (not locked to Typesense-supported models). Consistent with "OpenAI-compatible module" requirement. |
 
----
 
 ## 4. Data Flow
 
@@ -254,7 +234,6 @@ Return final ranked results
 | `gmd vsearch` | Vector-only Typesense search (no text) | Embedding model |
 | `gmd query` | Full pipeline: expansion → hybrid → RRF → rerank → blend | All 3 models |
 
----
 
 ## 5. API Server
 
@@ -279,7 +258,6 @@ Return final ranked results
 
 **Implementation**: Uses Go 1.22+ `net/http` with enhanced `ServeMux` for routing (no external router dependency). Standard middleware: request logging, recovery, CORS, optional API key authentication.
 
----
 
 ## 6. Key Dependencies (Go)
 
@@ -291,7 +269,6 @@ Return final ranked results
 | `github.com/spf13/cobra` | CLI framework |
 | `golang.org/x/sync` | errgroup, semaphore for parallel work |
 
----
 
 ## 7. Implementation Phases
 
@@ -349,7 +326,6 @@ Auto-detection integration: `status` shows project root + matched collections, `
 - Error handling, edge cases (empty collections, missing config, Typesense down)
 - Documentation, CI/CD with `CGO_ENABLED=0` check
 
----
 
 ## 8. Key Design Decisions
 
@@ -392,7 +368,6 @@ The `llm.Client` abstraction wraps any OpenAI-compatible provider via `base_url`
 ### 8j. REST API as a first-class interface alongside CLI and MCP
 `gmd serve` provides a full REST API sharing the same `Runtime` backend. Three interfaces (CLI, REST, MCP) serve different use cases: interactive use, programmatic/scripting, and AI agent integration. The API uses stdlib `net/http` (Go 1.22+ enhanced ServeMux) to avoid external HTTP router dependencies.
 
----
 
 ## 9. Configuration (CUE)
 
@@ -474,7 +449,6 @@ Config: {
 | Default output format | `pipeline.output.defaultFormat` | "cli" | CLI output format |
 | Max results | `pipeline.output.maxResults` | 5 | Default result count |
 
----
 
 ## 10. Migration from QMD
 
@@ -486,7 +460,6 @@ Config: {
 | CGO-free CI | `CGO_ENABLED=0 go build ./...` in CI pipeline |
 | Converting QMD YAML to CUE | `gmd import-qmd` generates `~/.config/gmd/config.cue` from existing YAML config |
 
----
 
 ## 11. What Stays the Same (from QMD)
 
@@ -516,7 +489,6 @@ Config: {
 | Fixed pipeline parameters | All pipeline knobs exposed in CUE schema | Power-user customization |
 | CLI only | CLI + REST API + MCP server | `gmd serve`, `gmd mcp`, and `gmd <subcommand>` |
 
----
 
 ## 13. K8s Infrastructure (gmd namespace)
 
@@ -543,7 +515,6 @@ k8s/
 └── typesense.yaml   # TypesenseCluster + NodePort Service
 ```
 
----
 
 ## 14. TODO (Next)
 

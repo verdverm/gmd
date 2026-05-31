@@ -33,12 +33,14 @@
 - [x] Batch embedding + Typesense upsert
 - [x] CLI commands: `update`, `embed`
 
-### Phase 3: Search Pipeline — 🔄 In Progress (Typesense hybrid search infra exists)
-- [ ] Strong signal detection
-- [ ] LLM query expansion
-- [x] Typesense hybrid search wrapper (`ts/client.go` — not yet wired into pipeline)
-- [ ] RRF fusion + rerank + position blending
-- [ ] Result formatting
+### Phase 3: Search Pipeline — ✅ Done
+- [x] Strong signal detection (BM25 probe via Typesense text-only search, score + gap thresholds)
+- [x] LLM query expansion (chat completion generating lex/vec/hyde variants)
+- [x] Typesense hybrid search wrapper (`ts/client.go` — wired into pipeline)
+- [x] RRF fusion across expansion variants (k, weights, top-rank bonus from CUE config)
+- [x] LLM reranking (via `/v1/rerank` endpoint; gracefully skipped if unsupported)
+- [x] Position-aware blending (top/middle/bottom tiers with configurable weights)
+- [x] Result formatting (CLI text + JSON output with snippets)
 
 ### Phase 4–7: CLI, REST API, MCP, Polish — ⏳ Not Started
 

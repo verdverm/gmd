@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -44,4 +45,21 @@ func GlobalConfigPath() (string, error) {
 		return "", err
 	}
 	return filepath.Join(home, globalConfigDir, globalConfigFile), nil
+}
+
+// MatchCollectionsByCWD returns the names of collections whose path encompasses cwd.
+func MatchCollectionsByCWD(cfg *Config, cwd string) []string {
+	var matched []string
+	for name, col := range cfg.Collections {
+		colPath := col.Path
+		if !filepath.IsAbs(colPath) {
+			colPath = filepath.Join(cfg.ProjectRoot, colPath)
+		}
+		colPath = filepath.Clean(colPath)
+		rel, err := filepath.Rel(colPath, cwd)
+		if err == nil && !strings.HasPrefix(rel, "..") {
+			matched = append(matched, name)
+		}
+	}
+	return matched
 }

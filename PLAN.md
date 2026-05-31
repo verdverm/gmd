@@ -12,9 +12,9 @@
 | CLI only | CLI + REST API + MCP server |
 
 
-## 🚧 Implementation Status
+## Implementation Status
 
-### Phase 1: Scaffold + Config + Data Layer — ✅ Done
+### Phase 1: Scaffold + Config + Data Layer — Done
 - [x] CUE schema (`pkg/config/schema/*.cue`) with pipeline defaults
 - [x] Config loader (global + project-local unification via CUE)
 - [x] Project root detection (walk up from CWD)
@@ -25,14 +25,14 @@
 - [x] Makefile with CGO-free build targets
 - [x] Library packages under `pkg/` — all importable
 
-### Phase 2: Indexing — ✅ Done
+### Phase 2: Indexing — Done
 - [x] LLM client (`pkg/llm/client.go`): embeddings, chat, rerank
 - [x] Markdown chunker (heading-aware breakpoints)
 - [x] File scanner + SHA-256 dedup via Typesense hash field
 - [x] Batch embedding + Typesense upsert
 - [x] CLI commands: `update`, `embed`
 
-### Phase 3: Search Pipeline — ✅ Done
+### Phase 3: Search Pipeline — Done
 - [x] Strong signal detection (BM25 probe via Typesense text-only search, score + gap thresholds)
 - [x] LLM query expansion (chat completion generating lex/vec/hyde variants)
 - [x] Typesense hybrid search wrapper (`pkg/ts/client.go` — wired into pipeline)
@@ -41,7 +41,7 @@
 - [x] Position-aware blending (top/middle/bottom tiers with configurable weights)
 - [x] Result formatting (CLI text + JSON output with snippets)
 
-### Phase 4: CLI Commands — 🔄 Partial
+### Phase 4: CLI Commands — Partial
 
 **Wired (backed by `pkg/`):**
 - [x] `gmd search` — text-only search via `pkg/search`
@@ -67,13 +67,13 @@
 - [ ] `gmd multi-get` — needs glob-to-Typesense-search mapping in `pkg`
 - [ ] `gmd cleanup` — needs indexer + Typesense stale-chunk detection in `pkg`
 
-### Phase 5: REST API Server — ⏳ Not Started
+### Phase 5: REST API Server — Not Started
 - [ ] `gmd serve` — `api/` directory empty, no `pkg/` code exists yet
 
-### Phase 6: MCP Server — ⏳ Not Started
+### Phase 6: MCP Server — Not Started
 - [ ] `gmd mcp` — no MCP library or server code exists yet
 
-### Phase 7: Polish — ⏳ Not Started
+### Phase 7: Polish — Not Started
 - [ ] LLM cache integration
 - [ ] Benchmark harness (port from `./qmd/src/bench/`)
 - [ ] Error handling, edge cases (empty collections, missing config, Typesense down)
@@ -84,16 +84,16 @@
 
 | QMD Custom Code | Typesense Replaces It? | GMD Approach |
 |---|---|---|
-| **FTS5 BM25 search** (`searchFTS`) | ✅ Typesense full-text search | Typesense handles it |
-| **sqlite-vec vector search** (`searchVec`) | ✅ Typesense vector search | Typesense handles it |
-| **RRF fusion between FTS + vector** | ✅ Typesense hybrid search (built-in Rank Fusion) | Typesense handles per-variant fusion |
-| **Manual dedup by filepath** | ✅ `group_by=collection,path` collapses chunk results | Typesense handles grouping |
-| **Query expansion** (LLM lex/vec/hyde) | ⚠️ Synonyms are complementary but don't replace LLM | LLM expansion kept; synonyms optionally layered on |
-| **RRF fusion across expansion variants** | ❌ Typesense operates on a single query | Custom Go code (RRF across variant result sets) |
-| **LLM reranking** | ❌ Typesense has no rerank | Custom Go code (LLM API rerank endpoint) |
-| **Position-aware blending** (RRF + reranker) | ❌ Application-side logic | Custom Go code |
-| **Chunking** (markdown headings + AST) | ❌ Typesense indexes whole documents or existing chunks | Custom Go code (port from QMD) |
-| **Content-addressable dedup** (SHA-256) | ✅ `hash` field on Typesense chunk documents | Filter by `path` + compare hash |
+| **FTS5 BM25 search** (`searchFTS`) | Typesense full-text search | Typesense handles it |
+| **sqlite-vec vector search** (`searchVec`) | Typesense vector search | Typesense handles it |
+| **RRF fusion between FTS + vector** | Typesense hybrid search (built-in Rank Fusion) | Typesense handles per-variant fusion |
+| **Manual dedup by filepath** | `group_by=collection,path` collapses chunk results | Typesense handles grouping |
+| **Query expansion** (LLM lex/vec/hyde) | Synonyms are complementary but don't replace LLM | LLM expansion kept; synonyms optionally layered on |
+| **RRF fusion across expansion variants** | Typesense operates on a single query | Custom Go code (RRF across variant result sets) |
+| **LLM reranking** | Typesense has no rerank | Custom Go code (LLM API rerank endpoint) |
+| **Position-aware blending** (RRF + reranker) | Application-side logic | Custom Go code |
+| **Chunking** (markdown headings + AST) | Typesense indexes whole documents or existing chunks | Custom Go code (port from QMD) |
+| **Content-addressable dedup** (SHA-256) | `hash` field on Typesense chunk documents | Filter by `path` + compare hash |
 
 ### Simplified Search Pipeline
 
@@ -298,7 +298,7 @@ Return final ranked results
 - Position-aware blending (thresholds + weights from CUE config)
 - Result formatting with snippets
 
-### Phase 4: CLI — 🔄 Commands Registered, Stubs Implemented
+### Phase 4: CLI — Commands Registered, Stubs Implemented
 All QMD commands, ported:
 `status` `update` `embed` `search` `vsearch` `query` `get` `multi-get`
 `collection [add|list|remove|rename|show|include|exclude]`
@@ -307,14 +307,14 @@ All QMD commands, ported:
 
 Auto-detection integration: `status` shows project root + matched collections, `query`/`search`/`vsearch` auto-select collections from CWD.
 
-### Phase 5: REST API Server — 🔄 Stub Exists
+### Phase 5: REST API Server — Stub Exists
 - HTTP server setup (Go 1.22+ `net/http` ServeMux, middleware stack)
 - Endpoint handlers for all 10 routes (health, status, search, vsearch, query, documents, multi-get, collections, update, embed)
 - Request validation, JSON response formatting, error handling
 - CORS, rate limiting, optional API key auth via CUE config
 - `gmd serve` command with `--port` and `--host` flags
 
-### Phase 6: MCP Server — 🔄 Stub Exists
+### Phase 6: MCP Server — Stub Exists
 - MCP tools: `query`, `get`, `multi_get`, `status`
 - MCP resource: `gmd://{+path}`
 - Transports: stdio and Streamable HTTP

@@ -99,6 +99,112 @@ func (c *Client) UpsertChunks(ctx context.Context, chunks []ChunkDocument) error
 	return nil
 }
 
+// CountByCollection returns the number of chunk documents for each given collection name.
+func (c *Client) CountByCollection(ctx context.Context, names []string) (map[string]int64, error) {
+	result := make(map[string]int64)
+	for _, name := range names {
+		count, err := c.countByField(ctx, "collection", name)
+		if err != nil {
+			return nil, err
+		}
+		result[name] = count
+	}
+	return result, nil
+}
+
+// CountByPath returns the number of chunk documents for a given path.
+func (c *Client) CountByPath(ctx context.Context, path string) (int64, error) {
+	filter := fmt.Sprintf("path:=%s", path)
+	limit := 0
+	searchParams := &api.SearchCollectionParams{
+		Q:        stringPtr(""),
+		QueryBy:  stringPtr("content"),
+		FilterBy: &filter,
+		PerPage:  &limit,
+	}
+	resp, err := c.client.Collection(chunksCollection).Documents().Search(ctx, searchParams)
+	if err != nil {
+		return 0, err
+	}
+	if resp.Found != nil {
+		return int64(*resp.Found), nil
+	}
+	return 0, nil
+}
+
+func (c *Client) countByField(ctx context.Context, field, value string) (int64, error) {
+	filter := fmt.Sprintf("%s:=%s", field, value)
+	limit := 0
+	searchParams := &api.SearchCollectionParams{
+		Q:        stringPtr(""),
+		QueryBy:  stringPtr("content"),
+		FilterBy: &filter,
+		PerPage:  &limit,
+	}
+	resp, err := c.client.Collection(chunksCollection).Documents().Search(ctx, searchParams)
+	if err != nil {
+		return 0, err
+	}
+	if resp.Found != nil {
+		return int64(*resp.Found), nil
+	}
+	return 0, nil
+}
+
+// CollectionCount returns the total number of documents in the chunks collection.
+func (c *Client) CollectionCount(ctx context.Context) (int64, error) {
+	collections, err := c.client.Collections().Retrieve(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("retrieving collections: %w", err)
+	}
+	for _, col := range collections {
+		if col.Name == chunksCollection {
+			if col.NumDocuments != nil {
+				return int64(*col.NumDocuments), nil
+			}
+			return 0, nil
+		}
+	}
+	return 0, nil
+}
+
+// GetHashByPath returns the hash of the first chunk document for a given path.
+// Returns empty string if no chunks exist for that path.
+func (c *Client) GetHashByPath(ctx context.Context, path string) (string, error) {
+	filter := fmt.Sprintf("path:=%s", path)
+	limit := 1
+	searchParams := &api.SearchCollectionParams{
+		Q:        stringPtr(""),
+		QueryBy:  stringPtr("content"),
+		FilterBy: &filter,
+		PerPage:  &limit,
+	}
+
+	resp, err := c.client.Collection(chunksCollection).Documents().Search(ctx, searchParams)
+	if err != nil {
+		return "", fmt.Errorf("searching hash for %s: %w", path, err)
+	}
+
+	if resp.GroupedHits == nil || len(*resp.GroupedHits) == 0 {
+		return "", nil
+	}
+
+	for _, group := range *resp.GroupedHits {
+		if len(group.Hits) == 0 {
+			continue
+		}
+		doc := group.Hits[0].Document
+		if doc == nil {
+			continue
+		}
+		if v, ok := (*doc)["hash"]; ok {
+			return fmt.Sprint(v), nil
+		}
+	}
+
+	return "", nil
+}
+
 // DeleteChunksByPath removes all chunks for a given file path.
 func (c *Client) DeleteChunksByPath(ctx context.Context, path string) error {
 	filter := fmt.Sprintf("path:=%s", path)

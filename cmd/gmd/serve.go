@@ -1,0 +1,32 @@
+package main
+
+import (
+	"fmt"
+
+	"github.com/spf13/cobra"
+)
+
+var (
+	serveHost string
+	servePort int
+)
+
+var serveCmd = &cobra.Command{
+	Use:   "serve",
+	Short: "Start the REST API server",
+	Long: `Starts an HTTP server exposing all GMD operations as REST endpoints.
+Default: http://localhost:8181`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		_, err := getRuntime()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("serve on %s:%d (not yet implemented, Phase 5)\n", serveHost, servePort)
+		return nil
+	},
+}
+
+func init() {
+	serveCmd.Flags().StringVarP(&serveHost, "host", "", "localhost", "server host")
+	serveCmd.Flags().IntVarP(&servePort, "port", "p", 8181, "server port")
+}

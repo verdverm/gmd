@@ -6,15 +6,12 @@ BINDIR ?= ./bin
 
 all: build
 
-build: build-gmd build-mcp
+build: build-gmd
 
 build-gmd:
 	CGO_ENABLED=$(CGO_ENABLED) $(GO) build -o $(BINDIR)/gmd ./cmd/gmd
 
-build-mcp:
-	CGO_ENABLED=$(CGO_ENABLED) $(GO) build -o $(BINDIR)/gmd-mcp ./cmd/gmd-mcp
-
-build-all: build-gmd build-mcp
+build-all: build-gmd
 
 tidy:
 	$(GO) mod tidy

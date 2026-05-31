@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/verdverm/gmd/config"
@@ -43,42 +42,23 @@ func getRuntime() (*runtime.Runtime, error) {
 	return r, nil
 }
 
-var initCmd = &cobra.Command{
-	Use:   "init",
-	Short: "Initialize GMD configuration in the current directory",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		dir, err := os.Getwd()
-		if err != nil {
-			return err
-		}
-		gmdDir := filepath.Join(dir, ".gmd")
-		if err := os.MkdirAll(gmdDir, 0755); err != nil {
-			return fmt.Errorf("creating .gmd directory: %w", err)
-		}
-		configPath := filepath.Join(gmdDir, "config.cue")
-		if _, err := os.Stat(configPath); err == nil {
-			return fmt.Errorf("config already exists at %s", configPath)
-		}
-		defaultConfig := `package gmd
-
-Config: {
-	collections: docs: {
-		path:    "."
-		pattern: "**/*.md"
-		context: "Project documentation"
-	}
-}
-`
-		if err := os.WriteFile(configPath, []byte(defaultConfig), 0644); err != nil {
-			return fmt.Errorf("writing config: %w", err)
-		}
-		fmt.Printf("Created GMD config at %s\n", configPath)
-		return nil
-	},
-}
-
 func init() {
 	rootCmd.AddCommand(initCmd)
+	rootCmd.AddCommand(statusCmd)
+	rootCmd.AddCommand(updateCmd)
+	rootCmd.AddCommand(embedCmd)
+	rootCmd.AddCommand(searchCmd)
+	rootCmd.AddCommand(vsearchCmd)
+	rootCmd.AddCommand(queryCmd)
+	rootCmd.AddCommand(getCmd)
+	rootCmd.AddCommand(multiGetCmd)
+	rootCmd.AddCommand(collectionCmd)
+	rootCmd.AddCommand(contextCmd)
+	rootCmd.AddCommand(lsCmd)
+	rootCmd.AddCommand(doctorCmd)
+	rootCmd.AddCommand(cleanupCmd)
+	rootCmd.AddCommand(serveCmd)
+	rootCmd.AddCommand(mcpCmd)
 }
 
 func main() {

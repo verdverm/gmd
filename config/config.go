@@ -15,6 +15,7 @@ type Config struct {
 	Typesense   TypesenseConfig             `json:"typesense"`
 	Pipeline    PipelineConfig              `json:"pipeline"`
 	Collections map[string]CollectionConfig `json:"collections"`
+	ProjectRoot string                      `json:"-"`
 }
 
 // LLMConfig maps from the CUE LLMConfig schema.
@@ -182,6 +183,8 @@ func Load(cwd string) (*Config, error) {
 	if cfg.LLM.APIKey == "" {
 		cfg.LLM.APIKey = os.Getenv("OPENAI_API_KEY")
 	}
+
+	cfg.ProjectRoot = projectRoot
 
 	return &cfg, nil
 }

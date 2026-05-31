@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/verdverm/gmd/config"
-	"github.com/verdverm/gmd/ts"
+	"github.com/verdverm/gmd/pkg/config"
+	"github.com/verdverm/gmd/pkg/ts"
 )
 
 // Runtime is the core engine that orchestrates indexing, search, and lifecycle.

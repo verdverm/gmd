@@ -8,7 +8,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/verdverm/gmd/config"
+	"github.com/verdverm/gmd/pkg/config"
 )
 
 func TestScanFilesFS(t *testing.T) {

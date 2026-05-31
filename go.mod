@@ -4,6 +4,7 @@ go 1.25.6
 
 require (
 	cuelang.org/go v0.16.1
+	github.com/bmatcuk/doublestar/v4 v4.10.0
 	github.com/openai/openai-go/v3 v3.37.0
 	github.com/spf13/cobra v1.10.2
 	github.com/typesense/typesense-go/v4 v4.0.0-alpha2
@@ -11,7 +12,6 @@ require (
 
 require (
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
-	github.com/bmatcuk/doublestar/v4 v4.10.0 // indirect
 	github.com/cockroachdb/apd/v3 v3.2.1 // indirect
 	github.com/emicklei/proto v1.14.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect

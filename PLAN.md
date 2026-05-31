@@ -16,7 +16,7 @@
 ## 🚧 Implementation Status
 
 ### Phase 1: Scaffold + Config + Data Layer — ✅ Done
-- [x] CUE schema (`config/schema/*.cue`) with pipeline defaults
+- [x] CUE schema (`pkg/config/schema/*.cue`) with pipeline defaults
 - [x] Config loader (global + project-local unification via CUE)
 - [x] Project root detection (walk up from CWD)
 - [x] Typesense v4 client wrapper (schema mgmt, hybrid/text search, CRUD)
@@ -27,7 +27,7 @@
 - [x] No `internal/` — all packages importable
 
 ### Phase 2: Indexing — ✅ Done
-- [x] LLM client (`llm/client.go`): embeddings, chat, rerank
+- [x] LLM client (`pkg/llm/client.go`): embeddings, chat, rerank
 - [x] Markdown chunker (heading-aware breakpoints)
 - [x] File scanner + SHA-256 dedup via Typesense hash field
 - [x] Batch embedding + Typesense upsert
@@ -36,7 +36,7 @@
 ### Phase 3: Search Pipeline — ✅ Done
 - [x] Strong signal detection (BM25 probe via Typesense text-only search, score + gap thresholds)
 - [x] LLM query expansion (chat completion generating lex/vec/hyde variants)
-- [x] Typesense hybrid search wrapper (`ts/client.go` — wired into pipeline)
+- [x] Typesense hybrid search wrapper (`pkg/ts/client.go` — wired into pipeline)
 - [x] RRF fusion across expansion variants (k, weights, top-rank bonus from CUE config)
 - [x] LLM reranking (via `/v1/rerank` endpoint; gracefully skipped if unsupported)
 - [x] Position-aware blending (top/middle/bottom tiers with configurable weights)
@@ -91,39 +91,40 @@ gmd/
 │       ├── init.go
 │       ├── status.go
 │       ├── update_embed.go
-│       ├── search.go            # stub
-│       ├── get.go               # stub
-│       ├── collection.go        # stub
-│       ├── context.go           # stub
-│       ├── misc.go              # stub
-│       ├── serve.go             # stub
-│       └── mcp.go               # stub
-├── config/
-│   ├── config.go                # CUE config loading, merging, validation
-│   ├── project.go               #   project root detection
-│   └── schema/                  #   CUE schema files (embedded via go:embed)
-│       ├── types.cue            #     shared type definitions
-│       ├── pipeline.cue         #     pipeline parameter schema + defaults
-│       └── config.cue           #     root config schema
-├── runtime/                     # Core engine — orchestrates indexing, search, lifecycle
-│   └── runtime.go
-├── ts/                          # Typesense client wrapper
-│   └── client.go                #   schema setup, document CRUD, hybrid search, hash-based dedup
-├── llm/                         # OpenAI-compatible LLM client
-│   └── client.go                #   embeddings, chat, reranking
-├── search/                      # Search pipeline orchestration (TBD)
-│   └── search.go                #   (file TBD)
-├── chunking/                    # Document chunking
-│   └── markdown.go              #   heading-aware chunker
-├── indexer/                     # File scanning + chunking + indexing pipeline
-│   └── indexer.go               #   scan, hash dedup, chunk, embed, upsert
+│       ├── search.go
+│       ├── get.go
+│       ├── collection.go
+│       ├── context.go
+│       ├── misc.go
+│       ├── serve.go
+│       └── mcp.go
+├── pkg/
+│   ├── config/
+│   │   ├── config.go            # CUE config loading, merging, validation
+│   │   ├── project.go           #   project root detection
+│   │   └── schema/              #   CUE schema files (embedded via go:embed)
+│   │       ├── types.cue        #     shared type definitions
+│   │       ├── pipeline.cue     #     pipeline parameter schema + defaults
+│   │       └── config.cue       #     root config schema
+│   ├── runtime/                 # Core engine — orchestrates indexing, search, lifecycle
+│   │   └── runtime.go
+│   ├── ts/                      # Typesense client wrapper
+│   │   └── client.go            #   schema setup, document CRUD, hybrid search, hash-based dedup
+│   ├── llm/                     # OpenAI-compatible LLM client
+│   │   └── client.go            #   embeddings, chat, reranking
+│   ├── search/                  # Search pipeline orchestration
+│   │   └── pipeline.go
+│   ├── chunking/                # Document chunking
+│   │   └── markdown.go          #   heading-aware chunker
+│   ├── indexer/                 # File scanning + chunking + indexing pipeline
+│   │   └── indexer.go           #   scan, hash dedup, chunk, embed, upsert
+│   └── output/                  # Output formatters
+│       ├── formatter.go
+│       └── snippet.go
 ├── api/                         # REST API server (TBD)
 │   ├── server.go                #   (file TBD)
 │   ├── handlers.go              #   (file TBD)
 │   └── middleware.go            #   (file TBD)
-├── output/                      # Output formatters (TBD)
-│   ├── formatter.go             #   (file TBD)
-│   └── snippet.go               #   (file TBD)
 ├── go.mod
 ├── go.sum
 ├── Makefile

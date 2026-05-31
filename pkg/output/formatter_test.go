@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/verdverm/gmd/search"
+	"github.com/verdverm/gmd/pkg/search"
 )
 
 func makeResult(path, title, content string, score float64) search.Result {

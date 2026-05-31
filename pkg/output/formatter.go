@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/verdverm/gmd/search"
+	"github.com/verdverm/gmd/pkg/search"
 )
 
 func FormatResults(results []search.Result, format string) (string, error) {

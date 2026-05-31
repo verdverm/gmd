@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/verdverm/gmd/config"
-	"github.com/verdverm/gmd/ts"
+	"github.com/verdverm/gmd/pkg/config"
+	"github.com/verdverm/gmd/pkg/ts"
 )
 
 func makeResult(collection, path string, score float64) ts.HybridSearchResult {

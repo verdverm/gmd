@@ -6,8 +6,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/verdverm/gmd/indexer"
-	"github.com/verdverm/gmd/llm"
+	"github.com/verdverm/gmd/pkg/indexer"
+	"github.com/verdverm/gmd/pkg/llm"
 )
 
 func makeLLMClient() *llm.Client {

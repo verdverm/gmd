@@ -10,10 +10,10 @@ import (
 	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
-	"github.com/verdverm/gmd/chunking"
-	"github.com/verdverm/gmd/config"
-	"github.com/verdverm/gmd/llm"
-	"github.com/verdverm/gmd/ts"
+	"github.com/verdverm/gmd/pkg/chunking"
+	"github.com/verdverm/gmd/pkg/config"
+	"github.com/verdverm/gmd/pkg/llm"
+	"github.com/verdverm/gmd/pkg/ts"
 )
 
 type ProgressFn func(msg string)

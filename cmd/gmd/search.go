@@ -6,10 +6,10 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/verdverm/gmd/config"
-	"github.com/verdverm/gmd/llm"
-	"github.com/verdverm/gmd/output"
-	"github.com/verdverm/gmd/search"
+	"github.com/verdverm/gmd/pkg/config"
+	"github.com/verdverm/gmd/pkg/llm"
+	"github.com/verdverm/gmd/pkg/output"
+	"github.com/verdverm/gmd/pkg/search"
 )
 
 var (

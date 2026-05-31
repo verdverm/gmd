@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/verdverm/gmd/config"
-	"github.com/verdverm/gmd/runtime"
+	"github.com/verdverm/gmd/pkg/config"
+	"github.com/verdverm/gmd/pkg/runtime"
 )
 
 var rootCmd = &cobra.Command{

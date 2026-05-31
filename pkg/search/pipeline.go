@@ -6,9 +6,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/verdverm/gmd/config"
-	"github.com/verdverm/gmd/llm"
-	"github.com/verdverm/gmd/ts"
+	"github.com/verdverm/gmd/pkg/config"
+	"github.com/verdverm/gmd/pkg/llm"
+	"github.com/verdverm/gmd/pkg/ts"
 )
 
 type SearchMode int

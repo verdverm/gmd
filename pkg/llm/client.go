@@ -11,15 +11,29 @@ import (
 )
 
 type Client struct {
-	embedClient    openai.Client
-	expandClient   openai.Client
-	rerankClient   openai.Client
-	embeddingModel string
-	expansionModel string
-	rerankModel    string
-	embedURL       string
-	expandURL      string
-	rerankURL      string
+	embedClient        openai.Client
+	expandClient       openai.Client
+	rerankClient       openai.Client
+	summarizeClient    openai.Client
+	generalBigClient   openai.Client
+	generalMidClient   openai.Client
+	generalSmallClient openai.Client
+
+	embeddingModel    string
+	expansionModel    string
+	rerankModel       string
+	summarizingModel  string
+	generalBigModel   string
+	generalMidModel   string
+	generalSmallModel string
+
+	embedURL        string
+	expandURL       string
+	rerankURL       string
+	summarizeURL    string
+	generalBigURL   string
+	generalMidURL   string
+	generalSmallURL string
 }
 
 type Config struct {
@@ -30,6 +44,16 @@ type Config struct {
 	EmbedURL       string
 	ExpandURL      string
 	RerankURL      string
+
+	SummarizingModel   string
+	SummarizingBaseURL string
+
+	GeneralBigModel     string
+	GeneralBigBaseURL   string
+	GeneralMidModel     string
+	GeneralMidBaseURL   string
+	GeneralSmallModel   string
+	GeneralSmallBaseURL string
 }
 
 func newOpenAIClient(baseURL, apiKey string) openai.Client {
@@ -44,21 +68,39 @@ func newOpenAIClient(baseURL, apiKey string) openai.Client {
 
 func New(cfg Config) *Client {
 	return &Client{
-		embedClient:    newOpenAIClient(cfg.EmbedURL, cfg.APIKey),
-		expandClient:   newOpenAIClient(cfg.ExpandURL, cfg.APIKey),
-		rerankClient:   newOpenAIClient(cfg.RerankURL, cfg.APIKey),
-		embeddingModel: cfg.EmbeddingModel,
-		expansionModel: cfg.ExpansionModel,
-		rerankModel:    cfg.RerankModel,
-		embedURL:       cfg.EmbedURL,
-		expandURL:      cfg.ExpandURL,
-		rerankURL:      cfg.RerankURL,
+		embedClient:        newOpenAIClient(cfg.EmbedURL, cfg.APIKey),
+		expandClient:       newOpenAIClient(cfg.ExpandURL, cfg.APIKey),
+		rerankClient:       newOpenAIClient(cfg.RerankURL, cfg.APIKey),
+		summarizeClient:    newOpenAIClient(cfg.SummarizingBaseURL, cfg.APIKey),
+		generalBigClient:   newOpenAIClient(cfg.GeneralBigBaseURL, cfg.APIKey),
+		generalMidClient:   newOpenAIClient(cfg.GeneralMidBaseURL, cfg.APIKey),
+		generalSmallClient: newOpenAIClient(cfg.GeneralSmallBaseURL, cfg.APIKey),
+
+		embeddingModel:    cfg.EmbeddingModel,
+		expansionModel:    cfg.ExpansionModel,
+		rerankModel:       cfg.RerankModel,
+		summarizingModel:  cfg.SummarizingModel,
+		generalBigModel:   cfg.GeneralBigModel,
+		generalMidModel:   cfg.GeneralMidModel,
+		generalSmallModel: cfg.GeneralSmallModel,
+
+		embedURL:        cfg.EmbedURL,
+		expandURL:       cfg.ExpandURL,
+		rerankURL:       cfg.RerankURL,
+		summarizeURL:    cfg.SummarizingBaseURL,
+		generalBigURL:   cfg.GeneralBigBaseURL,
+		generalMidURL:   cfg.GeneralMidBaseURL,
+		generalSmallURL: cfg.GeneralSmallBaseURL,
 	}
 }
 
-func (c *Client) clientForEmbed() openai.Client  { return c.embedClient }
-func (c *Client) clientForExpand() openai.Client { return c.expandClient }
-func (c *Client) clientForRerank() openai.Client { return c.rerankClient }
+func (c *Client) clientForEmbed() openai.Client        { return c.embedClient }
+func (c *Client) clientForExpand() openai.Client       { return c.expandClient }
+func (c *Client) clientForRerank() openai.Client       { return c.rerankClient }
+func (c *Client) clientForSummarize() openai.Client    { return c.summarizeClient }
+func (c *Client) clientForGeneralBig() openai.Client   { return c.generalBigClient }
+func (c *Client) clientForGeneralMid() openai.Client   { return c.generalMidClient }
+func (c *Client) clientForGeneralSmall() openai.Client { return c.generalSmallClient }
 
 func (c *Client) Embed(ctx context.Context, text string) ([]float64, error) {
 	return c.EmbedWithModel(ctx, text, c.embeddingModel)
@@ -104,12 +146,7 @@ type ChatMessage struct {
 	Content string
 }
 
-func (c *Client) Chat(ctx context.Context, messages []ChatMessage) (string, error) {
-	return c.ChatWithModel(ctx, messages, c.expansionModel)
-}
-
-func (c *Client) ChatWithModel(ctx context.Context, messages []ChatMessage, model string) (string, error) {
-	client := c.clientForExpand()
+func (c *Client) chatWithClient(ctx context.Context, messages []ChatMessage, model string, client openai.Client) (string, error) {
 	chatMsgs := make([]openai.ChatCompletionMessageParamUnion, len(messages))
 	for i, m := range messages {
 		switch m.Role {
@@ -135,6 +172,30 @@ func (c *Client) ChatWithModel(ctx context.Context, messages []ChatMessage, mode
 		return "", fmt.Errorf("chat: no choices")
 	}
 	return resp.Choices[0].Message.Content, nil
+}
+
+func (c *Client) Chat(ctx context.Context, messages []ChatMessage) (string, error) {
+	return c.chatWithClient(ctx, messages, c.expansionModel, c.clientForExpand())
+}
+
+func (c *Client) ChatWithModel(ctx context.Context, messages []ChatMessage, model string) (string, error) {
+	return c.chatWithClient(ctx, messages, model, c.clientForExpand())
+}
+
+func (c *Client) Summarize(ctx context.Context, messages []ChatMessage) (string, error) {
+	return c.chatWithClient(ctx, messages, c.summarizingModel, c.clientForSummarize())
+}
+
+func (c *Client) GeneralBigChat(ctx context.Context, messages []ChatMessage) (string, error) {
+	return c.chatWithClient(ctx, messages, c.generalBigModel, c.clientForGeneralBig())
+}
+
+func (c *Client) GeneralMidChat(ctx context.Context, messages []ChatMessage) (string, error) {
+	return c.chatWithClient(ctx, messages, c.generalMidModel, c.clientForGeneralMid())
+}
+
+func (c *Client) GeneralSmallChat(ctx context.Context, messages []ChatMessage) (string, error) {
+	return c.chatWithClient(ctx, messages, c.generalSmallModel, c.clientForGeneralSmall())
 }
 
 type RerankResult struct {
@@ -201,6 +262,10 @@ func (c *Client) CheckAll(ctx context.Context) []EndpointStatus {
 		{"embedding", c.embedURL, c.embeddingModel},
 		{"expansion", c.expandURL, c.expansionModel},
 		{"rerank", c.rerankURL, c.rerankModel},
+		{"summarizing", c.summarizeURL, c.summarizingModel},
+		{"general_big", c.generalBigURL, c.generalBigModel},
+		{"general_mid", c.generalMidURL, c.generalMidModel},
+		{"general_small", c.generalSmallURL, c.generalSmallModel},
 	}
 
 	var results []EndpointStatus

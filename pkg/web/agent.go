@@ -198,7 +198,7 @@ func (a *Agent) synthesize(ctx context.Context, query string, results []exa.Sear
 		{Role: "user", Content: fmt.Sprintf("Synthesize a comprehensive answer to: %s", query)},
 	}
 
-	resp, err := a.llmClient.Chat(ctx, messages)
+	resp, err := a.llmClient.Summarize(ctx, messages)
 	if err != nil {
 		return "", err
 	}

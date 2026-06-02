@@ -102,15 +102,7 @@ when search returns no results or indexing fails.`,
 
 		fmt.Println()
 		fmt.Println("LLM Endpoints:")
-		l := llm.New(llm.Config{
-			APIKey:         cfg.LLM.APIKey,
-			EmbeddingModel: cfg.LLM.EmbeddingModel,
-			ExpansionModel: cfg.LLM.ExpansionModel,
-			RerankModel:    cfg.LLM.RerankModel,
-			EmbedURL:       cfg.LLM.EmbeddingBaseURL,
-			ExpandURL:      cfg.LLM.ExpansionBaseURL,
-			RerankURL:      cfg.LLM.RerankBaseURL,
-		})
+		l := llm.New(llmConfigFromConfig(cfg))
 		statuses := l.CheckAll(context.Background())
 		for _, s := range statuses {
 			if !s.OK {

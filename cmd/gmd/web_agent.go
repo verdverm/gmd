@@ -48,15 +48,7 @@ Examples:
 
 		exaClient := exa.New(config.EXA.APIKey)
 
-		llmClient := llm.New(llm.Config{
-			APIKey:         config.LLM.APIKey,
-			EmbeddingModel: config.LLM.EmbeddingModel,
-			ExpansionModel: config.LLM.ExpansionModel,
-			RerankModel:    config.LLM.RerankModel,
-			EmbedURL:       config.LLM.EmbeddingBaseURL,
-			ExpandURL:      config.LLM.ExpansionBaseURL,
-			RerankURL:      config.LLM.RerankBaseURL,
-		})
+		llmClient := llm.New(llmConfigFromConfig(config))
 
 		maxSteps := webAgentSteps
 		switch webAgentDepth {

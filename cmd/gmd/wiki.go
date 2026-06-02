@@ -138,15 +138,7 @@ var wikiIngestCmd = &cobra.Command{
 		}
 
 		tsClient := r.TSClient()
-		llmClient := llm.New(llm.Config{
-			APIKey:         cfg.LLM.APIKey,
-			EmbeddingModel: cfg.LLM.EmbeddingModel,
-			ExpansionModel: cfg.LLM.ExpansionModel,
-			RerankModel:    cfg.LLM.RerankModel,
-			EmbedURL:       cfg.LLM.EmbeddingBaseURL,
-			ExpandURL:      cfg.LLM.ExpansionBaseURL,
-			RerankURL:      cfg.LLM.RerankBaseURL,
-		})
+		llmClient := llm.New(llmConfigFromConfig(cfg))
 
 		agent := wiki.NewAgent(w, cfg, tsClient, llmClient)
 
@@ -215,15 +207,7 @@ var wikiQueryCmd = &cobra.Command{
 		}
 
 		tsClient := r.TSClient()
-		llmClient := llm.New(llm.Config{
-			APIKey:         cfg.LLM.APIKey,
-			EmbeddingModel: cfg.LLM.EmbeddingModel,
-			ExpansionModel: cfg.LLM.ExpansionModel,
-			RerankModel:    cfg.LLM.RerankModel,
-			EmbedURL:       cfg.LLM.EmbeddingBaseURL,
-			ExpandURL:      cfg.LLM.ExpansionBaseURL,
-			RerankURL:      cfg.LLM.RerankBaseURL,
-		})
+		llmClient := llm.New(llmConfigFromConfig(cfg))
 
 		agent := wiki.NewAgent(w, cfg, tsClient, llmClient)
 
@@ -275,15 +259,7 @@ var wikiGraphCmd = &cobra.Command{
 		}
 
 		tsClient := r.TSClient()
-		llmClient := llm.New(llm.Config{
-			APIKey:         cfg.LLM.APIKey,
-			EmbeddingModel: cfg.LLM.EmbeddingModel,
-			ExpansionModel: cfg.LLM.ExpansionModel,
-			RerankModel:    cfg.LLM.RerankModel,
-			EmbedURL:       cfg.LLM.EmbeddingBaseURL,
-			ExpandURL:      cfg.LLM.ExpansionBaseURL,
-			RerankURL:      cfg.LLM.RerankBaseURL,
-		})
+		llmClient := llm.New(llmConfigFromConfig(cfg))
 
 		agent := wiki.NewAgent(w, cfg, tsClient, llmClient)
 
@@ -325,15 +301,7 @@ var wikiLintCmd = &cobra.Command{
 		}
 
 		tsClient := r.TSClient()
-		llmClient := llm.New(llm.Config{
-			APIKey:         cfg.LLM.APIKey,
-			EmbeddingModel: cfg.LLM.EmbeddingModel,
-			ExpansionModel: cfg.LLM.ExpansionModel,
-			RerankModel:    cfg.LLM.RerankModel,
-			EmbedURL:       cfg.LLM.EmbeddingBaseURL,
-			ExpandURL:      cfg.LLM.ExpansionBaseURL,
-			RerankURL:      cfg.LLM.RerankBaseURL,
-		})
+		llmClient := llm.New(llmConfigFromConfig(cfg))
 
 		agent := wiki.NewAgent(w, cfg, tsClient, llmClient)
 
@@ -459,15 +427,7 @@ var wikiDoctorCmd = &cobra.Command{
 		}
 
 		tsClient := r.TSClient()
-		llmClient := llm.New(llm.Config{
-			APIKey:         cfg.LLM.APIKey,
-			EmbeddingModel: cfg.LLM.EmbeddingModel,
-			ExpansionModel: cfg.LLM.ExpansionModel,
-			RerankModel:    cfg.LLM.RerankModel,
-			EmbedURL:       cfg.LLM.EmbeddingBaseURL,
-			ExpandURL:      cfg.LLM.ExpansionBaseURL,
-			RerankURL:      cfg.LLM.RerankBaseURL,
-		})
+		llmClient := llm.New(llmConfigFromConfig(cfg))
 
 		ctx := context.Background()
 		result, err := wiki.Doctor(ctx, w, cfg, tsClient, llmClient)

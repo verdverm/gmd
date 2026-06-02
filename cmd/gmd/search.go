@@ -24,15 +24,7 @@ func searchRun(args []string, mode search.SearchMode) error {
 		return err
 	}
 	cfg := r.Config()
-	llmClient := llm.New(llm.Config{
-		APIKey:         cfg.LLM.APIKey,
-		EmbeddingModel: cfg.LLM.EmbeddingModel,
-		ExpansionModel: cfg.LLM.ExpansionModel,
-		RerankModel:    cfg.LLM.RerankModel,
-		EmbedURL:       cfg.LLM.EmbeddingBaseURL,
-		ExpandURL:      cfg.LLM.ExpansionBaseURL,
-		RerankURL:      cfg.LLM.RerankBaseURL,
-	})
+	llmClient := llm.New(llmConfigFromConfig(cfg))
 	p := search.New(cfg, r.TSClient(), llmClient)
 	ctx := context.Background()
 

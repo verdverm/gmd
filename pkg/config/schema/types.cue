@@ -9,6 +9,18 @@ LLMConfig: {
 	embedding_base_url:  string
 	expansion_base_url:  string
 	rerank_base_url:     string
+
+	// Summarizing model — separate from expansion (which is too small for synthesis)
+	summarizing_model:     string
+	summarizing_base_url:  string
+
+	// General-purpose agent models at different capability tiers
+	general_big_model:     string
+	general_big_base_url:  string
+	general_mid_model:     string
+	general_mid_base_url:  string
+	general_small_model:   string
+	general_small_base_url: string
 }
 
 // TypesenseConfig defines the search engine connection settings.

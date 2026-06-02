@@ -44,6 +44,16 @@ type LLMConfig struct {
 	EmbeddingBaseURL string `json:"embedding_base_url"`
 	ExpansionBaseURL string `json:"expansion_base_url"`
 	RerankBaseURL    string `json:"rerank_base_url"`
+
+	SummarizingModel   string `json:"summarizing_model"`
+	SummarizingBaseURL string `json:"summarizing_base_url"`
+
+	GeneralBigModel     string `json:"general_big_model"`
+	GeneralBigBaseURL   string `json:"general_big_base_url"`
+	GeneralMidModel     string `json:"general_mid_model"`
+	GeneralMidBaseURL   string `json:"general_mid_base_url"`
+	GeneralSmallModel   string `json:"general_small_model"`
+	GeneralSmallBaseURL string `json:"general_small_base_url"`
 }
 
 // TypesenseConfig maps from the CUE TypesenseConfig schema.

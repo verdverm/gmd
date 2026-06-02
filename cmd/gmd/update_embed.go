@@ -12,15 +12,7 @@ import (
 
 func makeLLMClient() *llm.Client {
 	cfg := globalRuntime.Config()
-	return llm.New(llm.Config{
-		APIKey:         cfg.LLM.APIKey,
-		EmbeddingModel: cfg.LLM.EmbeddingModel,
-		ExpansionModel: cfg.LLM.ExpansionModel,
-		RerankModel:    cfg.LLM.RerankModel,
-		EmbedURL:       cfg.LLM.EmbeddingBaseURL,
-		ExpandURL:      cfg.LLM.ExpansionBaseURL,
-		RerankURL:      cfg.LLM.RerankBaseURL,
-	})
+	return llm.New(llmConfigFromConfig(cfg))
 }
 
 func runIndex(msg string) error {

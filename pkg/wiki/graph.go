@@ -112,9 +112,10 @@ func (a *Agent) Neighbors(ctx context.Context, page string, direction string) ([
 func (a *Agent) NeighborsFromTS(ctx context.Context, page string) ([]string, error) {
 	filterBy := fmt.Sprintf("links:=[%s]", page)
 	searchResults, err := a.tsClient.TextSearch(ctx, ts.HybridSearchParams{
-		Query:    "*",
-		FilterBy: filterBy,
-		Limit:    50,
+		Query:      "*",
+		FilterBy:   filterBy,
+		Limit:      50,
+		GroupLimit: 1,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("finding inbound links: %w", err)

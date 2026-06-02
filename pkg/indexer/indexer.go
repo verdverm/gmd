@@ -218,7 +218,7 @@ func (idx *Indexer) processFile(ctx context.Context, fsys fs.FS, fsPath, relPath
 	content := string(data)
 	chunkCfg := idx.chunkConfig()
 
-	rawChunks := chunking.ChunkMarkdown(content, chunkCfg)
+	rawChunks, links, _ := chunking.ChunkMarkdownWithMeta(content, chunkCfg)
 
 	texts := make([]string, len(rawChunks))
 	for i, c := range rawChunks {
@@ -244,6 +244,7 @@ func (idx *Indexer) processFile(ctx context.Context, fsys fs.FS, fsPath, relPath
 			Hash:        hash,
 			ChunkSeq:    c.ChunkSeq,
 			TotalChunks: c.TotalChunks,
+			Links:       links,
 		}
 		if i < len(embeddings) {
 			docChunks[i].Embedding = embeddings[i]

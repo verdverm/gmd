@@ -36,6 +36,7 @@ type ChunkDocument struct {
 	ChunkSeq    int       `json:"chunk_seq"`
 	TotalChunks int       `json:"total_chunks"`
 	Embedding   []float64 `json:"embedding"`
+	Links       []string  `json:"links,omitempty"`
 }
 
 // New creates a new Typesense client wrapper.
@@ -77,6 +78,7 @@ func (c *Client) EnsureSchema(ctx context.Context, numDim int) error {
 			{Name: "chunk_seq", Type: "int32"},
 			{Name: "total_chunks", Type: "int32"},
 			{Name: "embedding", Type: "float[]", NumDim: intPtr(numDim)},
+			{Name: "links", Type: "string[]", Facet: boolPtr(true), Optional: boolPtr(true)},
 		},
 	}
 

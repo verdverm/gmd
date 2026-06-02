@@ -191,7 +191,7 @@ func (a *Agent) createWikiPage(action IngestAction) error {
 		return fmt.Errorf("marshaling frontmatter: %w", err)
 	}
 
-	content := fmt.Sprintf("---\n%s---\n\n%s", fmYAML, action.Content)
+	content := fmt.Sprintf("---\n%s\n---\n\n%s", fmYAML, action.Content)
 	return os.WriteFile(pagePath, []byte(content), 0644)
 }
 
@@ -492,13 +492,27 @@ func truncate(s string, maxLen int) string {
 
 func cleanJSON(s string) []byte {
 	s = strings.TrimSpace(s)
+	// Strip  blocks (DeepSeek-style reasoning)
+	for {
+		start := strings.Index(s, "<think>")
+		end := strings.Index(s, "</think>")
+		if start == -1 || end == -1 || end < start {
+			break
+		}
+		s = s[:start] + s[end+len("</think>"):]
+	}
+	s = strings.TrimSpace(s)
 	if strings.HasPrefix(s, "```json") {
 		s = strings.TrimPrefix(s, "```json")
-		s = strings.TrimSuffix(s, "```")
+		if idx := strings.LastIndex(s, "```"); idx >= 0 {
+			s = s[:idx]
+		}
 		s = strings.TrimSpace(s)
 	} else if strings.HasPrefix(s, "```") {
 		s = strings.TrimPrefix(s, "```")
-		s = strings.TrimSuffix(s, "```")
+		if idx := strings.LastIndex(s, "```"); idx >= 0 {
+			s = s[:idx]
+		}
 		s = strings.TrimSpace(s)
 	}
 	return []byte(s)

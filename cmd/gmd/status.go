@@ -65,9 +65,9 @@ Workflow:
 				col := cfg.Collections[name]
 				count := counts[key]
 				fmt.Printf("  %s:\n", name)
-				fmt.Printf("    Path:    %s\n", col.Path)
-				if col.Pattern != "" {
-					fmt.Printf("    Pattern: %s\n", col.Pattern)
+				fmt.Printf("    Path:     %s\n", col.Path)
+				if len(col.Patterns) > 0 {
+					fmt.Printf("    Patterns: %v\n", col.Patterns)
 				}
 				fmt.Printf("    Chunks:  %d\n", count)
 			}

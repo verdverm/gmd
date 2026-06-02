@@ -32,16 +32,16 @@ After adding or modifying collections, run 'gmd update' to index files.`,
 }
 
 var collAddPath string
-var collAddPattern string
+var collAddPatterns []string
 
 var collectionAddCmd = &cobra.Command{
 	Use:   "add <name>",
 	Short: "Add a new collection to the config",
 	Long: `Creates a new collection entry in the project config with the given name,
-root path, and file glob pattern.
+root path, and file glob patterns.
 
 Example:
-  gmd collection add mydocs --path ./docs --pattern "**/*.md"
+  gmd collection add mydocs --path ./docs --patterns "**/*.md"
 
 After adding, run 'gmd update' to index the collection's files.`,
 	Args: cobra.ExactArgs(1),
@@ -52,8 +52,11 @@ After adding, run 'gmd update' to index the collection's files.`,
 		}
 		name := args[0]
 		path := collAddPath
-		pattern := collAddPattern
-		return config.AddCollection(r.Config(), name, path, pattern)
+		patterns := collAddPatterns
+		if len(patterns) == 0 {
+			patterns = []string{"**/*.md"}
+		}
+		return config.AddCollection(r.Config(), name, path, patterns)
 	},
 }
 
@@ -88,7 +91,10 @@ Example:
 			col := collections[name]
 			fmt.Printf("  %s\n", name)
 			fmt.Printf("    path:    %s\n", col.Path)
-			fmt.Printf("    pattern: %s\n", col.Pattern)
+			fmt.Printf("    patterns: %v\n", col.Patterns)
+			if len(col.Ignore) > 0 {
+				fmt.Printf("    ignore:  %v\n", col.Ignore)
+			}
 			if col.Context != "" {
 				fmt.Printf("    context: %s\n", col.Context)
 			}
@@ -176,8 +182,8 @@ Example:
 		}
 
 		fmt.Printf("name:    %s\n", name)
-		fmt.Printf("path:    %s\n", col.Path)
-		fmt.Printf("pattern: %s\n", col.Pattern)
+		fmt.Printf("path:     %s\n", col.Path)
+		fmt.Printf("patterns: %v\n", col.Patterns)
 		if len(col.Ignore) > 0 {
 			fmt.Printf("ignore:  %v\n", col.Ignore)
 		}
@@ -198,22 +204,22 @@ Example:
 }
 
 var collectionIncludeCmd = &cobra.Command{
-	Use:   "include <name> <pattern>",
-	Short: "Set the file glob pattern for a collection",
-	Long: `Updates the file-matching pattern for a collection (e.g. "**/*.md").
+	Use:   "include <name> <patterns...>",
+	Short: "Set the file glob patterns for a collection",
+	Long: `Sets the file-matching patterns for a collection (e.g. "**/*.md").
 
 Example:
-  gmd collection include mydocs "**/*.{md,txt}"
+  gmd collection include mydocs "**/*.md" "**/*.txt"
 
-Run 'gmd update' after changing the pattern to re-index with the new
+Run 'gmd update' after changing patterns to re-index with the new
 matching rules.`,
-	Args: cobra.ExactArgs(2),
+	Args: cobra.MinimumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {
 			return err
 		}
-		return config.SetCollectionPattern(r.Config(), args[0], args[1])
+		return config.SetCollectionPatterns(r.Config(), args[0], args[1:])
 	},
 }
 
@@ -237,7 +243,7 @@ Example:
 
 func init() {
 	collectionAddCmd.Flags().StringVarP(&collAddPath, "path", "p", ".", "Collection root path")
-	collectionAddCmd.Flags().StringVarP(&collAddPattern, "pattern", "P", "**/*.md", "File glob pattern")
+	collectionAddCmd.Flags().StringSliceVarP(&collAddPatterns, "patterns", "P", []string{"**/*.md"}, "File glob patterns")
 	collectionCmd.AddCommand(collectionAddCmd)
 	collectionCmd.AddCommand(collectionListCmd)
 	collectionCmd.AddCommand(collectionRemoveCmd)

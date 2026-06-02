@@ -67,7 +67,7 @@ Example:
 
 		col := config.CollectionConfig{
 			Path:             wikiPath,
-			Pattern:          "wiki/**/*.md",
+			Patterns:         []string{"wiki/**/*.md"},
 			IncludeByDefault: true,
 			Ignore:           []string{"wiki/_index.md", "wiki/_log.md"},
 			Wiki: &config.WikiConfig{
@@ -85,7 +85,7 @@ Example:
 		if cfg.ProjectRoot != "" {
 			configPath := config.ProjectConfigPath(cfg.ProjectRoot)
 			if _, err := os.Stat(configPath); err == nil {
-				if err := config.AddCollection(cfg, wikiName, wikiPath, "wiki/**/*.md"); err != nil {
+				if err := config.AddCollection(cfg, wikiName, wikiPath, []string{"wiki/**/*.md"}); err != nil {
 					fmt.Fprintf(os.Stderr, "Warning: could not update config file: %v\n", err)
 					fmt.Fprintf(os.Stderr, "Add this collection manually or run: gmd collection add %s --path %s --pattern 'wiki/**/*.md'\n",
 						wikiName, wikiPath)

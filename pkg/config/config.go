@@ -158,7 +158,7 @@ type FrontmatterField struct {
 // The collection name is the map key in Config.Collections, not a field in this struct.
 type CollectionConfig struct {
 	Path             string      `json:"path"`
-	Pattern          string      `json:"pattern"`
+	Patterns         []string    `json:"patterns"`
 	Ignore           []string    `json:"ignore,omitempty"`
 	Context          string      `json:"context,omitempty"`
 	IncludeByDefault bool        `json:"includeByDefault"`

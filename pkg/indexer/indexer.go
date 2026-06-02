@@ -117,7 +117,7 @@ func (idx *Indexer) updateCollection(ctx context.Context, name string, col confi
 		}
 	}
 
-	files, err := scanFilesFS(fsys, ".", col.Pattern, col.Ignore)
+	files, err := scanFilesFS(fsys, ".", col.Patterns, col.Ignore)
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("[%s] scan error: %v", name, err))
 		return result
@@ -271,7 +271,7 @@ func (idx *Indexer) chunkConfig() chunking.Config {
 	}
 }
 
-func scanFilesFS(fsys fs.FS, root, pattern string, ignore []string) ([]string, error) {
+func scanFilesFS(fsys fs.FS, root string, patterns []string, ignore []string) ([]string, error) {
 	info, err := fs.Stat(fsys, root)
 	if err != nil {
 		return nil, fmt.Errorf("accessing collection path: %w", err)
@@ -280,34 +280,34 @@ func scanFilesFS(fsys fs.FS, root, pattern string, ignore []string) ([]string, e
 		return []string{root}, nil
 	}
 
-	pattern = filepath.Join(root, pattern)
-	matches, err := doublestar.Glob(fsys, pattern)
-	if err != nil {
-		return nil, fmt.Errorf("globbing %s: %w", pattern, err)
-	}
-	if len(matches) == 0 {
-		return nil, nil
-	}
-
-	if len(ignore) == 0 {
-		return matches, nil
-	}
-
-	files := make([]string, 0, len(matches))
-	for _, m := range matches {
-		ignored := false
-		for _, ig := range ignore {
-			if matched, _ := doublestar.Match(ig, m); matched {
-				ignored = true
-				break
-			}
-			if strings.HasPrefix(m, ig) {
-				ignored = true
-				break
-			}
+	seen := make(map[string]bool)
+	var files []string
+	for _, pattern := range patterns {
+		pattern = filepath.Join(root, pattern)
+		matches, err := doublestar.Glob(fsys, pattern)
+		if err != nil {
+			return nil, fmt.Errorf("globbing %s: %w", pattern, err)
 		}
-		if !ignored {
-			files = append(files, m)
+		for _, m := range matches {
+			if seen[m] {
+				continue
+			}
+			seen[m] = true
+
+			ignored := false
+			for _, ig := range ignore {
+				if matched, _ := doublestar.Match(ig, m); matched {
+					ignored = true
+					break
+				}
+				if strings.HasPrefix(m, ig) {
+					ignored = true
+					break
+				}
+			}
+			if !ignored {
+				files = append(files, m)
+			}
 		}
 	}
 	return files, nil

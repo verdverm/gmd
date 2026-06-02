@@ -114,7 +114,7 @@ WikiConfig: {
 // The collection name is the map key, not a field inside the struct.
 CollectionConfig: {
 	path:              string
-	pattern:           string
+	patterns:          [...string]
 	ignore?: [...string]
 	context?:          string
 	includeByDefault?: bool | *true

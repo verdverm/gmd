@@ -20,7 +20,7 @@ func TestAddCollection(t *testing.T) {
 Config: {
 	collections: docs: {
 		path:    "."
-		pattern: "**/*.md"
+		patterns: ["**/*.md"]
 	}
 }
 `
@@ -31,12 +31,12 @@ Config: {
 	cfg := &Config{
 		ProjectRoot: root,
 		Collections: map[string]CollectionConfig{
-			"docs": {Path: ".", Pattern: "**/*.md"},
+			"docs": {Path: ".", Patterns: []string{"**/*.md"}},
 		},
 	}
 
 	t.Run("add new collection", func(t *testing.T) {
-		err := AddCollection(cfg, "notes", "/path/to/notes", "*.md")
+		err := AddCollection(cfg, "notes", "/path/to/notes", []string{"*.md"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -61,7 +61,7 @@ Config: {
 	})
 
 	t.Run("add duplicate collection returns error", func(t *testing.T) {
-		err := AddCollection(cfg, "docs", ".", "*.md")
+		err := AddCollection(cfg, "docs", ".", []string{"*.md"})
 		if err == nil {
 			t.Fatal("expected error for duplicate collection")
 		}
@@ -69,7 +69,7 @@ Config: {
 
 	t.Run("add to non-existent config file", func(t *testing.T) {
 		cfg2 := &Config{ProjectRoot: "/nonexistent"}
-		err := AddCollection(cfg2, "test", ".", "*.md")
+		err := AddCollection(cfg2, "test", ".", []string{"*.md"})
 		if err == nil {
 			t.Fatal("expected error for nonexistent config")
 		}
@@ -90,7 +90,7 @@ func TestRemoveCollection(t *testing.T) {
 Config: {
 	collections: docs: {
 		path:    "."
-		pattern: "*.md"
+		patterns: ["*.md"]
 	}
 }
 `
@@ -101,7 +101,7 @@ Config: {
 	cfg := &Config{
 		ProjectRoot: root,
 		Collections: map[string]CollectionConfig{
-			"docs": {Path: ".", Pattern: "*.md"},
+			"docs": {Path: ".", Patterns: []string{"*.md"}},
 		},
 	}
 
@@ -149,7 +149,7 @@ func TestRenameCollection(t *testing.T) {
 Config: {
 	collections: docs: {
 		path:    "."
-		pattern: "*.md"
+		patterns: ["*.md"]
 	}
 }
 `
@@ -160,7 +160,7 @@ Config: {
 	cfg := &Config{
 		ProjectRoot: root,
 		Collections: map[string]CollectionConfig{
-			"docs": {Path: ".", Pattern: "*.md"},
+			"docs": {Path: ".", Patterns: []string{"*.md"}},
 		},
 	}
 
@@ -188,7 +188,7 @@ Config: {
 	}
 }
 
-func TestSetCollectionPattern(t *testing.T) {
+func TestSetCollectionPatterns(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "project")
 	gmdDir := filepath.Join(root, ".gmd")
@@ -202,7 +202,7 @@ func TestSetCollectionPattern(t *testing.T) {
 Config: {
 	collections: docs: {
 		path:    "."
-		pattern: "*.md"
+		patterns: ["*.md"]
 	}
 }
 `
@@ -213,16 +213,19 @@ Config: {
 	cfg := &Config{
 		ProjectRoot: root,
 		Collections: map[string]CollectionConfig{
-			"docs": {Path: ".", Pattern: "*.md"},
+			"docs": {Path: ".", Patterns: []string{"*.md"}},
 		},
 	}
 
-	err := SetCollectionPattern(cfg, "docs", "**/*.txt")
+	err := SetCollectionPatterns(cfg, "docs", []string{"**/*.txt", "**/*.md"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Collections["docs"].Pattern != "**/*.txt" {
-		t.Errorf("pattern = %q, want %q", cfg.Collections["docs"].Pattern, "**/*.txt")
+	if len(cfg.Collections["docs"].Patterns) != 2 {
+		t.Errorf("patterns length = %d, want 2", len(cfg.Collections["docs"].Patterns))
+	}
+	if cfg.Collections["docs"].Patterns[0] != "**/*.txt" {
+		t.Errorf("patterns[0] = %q, want %q", cfg.Collections["docs"].Patterns[0], "**/*.txt")
 	}
 
 	data, err := os.ReadFile(cfgPath)
@@ -248,7 +251,7 @@ func TestIgnorePattern(t *testing.T) {
 Config: {
 	collections: docs: {
 		path:    "."
-		pattern: "*.md"
+		patterns: ["*.md"]
 	}
 }
 `
@@ -259,7 +262,7 @@ Config: {
 	cfg := &Config{
 		ProjectRoot: root,
 		Collections: map[string]CollectionConfig{
-			"docs": {Path: ".", Pattern: "*.md"},
+			"docs": {Path: ".", Patterns: []string{"*.md"}},
 		},
 	}
 
@@ -322,7 +325,7 @@ func TestContextDoc(t *testing.T) {
 Config: {
 	collections: docs: {
 		path:    "."
-		pattern: "*.md"
+		patterns: ["*.md"]
 	}
 }
 `
@@ -333,7 +336,7 @@ Config: {
 	cfg := &Config{
 		ProjectRoot: root,
 		Collections: map[string]CollectionConfig{
-			"docs": {Path: ".", Pattern: "*.md"},
+			"docs": {Path: ".", Patterns: []string{"*.md"}},
 		},
 	}
 

@@ -17,7 +17,7 @@ func TestScanFilesFS(t *testing.T) {
 		fsys := fstest.MapFS{
 			"doc.md": {Data: []byte("# Hello")},
 		}
-		files, err := scanFilesFS(fsys, ".", "*", nil)
+		files, err := scanFilesFS(fsys, ".", []string{"*"}, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -36,7 +36,7 @@ func TestScanFilesFS(t *testing.T) {
 			"sub/helper.go":    {Data: []byte("package helper")},
 			"sub/deep/deep.md": {Data: []byte("# Deep")},
 		}
-		files, err := scanFilesFS(fsys, ".", "*.md", nil)
+		files, err := scanFilesFS(fsys, ".", []string{"*.md"}, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -52,7 +52,7 @@ func TestScanFilesFS(t *testing.T) {
 			"sub/sub/c.md": {Data: []byte("# C")},
 			"main.go":      {Data: []byte("package main")},
 		}
-		files, err := scanFilesFS(fsys, ".", "**/*.md", nil)
+		files, err := scanFilesFS(fsys, ".", []string{"**/*.md"}, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -65,7 +65,7 @@ func TestScanFilesFS(t *testing.T) {
 		fsys := fstest.MapFS{
 			"single.md": {Data: []byte("# Single file")},
 		}
-		files, err := scanFilesFS(fsys, "single.md", "**/*.md", nil)
+		files, err := scanFilesFS(fsys, "single.md", []string{"**/*.md"}, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -80,7 +80,7 @@ func TestScanFilesFS(t *testing.T) {
 			"node_modules/pkg/sub/lib.md": {Data: []byte("# Lib")},
 			"src/main.md":                 {Data: []byte("# Main")},
 		}
-		files, err := scanFilesFS(fsys, ".", "**/*.md", []string{"node_modules/**"})
+		files, err := scanFilesFS(fsys, ".", []string{"**/*.md"}, []string{"node_modules/**"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -96,7 +96,7 @@ func TestScanFilesFS(t *testing.T) {
 			"src/main.md":             {Data: []byte("# Main")},
 			"src/ignore_me.md":        {Data: []byte("# Ignored")},
 		}
-		files, err := scanFilesFS(fsys, ".", "**/*.md", []string{"node_modules/**", "src/ignore_me.md"})
+		files, err := scanFilesFS(fsys, ".", []string{"**/*.md"}, []string{"node_modules/**", "src/ignore_me.md"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -109,7 +109,7 @@ func TestScanFilesFS(t *testing.T) {
 		fsys := fstest.MapFS{
 			"main.go": {Data: []byte("package main")},
 		}
-		files, err := scanFilesFS(fsys, ".", "*.md", nil)
+		files, err := scanFilesFS(fsys, ".", []string{"*.md"}, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -120,7 +120,7 @@ func TestScanFilesFS(t *testing.T) {
 
 	t.Run("non-existent root", func(t *testing.T) {
 		fsys := fstest.MapFS{}
-		_, err := scanFilesFS(fsys, "nonexistent", "*.md", nil)
+		_, err := scanFilesFS(fsys, "nonexistent", []string{"*.md"}, nil)
 		if err == nil {
 			t.Error("expected error for nonexistent directory")
 		}
@@ -133,7 +133,7 @@ func TestScanFilesFS(t *testing.T) {
 			"skip/sub/deep.md": {Data: []byte("# Deep")},
 			"keep2.md":         {Data: []byte("# Keep2")},
 		}
-		files, err := scanFilesFS(fsys, ".", "*.md", []string{"skip/"})
+		files, err := scanFilesFS(fsys, ".", []string{"*.md"}, []string{"skip/"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -320,7 +320,7 @@ func TestScanFilesFSWithTempDir(t *testing.T) {
 	}
 
 	fsys := os.DirFS(dir)
-	files, err := scanFilesFS(fsys, ".", "*.md", nil)
+	files, err := scanFilesFS(fsys, ".", []string{"*.md"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -401,8 +401,8 @@ func testConfig(t *testing.T) *config.Config {
 	t.Helper()
 	return testConfigWithCollections(t, map[string]config.CollectionConfig{
 		"test": {
-			Path:    "/docs",
-			Pattern: "**/*.md",
+			Path:     "/docs",
+			Patterns: []string{"**/*.md"},
 		},
 	})
 }
@@ -412,12 +412,12 @@ func testMultiConfig(t *testing.T) *config.Config {
 	t.Helper()
 	return testConfigWithCollections(t, map[string]config.CollectionConfig{
 		"docs": {
-			Path:    "/docs",
-			Pattern: "**/*.md",
+			Path:     "/docs",
+			Patterns: []string{"**/*.md"},
 		},
 		"notes": {
-			Path:    "/notes",
-			Pattern: "**/*.md",
+			Path:     "/notes",
+			Patterns: []string{"**/*.md"},
 		},
 	})
 }
@@ -479,8 +479,8 @@ func TestStalePaths(t *testing.T) {
 		ProjectRoot: "/",
 		Collections: map[string]config.CollectionConfig{
 			"test": {
-				Path:    dir,
-				Pattern: "*.md",
+				Path:     dir,
+				Patterns: []string{"*.md"},
 			},
 		},
 	}
@@ -525,8 +525,8 @@ func TestCleanupDeleted(t *testing.T) {
 		ProjectRoot: "/",
 		Collections: map[string]config.CollectionConfig{
 			"test": {
-				Path:    dir,
-				Pattern: "*.md",
+				Path:     dir,
+				Patterns: []string{"*.md"},
 			},
 		},
 	}
@@ -559,8 +559,8 @@ func TestCleanupAllCollections(t *testing.T) {
 	cfg := &config.Config{
 		ProjectRoot: "/",
 		Collections: map[string]config.CollectionConfig{
-			"docs":  {Path: dir, Pattern: "*.md"},
-			"notes": {Path: dir, Pattern: "*.md"},
+			"docs":  {Path: dir, Patterns: []string{"*.md"}},
+			"notes": {Path: dir, Patterns: []string{"*.md"}},
 		},
 	}
 

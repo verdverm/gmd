@@ -89,6 +89,17 @@ func strField(name, value string) *ast.Field {
 	}
 }
 
+func strListField(name string, values []string) *ast.Field {
+	list := &ast.ListLit{}
+	for _, v := range values {
+		list.Elts = append(list.Elts, ast.NewString(v))
+	}
+	return &ast.Field{
+		Label: ast.NewIdent(name),
+		Value: list,
+	}
+}
+
 func boolField(name string, value bool) *ast.Field {
 	return &ast.Field{
 		Label: ast.NewIdent(name),
@@ -97,7 +108,7 @@ func boolField(name string, value bool) *ast.Field {
 }
 
 // AddCollection adds a new collection to the project config file.
-func AddCollection(cfg *Config, name, path, pattern string) error {
+func AddCollection(cfg *Config, name, path string, patterns []string) error {
 	if _, exists := cfg.Collections[name]; exists {
 		return fmt.Errorf("collection %q already exists", name)
 	}
@@ -125,7 +136,7 @@ func AddCollection(cfg *Config, name, path, pattern string) error {
 	colStruct := &ast.StructLit{}
 	colStruct.Elts = append(colStruct.Elts,
 		strField("path", path),
-		strField("pattern", pattern),
+		strListField("patterns", patterns),
 	)
 
 	cols.Elts = append(cols.Elts, &ast.Field{
@@ -140,7 +151,7 @@ func AddCollection(cfg *Config, name, path, pattern string) error {
 	// Update in-memory config
 	cfg.Collections[name] = CollectionConfig{
 		Path:             path,
-		Pattern:          pattern,
+		Patterns:         patterns,
 		IncludeByDefault: true,
 	}
 
@@ -252,8 +263,8 @@ func RenameCollection(cfg *Config, oldName, newName string) error {
 	return nil
 }
 
-// SetCollectionPattern sets the pattern for a collection.
-func SetCollectionPattern(cfg *Config, name, pattern string) error {
+// SetCollectionPatterns sets the patterns for a collection.
+func SetCollectionPatterns(cfg *Config, name string, patterns []string) error {
 	if _, exists := cfg.Collections[name]; !exists {
 		return fmt.Errorf("collection %q not found", name)
 	}
@@ -291,10 +302,14 @@ func SetCollectionPattern(cfg *Config, name, pattern string) error {
 		return fmt.Errorf("collection %q is not a struct", name)
 	}
 
-	if existing := findFieldInStruct(colInner, "pattern"); existing != nil {
-		existing.Value = ast.NewString(pattern)
+	if existing := findFieldInStruct(colInner, "patterns"); existing != nil {
+		list := &ast.ListLit{}
+		for _, p := range patterns {
+			list.Elts = append(list.Elts, ast.NewString(p))
+		}
+		existing.Value = list
 	} else {
-		colInner.Elts = append(colInner.Elts, strField("pattern", pattern))
+		colInner.Elts = append(colInner.Elts, strListField("patterns", patterns))
 	}
 
 	if err := writeConfigFile(cfgPath, f); err != nil {
@@ -302,7 +317,7 @@ func SetCollectionPattern(cfg *Config, name, pattern string) error {
 	}
 
 	col := cfg.Collections[name]
-	col.Pattern = pattern
+	col.Patterns = patterns
 	cfg.Collections[name] = col
 	return nil
 }

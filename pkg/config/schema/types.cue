@@ -2,25 +2,35 @@ package gmd
 
 // LLMConfig defines the OpenAI-compatible provider settings.
 // Each model role has its own endpoint URL (vLLM needs separate servers per model).
+// API keys are read from environment variables per role, falling back to OPENAI_API_KEY.
 LLMConfig: {
-	embedding_model:     string | *"google/embeddinggemma-300m"
-	expansion_model:     string | *"Qwen/Qwen3-1.7B"
-	rerank_model:        string | *"Qwen/Qwen3-Reranker-0.6B"
-	embedding_base_url:  string
-	expansion_base_url:  string
-	rerank_base_url:     string
+	embedding_model:      string | *"google/embeddinggemma-300m"
+	embedding_base_url:   string
+	embedding_api_key:    string | *""
 
-	// Summarizing model — separate from expansion (which is too small for synthesis)
-	summarizing_model:     string
-	summarizing_base_url:  string
+	expansion_model:      string | *"Qwen/Qwen3-1.7B"
+	expansion_base_url:   string
+	expansion_api_key:    string | *""
 
-	// General-purpose agent models at different capability tiers
-	general_big_model:     string
-	general_big_base_url:  string
-	general_mid_model:     string
-	general_mid_base_url:  string
-	general_small_model:   string
+	rerank_model:         string | *"Qwen/Qwen3-Reranker-0.6B"
+	rerank_base_url:      string
+	rerank_api_key:       string | *""
+
+	summarizing_model:    string
+	summarizing_base_url: string
+	summarizing_api_key:  string | *""
+
+	general_big_model:    string
+	general_big_base_url: string
+	general_big_api_key:  string | *""
+
+	general_mid_model:    string
+	general_mid_base_url: string
+	general_mid_api_key:  string | *""
+
+	general_small_model:    string
 	general_small_base_url: string
+	general_small_api_key:  string | *""
 }
 
 // TypesenseConfig defines the search engine connection settings.

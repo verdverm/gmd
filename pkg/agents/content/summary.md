@@ -21,7 +21,7 @@ gmd wiki query "<q>"          # RAG search → LLM synthesis with [[page]] citat
 ## Setup
 
 1. **Typesense must be running** (default: `http://localhost:8108`). Set `GMD_TYPESENSE_API_KEY` if auth is enabled.
-2. **Three LLM endpoints are needed** (embedding, expansion, rerank). Set `OPENAI_API_KEY` env var. Any OpenAI-compatible API works (vLLM, Ollama, etc.).
+2. **Three LLM endpoints are needed** (embedding, expansion, rerank). Set `OPENAI_API_KEY` env var (or per-role overrides: `GMD_EMBEDDING_API_KEY`, `GMD_EXPANSION_API_KEY`, `GMD_RERANK_API_KEY`, `GMD_SUMMARIZING_API_KEY`, `GMD_GENERAL_BIG_API_KEY`, `GMD_GENERAL_MID_API_KEY`, `GMD_GENERAL_SMALL_API_KEY`). Any OpenAI-compatible API works (vLLM, Ollama, etc.).
 3. **Run `gmd init`** in your project root to create `.gmd/config.cue`. Edit it to set your LLM endpoints and configure which files to index.
 4. **Run `gmd update`** to scan, chunk, embed, and index all configured collections.
 

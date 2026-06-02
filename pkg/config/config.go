@@ -37,23 +37,35 @@ func (c *Config) CollectionKey(name string) string {
 
 // LLMConfig maps from the CUE LLMConfig schema.
 type LLMConfig struct {
-	APIKey           string `json:"-"`
+	APIKey string `json:"-"`
+
 	EmbeddingModel   string `json:"embedding_model"`
-	ExpansionModel   string `json:"expansion_model"`
-	RerankModel      string `json:"rerank_model"`
 	EmbeddingBaseURL string `json:"embedding_base_url"`
+	EmbeddingAPIKey  string `json:"embedding_api_key"`
+
+	ExpansionModel   string `json:"expansion_model"`
 	ExpansionBaseURL string `json:"expansion_base_url"`
-	RerankBaseURL    string `json:"rerank_base_url"`
+	ExpansionAPIKey  string `json:"expansion_api_key"`
+
+	RerankModel   string `json:"rerank_model"`
+	RerankBaseURL string `json:"rerank_base_url"`
+	RerankAPIKey  string `json:"rerank_api_key"`
 
 	SummarizingModel   string `json:"summarizing_model"`
 	SummarizingBaseURL string `json:"summarizing_base_url"`
+	SummarizingAPIKey  string `json:"summarizing_api_key"`
 
-	GeneralBigModel     string `json:"general_big_model"`
-	GeneralBigBaseURL   string `json:"general_big_base_url"`
-	GeneralMidModel     string `json:"general_mid_model"`
-	GeneralMidBaseURL   string `json:"general_mid_base_url"`
+	GeneralBigModel   string `json:"general_big_model"`
+	GeneralBigBaseURL string `json:"general_big_base_url"`
+	GeneralBigAPIKey  string `json:"general_big_api_key"`
+
+	GeneralMidModel   string `json:"general_mid_model"`
+	GeneralMidBaseURL string `json:"general_mid_base_url"`
+	GeneralMidAPIKey  string `json:"general_mid_api_key"`
+
 	GeneralSmallModel   string `json:"general_small_model"`
 	GeneralSmallBaseURL string `json:"general_small_base_url"`
+	GeneralSmallAPIKey  string `json:"general_small_api_key"`
 }
 
 // TypesenseConfig maps from the CUE TypesenseConfig schema.
@@ -238,6 +250,13 @@ func Load(cwd string) (*Config, error) {
 	}
 
 	cfg.LLM.APIKey = os.Getenv("OPENAI_API_KEY")
+	cfg.LLM.EmbeddingAPIKey = envOrFallback("GMD_EMBEDDING_API_KEY", cfg.LLM.APIKey)
+	cfg.LLM.ExpansionAPIKey = envOrFallback("GMD_EXPANSION_API_KEY", cfg.LLM.APIKey)
+	cfg.LLM.RerankAPIKey = envOrFallback("GMD_RERANK_API_KEY", cfg.LLM.APIKey)
+	cfg.LLM.SummarizingAPIKey = envOrFallback("GMD_SUMMARIZING_API_KEY", cfg.LLM.APIKey)
+	cfg.LLM.GeneralBigAPIKey = envOrFallback("GMD_GENERAL_BIG_API_KEY", cfg.LLM.APIKey)
+	cfg.LLM.GeneralMidAPIKey = envOrFallback("GMD_GENERAL_MID_API_KEY", cfg.LLM.APIKey)
+	cfg.LLM.GeneralSmallAPIKey = envOrFallback("GMD_GENERAL_SMALL_API_KEY", cfg.LLM.APIKey)
 	cfg.Typesense.APIKey = os.Getenv("GMD_TYPESENSE_API_KEY")
 	cfg.EXA.APIKey = os.Getenv("EXA_API_KEY")
 
@@ -280,4 +299,11 @@ func tryReadProjectConfig(root string) (string, error) {
 		return string(data), nil
 	}
 	return "", fmt.Errorf("no project config found")
+}
+
+func envOrFallback(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }

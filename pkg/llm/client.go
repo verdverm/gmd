@@ -37,23 +37,42 @@ type Client struct {
 }
 
 type Config struct {
-	APIKey         string
-	EmbeddingModel string
-	ExpansionModel string
-	RerankModel    string
-	EmbedURL       string
-	ExpandURL      string
-	RerankURL      string
+	APIKey string
+
+	EmbeddingModel  string
+	EmbeddingAPIKey string
+	EmbedURL        string
+
+	ExpansionModel  string
+	ExpansionAPIKey string
+	ExpandURL       string
+
+	RerankModel  string
+	RerankAPIKey string
+	RerankURL    string
 
 	SummarizingModel   string
+	SummarizingAPIKey  string
 	SummarizingBaseURL string
 
-	GeneralBigModel     string
-	GeneralBigBaseURL   string
-	GeneralMidModel     string
-	GeneralMidBaseURL   string
+	GeneralBigModel   string
+	GeneralBigAPIKey  string
+	GeneralBigBaseURL string
+
+	GeneralMidModel   string
+	GeneralMidAPIKey  string
+	GeneralMidBaseURL string
+
 	GeneralSmallModel   string
+	GeneralSmallAPIKey  string
 	GeneralSmallBaseURL string
+}
+
+func keyOrFallback(key, fallback string) string {
+	if key != "" {
+		return key
+	}
+	return fallback
 }
 
 func newOpenAIClient(baseURL, apiKey string) openai.Client {
@@ -68,13 +87,13 @@ func newOpenAIClient(baseURL, apiKey string) openai.Client {
 
 func New(cfg Config) *Client {
 	return &Client{
-		embedClient:        newOpenAIClient(cfg.EmbedURL, cfg.APIKey),
-		expandClient:       newOpenAIClient(cfg.ExpandURL, cfg.APIKey),
-		rerankClient:       newOpenAIClient(cfg.RerankURL, cfg.APIKey),
-		summarizeClient:    newOpenAIClient(cfg.SummarizingBaseURL, cfg.APIKey),
-		generalBigClient:   newOpenAIClient(cfg.GeneralBigBaseURL, cfg.APIKey),
-		generalMidClient:   newOpenAIClient(cfg.GeneralMidBaseURL, cfg.APIKey),
-		generalSmallClient: newOpenAIClient(cfg.GeneralSmallBaseURL, cfg.APIKey),
+		embedClient:        newOpenAIClient(cfg.EmbedURL, keyOrFallback(cfg.EmbeddingAPIKey, cfg.APIKey)),
+		expandClient:       newOpenAIClient(cfg.ExpandURL, keyOrFallback(cfg.ExpansionAPIKey, cfg.APIKey)),
+		rerankClient:       newOpenAIClient(cfg.RerankURL, keyOrFallback(cfg.RerankAPIKey, cfg.APIKey)),
+		summarizeClient:    newOpenAIClient(cfg.SummarizingBaseURL, keyOrFallback(cfg.SummarizingAPIKey, cfg.APIKey)),
+		generalBigClient:   newOpenAIClient(cfg.GeneralBigBaseURL, keyOrFallback(cfg.GeneralBigAPIKey, cfg.APIKey)),
+		generalMidClient:   newOpenAIClient(cfg.GeneralMidBaseURL, keyOrFallback(cfg.GeneralMidAPIKey, cfg.APIKey)),
+		generalSmallClient: newOpenAIClient(cfg.GeneralSmallBaseURL, keyOrFallback(cfg.GeneralSmallAPIKey, cfg.APIKey)),
 
 		embeddingModel:    cfg.EmbeddingModel,
 		expansionModel:    cfg.ExpansionModel,

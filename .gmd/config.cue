@@ -2,12 +2,15 @@ package gmd
 
 Config: {
 	llm: {
-		embedding_base_url:  "http://192.168.4.31:8001/v1"
-		expansion_base_url:  "http://192.168.4.31:8002/v1"
-		rerank_base_url:     "http://192.168.4.31:8003/v1"
 		embedding_model:     "google/embeddinggemma-300m"
+		embedding_base_url:  "http://192.168.4.31:8001/v1"
+
 		expansion_model:     "Qwen/Qwen3-1.7B"
+		expansion_base_url:  "http://192.168.4.31:8002/v1"
+
 		rerank_model:        "Qwen/Qwen3-Reranker-0.6B"
+		rerank_base_url:     "http://192.168.4.31:8003/v1"
+
 		summarizing_model:      "Qwen/Qwen3.6-27B-FP8"
 		summarizing_base_url:   "http://192.168.4.31:8000/v1"
 		general_big_model:      "Qwen/Qwen3.6-27B-FP8"

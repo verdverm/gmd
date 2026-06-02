@@ -13,7 +13,7 @@ GMD indexes local markdown files and provides full-text, vector, and hybrid sear
   | expansion | Generates query variants (lexical, vector, HyDE) | `Qwen/Qwen3-1.7B` |
   | rerank | Re-scores search results for relevance | `Qwen/Qwen3-Reranker-0.6B` |
 
-- API keys: `OPENAI_API_KEY` for LLM endpoints, `GMD_TYPESENSE_API_KEY` for Typesense (both read from environment)
+- API keys: `OPENAI_API_KEY` for LLM endpoints (per-role overrides: `GMD_EMBEDDING_API_KEY`, `GMD_EXPANSION_API_KEY`, `GMD_RERANK_API_KEY`, `GMD_SUMMARIZING_API_KEY`, `GMD_GENERAL_BIG_API_KEY`, `GMD_GENERAL_MID_API_KEY`, `GMD_GENERAL_SMALL_API_KEY`), `GMD_TYPESENSE_API_KEY` for Typesense (both read from environment)
 
 ## Quick Start
 

@@ -39,11 +39,19 @@ Config: {
 }
 ```
 
-API keys are read from environment variables:
-- `OPENAI_API_KEY` — API key for all LLM endpoints (embedding, expansion, rerank)
+API keys are read from environment variables. Each model role can have its own
+key; if unset, it falls back to the shared `OPENAI_API_KEY`:
+- `OPENAI_API_KEY` — shared API key for all LLM endpoints
+- `GMD_EMBEDDING_API_KEY` — override for embedding endpoint
+- `GMD_EXPANSION_API_KEY` — override for expansion endpoint
+- `GMD_RERANK_API_KEY` — override for rerank endpoint
+- `GMD_SUMMARIZING_API_KEY` — override for summarizing endpoint
+- `GMD_GENERAL_BIG_API_KEY` — override for general-big endpoint
+- `GMD_GENERAL_MID_API_KEY` — override for general-mid endpoint
+- `GMD_GENERAL_SMALL_API_KEY` — override for general-small endpoint
 - `GMD_TYPESENSE_API_KEY` — API key for typesense
 
-If not set, gmd will fail.
+If `OPENAI_API_KEY` is not set, gmd will fail.
 
 ## Project key
 

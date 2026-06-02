@@ -13,13 +13,17 @@ gmd agents summary             # get AGENTS.md for AI assistants
 ## Requirements
 
 - **Typesense** — must be running (Docker, Kubernetes, or cloud)
-- **Three LLM models** — must be served by an OpenAI-compatible API (vLLM, Ollama, OpenAI, etc.):
+- **Seven LLM models** — must be served by an OpenAI-compatible API (vLLM, Ollama, OpenAI, etc.):
 
   | Model | Purpose | Default |
   |---|---|---|
   | embedding | Converts document chunks into vector embeddings for similarity search | `google/embeddinggemma-300m` |
   | expansion | Generates query variants (lexical, vector, HyDE) to improve recall | `Qwen/Qwen3-1.7B` |
   | rerank | Re-scores search results for relevance | `Qwen/Qwen3-Reranker-0.6B` |
+  | summarizing | Synthesizes search results into concise answers | (required) |
+  | general-big | Heavy reasoning for complex agent tasks | (required) |
+  | general-mid | Balanced reasoning for most agent tasks | (required) |
+  | general-small | Quick, lightweight agent tasks | (required) |
 
   See [`models/`](models/) for vLLM serve scripts and systemd service files.
 
@@ -73,12 +77,20 @@ Config: {
     context: "MyApp user documentation"
   }
   llm: {
-    embedding_base_url:  "http://localhost:8001/v1"
-    expansion_base_url:  "http://localhost:8002/v1"
-    rerank_base_url:     "http://localhost:8003/v1"
-    embedding_model:     "google/embeddinggemma-300m"
-    expansion_model:     "Qwen/Qwen3-1.7B"
-    rerank_model:        "Qwen/Qwen3-Reranker-0.6B"
+    embedding_model:      "google/embeddinggemma-300m"
+    embedding_base_url:   "http://localhost:8001/v1"
+    expansion_model:      "Qwen/Qwen3-1.7B"
+    expansion_base_url:   "http://localhost:8002/v1"
+    rerank_model:         "Qwen/Qwen3-Reranker-0.6B"
+    rerank_base_url:      "http://localhost:8003/v1"
+    summarizing_model:    "Qwen/Qwen3.6-27B-FP8"
+    summarizing_base_url: "http://localhost:8000/v1"
+    general_big_model:    "Qwen/Qwen3.6-27B-FP8"
+    general_big_base_url: "http://localhost:8000/v1"
+    general_mid_model:    "Qwen/Qwen3.6-27B-FP8"
+    general_mid_base_url: "http://localhost:8000/v1"
+    general_small_model:  "Qwen/Qwen3.6-27B-FP8"
+    general_small_base_url: "http://localhost:8000/v1"
   }
   typesense: {
     host:    "http://localhost:8108"
@@ -86,8 +98,12 @@ Config: {
 }
 ```
 
-API keys are read from environment variables: `OPENAI_API_KEY` for LLM endpoints and
-`GMD_TYPESENSE_API_KEY` for Typesense.
+API keys are read from environment variables. Each model role defaults to
+`OPENAI_API_KEY` with per-role overrides (`GMD_EMBEDDING_API_KEY`,
+`GMD_EXPANSION_API_KEY`, `GMD_RERANK_API_KEY`, `GMD_SUMMARIZING_API_KEY`,
+`GMD_GENERAL_BIG_API_KEY`, `GMD_GENERAL_MID_API_KEY`, `GMD_GENERAL_SMALL_API_KEY`).
+See [docs/configuration.md](docs/configuration.md) for the full reference.
+`GMD_TYPESENSE_API_KEY` is used for Typesense.
 
 For shared settings across projects, create `~/.config/gmd/config.cue` with the same structure — project and global configs are merged automatically, with project values taking precedence.
 

@@ -12,17 +12,20 @@ import (
 var collectionCmd = &cobra.Command{
 	Use:   "collection [add|list|remove|rename|show|include|exclude]",
 	Short: "Manage collections — add, list, remove, rename, show, include, exclude",
-	Long: `Collections define which files to index. Each collection has a root path
-and a glob pattern for matching files.
+	Long: `Collections define which files to index. Each collection has a root path,
+a glob pattern for matching files, optional ignore rules, and optional
+context text for AI assistants.
 
-Subcommands:
-  add       create a new collection with --path and --pattern
-  list      show all configured collections
-  remove    delete a collection and its indexed chunks
-  rename    change a collection's name
-  show      display collection details and chunk count
-  include   set the file pattern for a collection
-  exclude   add an ignore pattern to a collection`,
+Workflow:
+  gmd collection add mydocs --path ./docs --pattern "**/*.md"
+  gmd collection list
+  gmd collection show mydocs
+  gmd collection include mydocs "**/*.{md,txt}"
+  gmd collection exclude mydocs node_modules/**
+  gmd collection rename mydocs docs
+  gmd collection remove docs
+
+After adding or modifying collections, run 'gmd update' to index files.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
@@ -35,8 +38,12 @@ var collectionAddCmd = &cobra.Command{
 	Use:   "add <name>",
 	Short: "Add a new collection to the config",
 	Long: `Creates a new collection entry in the project config with the given name,
-root path, and file glob pattern. After adding, run 'gmd update' to index
-the collection's files.`,
+root path, and file glob pattern.
+
+Example:
+  gmd collection add mydocs --path ./docs --pattern "**/*.md"
+
+After adding, run 'gmd update' to index the collection's files.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
@@ -54,7 +61,11 @@ var collectionListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all configured collections with paths and patterns",
 	Long: `Displays every collection's name, root path, file pattern, and context
-description. Does not query Typesense — shows config only.`,
+description as configured in .gmd/config.cue. Does not query Typesense
+— shows config only.
+
+Example:
+  gmd collection list`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {
@@ -90,7 +101,10 @@ var collectionRemoveCmd = &cobra.Command{
 	Use:   "remove <name>",
 	Short: "Delete a collection and all its indexed chunks",
 	Long: `Removes the collection from the config and deletes all associated chunks
-from Typesense. This operation is immediate and cannot be undone.`,
+from Typesense. This operation is immediate and cannot be undone.
+
+Example:
+  gmd collection remove mydocs`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
@@ -117,7 +131,10 @@ var collectionRenameCmd = &cobra.Command{
 	Short: "Rename a collection in the config",
 	Long: `Renames a collection without affecting its indexed chunks. The old name
 is updated in the config only — existing Typesense data is preserved
-under the new collection key.`,
+under the new collection key.
+
+Example:
+  gmd collection rename mydocs docs`,
 	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
@@ -139,8 +156,12 @@ under the new collection key.`,
 var collectionShowCmd = &cobra.Command{
 	Use:   "show <name>",
 	Short: "Show collection config details and chunk count",
-	Long: `Displays the full configuration for a collection (path, pattern, ignore
-rules, context) along with the current chunk count queried from Typesense.`,
+	Long: `Displays the full configuration for a collection including path, pattern,
+ignore rules, context, and includeByDefault — along with the current
+chunk count queried from Typesense.
+
+Example:
+  gmd collection show mydocs`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
@@ -180,6 +201,10 @@ var collectionIncludeCmd = &cobra.Command{
 	Use:   "include <name> <pattern>",
 	Short: "Set the file glob pattern for a collection",
 	Long: `Updates the file-matching pattern for a collection (e.g. "**/*.md").
+
+Example:
+  gmd collection include mydocs "**/*.{md,txt}"
+
 Run 'gmd update' after changing the pattern to re-index with the new
 matching rules.`,
 	Args: cobra.ExactArgs(2),

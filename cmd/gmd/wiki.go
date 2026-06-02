@@ -24,17 +24,29 @@ var wikiCmd = &cobra.Command{
 	Short: "Manage a Karpathy-style LLM Wiki",
 	Long: `Wiki commands for creating and managing a compounding knowledge base.
 
-Getting started:
-  gmd wiki init         Create a new wiki with directory structure and config
-  gmd wiki ingest ...   Ingest a source into the wiki using the built-in agent
-  gmd wiki query "..."  Query the wiki using the built-in agent
-  gmd wiki skills list  List available agent skill templates
-  gmd wiki skills write Install skill templates for agent discovery`,
+A Karpathy-style LLM wiki: ingest source material, let an AI agent write
+structured wiki pages with wikilinks, then query the growing knowledge base
+with citations, contradiction detection, and gap analysis.
+
+Workflow:
+  1. gmd wiki init --name mywiki        # scaffold + config
+  2. gmd wiki ingest paper.pdf          # agent reads → writes wiki pages
+  3. gmd wiki query "key findings"      # search + LLM synthesis
+  4. gmd wiki lint                       # check health
+  5. gmd wiki graph --format mermaid    # visualize wikilinks`,
 }
 
 var wikiInitCmd = &cobra.Command{
 	Use:   "init [--name <name>] [--path <path>] [--skills]",
 	Short: "Create a new wiki with directory structure and config",
+	Long: `Scaffolds a wiki directory with a standard layout (raw/, wiki/) and adds
+a collection entry to the project config.
+
+The wiki uses wikilinks ([[Page Name]]) for cross-references. After init,
+add source material to raw/ and run 'gmd wiki ingest' to populate pages.
+
+Example:
+  gmd wiki init --name mywiki --path ./docs`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {
@@ -115,7 +127,15 @@ var wikiInitCmd = &cobra.Command{
 var wikiIngestCmd = &cobra.Command{
 	Use:   "ingest <source> [--name <name>] [--batch]",
 	Short: "Ingest a source into the wiki using the built-in agent",
-	Args:  cobra.MinimumNArgs(1),
+	Long: `Feeds a source file (PDF, text, markdown, docx) to the wiki agent which
+reads, analyzes, and writes structured wiki pages with wikilinks.
+
+The agent automatically creates or updates pages, flags contradictions,
+and appends to the wiki log.
+
+Example:
+  gmd wiki ingest paper.pdf --name mywiki`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {
@@ -184,7 +204,15 @@ var wikiIngestCmd = &cobra.Command{
 var wikiQueryCmd = &cobra.Command{
 	Use:   "query <question> [--name <name>] [--save] [--limit N]",
 	Short: "Query the wiki using the built-in agent",
-	Args:  cobra.MinimumNArgs(1),
+	Long: `Searches the wiki and synthesizes an answer with citations using the LLM.
+Results are grounded in wiki content with source references.
+
+Use --save to persist the answer as a new wiki page. Use --limit to
+control how many pages are searched.
+
+Example:
+  gmd wiki query "What are the key findings?" --name mywiki --save`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {
@@ -237,6 +265,14 @@ var wikiQueryCmd = &cobra.Command{
 var wikiGraphCmd = &cobra.Command{
 	Use:   "graph [--name <name>] [--format dot|mermaid|json]",
 	Short: "Output the wiki link graph",
+	Long: `Exports the wikilink graph in DOT, Mermaid, or JSON format.
+
+Use this to visualize relationships between wiki pages or to feed the
+graph into external tooling.
+
+Examples:
+  gmd wiki graph --name mywiki --format mermaid
+  gmd wiki graph --name mywiki --format dot | dot -Tpng > graph.png`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {
@@ -279,6 +315,13 @@ var wikiGraphCmd = &cobra.Command{
 var wikiLintCmd = &cobra.Command{
 	Use:   "lint [--name <name>]",
 	Short: "Run wiki health checks (structure + content analysis)",
+	Long: `Scans the wiki for orphan pages (no inbound links), broken wikilinks,
+stale index entries, potential contradictions, and knowledge gaps.
+
+Run periodically to keep the wiki healthy.
+
+Example:
+  gmd wiki lint --name mywiki`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {
@@ -350,11 +393,18 @@ var wikiLintCmd = &cobra.Command{
 var wikiSkillsCmd = &cobra.Command{
 	Use:   "skills [list|show|write]",
 	Short: "Manage wiki agent skill templates",
+	Long: `Manage embedded agent skill templates for AI coding assistants.
+
+Workflow:
+  gmd wiki skills list                # see available templates
+  gmd wiki skills show <name>         # view a template
+  gmd wiki skills write --target all  # install to agent discovery paths`,
 }
 
 var wikiSkillsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List available skill templates",
+	Long:  "Shows all embedded wiki agent skill templates with their name, target, and description.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		templates, err := wiki.ListSkillTemplates()
 		if err != nil {
@@ -371,7 +421,11 @@ var wikiSkillsListCmd = &cobra.Command{
 var wikiSkillsShowCmd = &cobra.Command{
 	Use:   "show <name>",
 	Short: "Show a skill template",
-	Args:  cobra.ExactArgs(1),
+	Long: `Displays the full content of a named skill template.
+
+Example:
+  gmd wiki skills show research-agent`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		tmpl, err := wiki.GetSkillTemplate(args[0])
 		if err != nil {
@@ -385,6 +439,12 @@ var wikiSkillsShowCmd = &cobra.Command{
 var wikiSkillsWriteCmd = &cobra.Command{
 	Use:   "write [--target claude|codex|opencode|all]",
 	Short: "Write skill templates to agent discovery paths",
+	Long: `Installs skill templates to the appropriate agent discovery directories
+so that AI coding assistants discover and use them automatically.
+
+Examples:
+  gmd wiki skills write --target all
+  gmd wiki skills write --target opencode`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		target := wikiTarget
 		if target == "" {
@@ -405,6 +465,13 @@ var wikiSkillsWriteCmd = &cobra.Command{
 var wikiDoctorCmd = &cobra.Command{
 	Use:   "doctor [--name <name>] [--fix]",
 	Short: "Run wiki diagnostics and auto-configure agents",
+	Long: `Checks wiki configuration, file system structure, Typesense sync state,
+and agent compatibility. Reports issues and suggests fixes.
+
+Use --fix to automatically apply safe fixes (fixable issues only).
+
+Example:
+  gmd wiki doctor --name mywiki --fix`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {

@@ -56,9 +56,11 @@ Example:
 var multiGetCmd = &cobra.Command{
 	Use:   "multi-get <pattern>",
 	Short: "Batch fetch documents by path pattern",
-	Long: `Batch fetch documents by path pattern.
-The pattern is a Typesense filter expression on the path field,
-e.g. "path:docs/notes" or "path:docs/*".`,
+	Long: `Batch fetch documents by path pattern using a Typesense filter expression.
+
+Examples:
+  gmd multi-get path:docs/notes
+  gmd multi-get path:docs/*`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()

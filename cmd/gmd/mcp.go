@@ -18,7 +18,9 @@ Two transport modes:
   stdio  (default)  for IDE plugins that spawn the process
   HTTP   (--http)   for network-accessible MCP clients
 
-When run without arguments, starts in stdio mode.`,
+Examples:
+  gmd mcp              # stdio mode (default, for IDE plugins)
+  gmd mcp --http       # HTTP mode (network-accessible)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		_, err := getRuntime()
 		if err != nil {

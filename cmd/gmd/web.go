@@ -9,14 +9,15 @@ var webCmd = &cobra.Command{
 	Short: "Web search and content retrieval via EXA",
 	Long: `Web commands for searching and fetching web content using the EXA neural search API.
 
-Commands:
-  fetch     Fetch clean content from one or more URLs
-  search    Neural web search
-  agent     LLM-orchestrated search agent with synthesis
+EXA indexes and embeds the entire web, enabling semantic search (not just
+keyword matching) and clean content extraction from any URL.
 
-Getting started:
-  Set EXA_API_KEY environment variable to your EXA API key.
-  Then: gmd web search "your query"`,
+Workflows:
+  1. Search:   gmd web search "your query"
+  2. Fetch:    gmd web fetch https://example.com
+  3. Agent:    gmd web agent "your research question" --steps 5
+
+Requires EXA_API_KEY environment variable to be set.`,
 }
 
 func init() {

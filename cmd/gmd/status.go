@@ -15,7 +15,12 @@ var statusCmd = &cobra.Command{
 collection with its path, file pattern, and chunk count.
 
 Use this to verify the index is populated and to see which collections
-are active.`,
+are active.
+
+Workflow:
+  1. gmd status         # check what's indexed
+  2. gmd update         # index files if needed
+  3. gmd query "..."    # search`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {

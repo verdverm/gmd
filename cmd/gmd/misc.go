@@ -14,11 +14,15 @@ import (
 var lsCmd = &cobra.Command{
 	Use:   "ls [collection]",
 	Short: "List indexed documents with scores",
-	Long: `Queries Typesense for all indexed documents and displays their paths,
-collection names, and relevance scores.
+	Long: `Lists all indexed documents with their paths, collection names, and
+relevance scores.
 
 Optionally filter by collection name. Useful for verifying what has been
-indexed and browsing available content.`,
+indexed and browsing available content.
+
+Examples:
+  gmd ls
+  gmd ls docs`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {

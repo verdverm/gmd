@@ -1,4 +1,4 @@
-.PHONY: all build build-all clean generate lint tidy test cover cover.detailed
+.PHONY: all build build-all clean generate lint tidy test test.integration cover cover.integration cover.detailed cover.detailed.integration
 
 GO ?= go
 CGO_ENABLED ?= 0
@@ -20,13 +20,24 @@ lint:
 	$(GO) vet ./...
 
 test:
-	CGO_ENABLED=$(CGO_ENABLED) $(GO) test ./... -v
+	CGO_ENABLED=$(CGO_ENABLED) $(GO) test ./... -v -count=1
+
+test.integration:
+	CGO_ENABLED=$(CGO_ENABLED) $(GO) test ./... -v -count=1 -tags=integration
 
 cover:
-	CGO_ENABLED=$(CGO_ENABLED) $(GO) test ./... -cover
+	CGO_ENABLED=$(CGO_ENABLED) $(GO) test ./... -cover -count=1
+
+cover.integration:
+	CGO_ENABLED=$(CGO_ENABLED) $(GO) test ./... -cover -count=1 -tags=integration
 
 cover.detailed:
-	CGO_ENABLED=$(CGO_ENABLED) $(GO) test ./... -coverprofile=coverage.out
+	CGO_ENABLED=$(CGO_ENABLED) $(GO) test ./... -coverprofile=coverage.out -count=1
+	$(GO) tool cover -html=coverage.out -o coverage.html
+	$(GO) tool cover -func=coverage.out
+
+cover.detailed.integration:
+	CGO_ENABLED=$(CGO_ENABLED) $(GO) test ./... -coverprofile=coverage.out -count=1 -tags=integration
 	$(GO) tool cover -html=coverage.out -o coverage.html
 	$(GO) tool cover -func=coverage.out
 

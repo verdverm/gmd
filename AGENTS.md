@@ -8,7 +8,12 @@ OpenAI-compatible LLM API for embeddings, query expansion, and reranking.
 ```sh
 go build -o bin/gmd ./cmd/gmd          # Build
 make build                              # Same, with CGO_ENABLED=0
-make test                               # Run all tests
+make test                               # Unit tests (no external deps)
+make test.integration                   # All tests including integration
+make cover                              # Unit test coverage
+make cover.integration                  # All test coverage
+make cover.detailed                     # Unit test coverage (profile + HTML + func)
+make cover.detailed.integration         # All test coverage (profile + HTML + func)
 make lint                               # go vet ./...
 make tidy                               # go mod tidy
 ```
@@ -109,7 +114,10 @@ Project root detected by walking up from CWD looking for `.gmd/` sentinel.
 - New CLI commands go in `cmd/gmd/<name>.go` and register in `main.go` init().
 - New library packages go under `pkg/<name>/`.
 - Tests live alongside source files (`*_test.go`).
-- The `gmd agents` command outputs embedded content from `pkg/agents/content/`. Update those
-  markdown files when CLI commands or architecture change.
+- Integration tests requiring external systems (Typesense, LLMs) use `//go:build integration`
+  build tag and are excluded from `make test`. Run `make test.integration` to include them.
+- The `gmd agents` command outputs embedded content from `pkg/agents/content/`. Those files are
+  user-facing (for end users and AI agents consuming gmd), not developer-facing. Update them
+  when CLI commands or architecture change, but keep content focused on usage, not development.
 - Never commit `bin/` or `qmd/` (both in .gitignore).
 - Always include `.sessions/` when making commits.

@@ -45,7 +45,7 @@ func TestMain(m *testing.M) {
 				Host:   tsSrv.URL(),
 				APIKey: tsSrv.APIKey,
 			})
-			if err := testTSClient.EnsureSchema(ctx, 0); err != nil {
+			if err := testTSClient.EnsureSchema(ctx, 0, nil); err != nil {
 				fmt.Fprintf(os.Stderr, "wiki integration: FATAL: TS schema failed (%v)\n", err)
 				testTSClient = nil
 			}

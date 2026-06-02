@@ -104,6 +104,54 @@ when search returns no results or indexing fails.`,
 			fmt.Println("WARN   no collections configured")
 		}
 
+		// Schema validation: compare configured fields against Typesense
+		tsFields, err := r.TSClient().GetSchemaFields(context.Background())
+		if err != nil {
+			fmt.Printf("WARN   schema: could not fetch Typesense schema (%v)\n", err)
+		} else {
+			tsFieldSet := make(map[string]string)
+			for _, f := range tsFields {
+				tsFieldSet[f.Name] = f.Type
+			}
+			baseFields := map[string]string{
+				"collection": "string", "path": "string", "title": "string",
+				"content": "string", "hash": "string", "chunk_seq": "int32",
+				"total_chunks": "int32", "embedding": "float[]", "links": "string[]",
+			}
+			hasIssues := false
+			for _, col := range cfg.Collections {
+				for fname, f := range col.Fields {
+					tsType, inTS := tsFieldSet[fname]
+					if !inTS {
+						fmt.Printf("PENDING %-20s %-8s  (not yet in Typesense, run update)\n", fname, f.Type)
+						hasIssues = true
+					} else if tsType != f.Type {
+						fmt.Printf("WARN   %-20s config says %q but Typesense has %q\n", fname, f.Type, tsType)
+						hasIssues = true
+					}
+				}
+			}
+			// Check for orphaned fields (in TS but not in any config or base)
+			allConfigFields := make(map[string]bool)
+			for _, col := range cfg.Collections {
+				for fname := range col.Fields {
+					allConfigFields[fname] = true
+				}
+			}
+			for _, f := range tsFields {
+				if _, isBase := baseFields[f.Name]; isBase {
+					continue
+				}
+				if !allConfigFields[f.Name] {
+					fmt.Printf("ORPHAN  %-20s %-8s  (in Typesense but no collection configures it)\n", f.Name, f.Type)
+					hasIssues = true
+				}
+			}
+			if !hasIssues {
+				fmt.Println("OK     schema: all fields in sync")
+			}
+		}
+
 		fmt.Println()
 		fmt.Println("LLM Endpoints:")
 		l := llm.New(llmConfigFromConfig(cfg))

@@ -267,10 +267,10 @@ func TestValidateFrontmatter(t *testing.T) {
 		}
 	})
 
-	t.Run("valid float64 field", func(t *testing.T) {
+	t.Run("valid float field", func(t *testing.T) {
 		cfg := &config.FrontmatterConfig{
 			Fields: map[string]config.FrontmatterField{
-				"score": {Type: "float64"},
+				"score": {Type: "float"},
 			},
 		}
 		err := ValidateFrontmatter(map[string]interface{}{"score": 3.5}, cfg)
@@ -279,15 +279,15 @@ func TestValidateFrontmatter(t *testing.T) {
 		}
 	})
 
-	t.Run("invalid float64 field", func(t *testing.T) {
+	t.Run("invalid float field", func(t *testing.T) {
 		cfg := &config.FrontmatterConfig{
 			Fields: map[string]config.FrontmatterField{
-				"score": {Type: "float64"},
+				"score": {Type: "float"},
 			},
 		}
 		err := ValidateFrontmatter(map[string]interface{}{"score": "high"}, cfg)
 		if err == nil {
-			t.Fatal("expected error for non-float64 value")
+			t.Fatal("expected error for non-float value")
 		}
 	})
 
@@ -416,10 +416,10 @@ func TestFrontmatterToFilter(t *testing.T) {
 		}
 	})
 
-	t.Run("float64 field", func(t *testing.T) {
+	t.Run("float field", func(t *testing.T) {
 		cfg := &config.FrontmatterConfig{
 			Fields: map[string]config.FrontmatterField{
-				"score": {Type: "float64"},
+				"score": {Type: "float"},
 			},
 		}
 		got := FrontmatterToFilter(map[string]interface{}{"score": 3.5}, cfg)

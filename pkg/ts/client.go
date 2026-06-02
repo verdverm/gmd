@@ -9,6 +9,14 @@ import (
 	"github.com/typesense/typesense-go/v4/typesense/api"
 )
 
+// SchemaField defines a custom field to add to the Typesense chunks collection schema.
+type SchemaField struct {
+	Name  string
+	Type  string
+	Facet bool
+	Sort  bool
+}
+
 const (
 	chunksCollection = "chunks"
 	defaultNumDim    = 768
@@ -28,15 +36,37 @@ type Config struct {
 
 // ChunkDocument represents a single chunk indexed in Typesense.
 type ChunkDocument struct {
-	Collection  string    `json:"collection"`
-	Path        string    `json:"path"`
-	Title       string    `json:"title"`
-	Content     string    `json:"content"`
-	Hash        string    `json:"hash"`
-	ChunkSeq    int       `json:"chunk_seq"`
-	TotalChunks int       `json:"total_chunks"`
-	Embedding   []float64 `json:"embedding"`
-	Links       []string  `json:"links,omitempty"`
+	Collection  string                 `json:"collection"`
+	Path        string                 `json:"path"`
+	Title       string                 `json:"title"`
+	Content     string                 `json:"content"`
+	Hash        string                 `json:"hash"`
+	ChunkSeq    int                    `json:"chunk_seq"`
+	TotalChunks int                    `json:"total_chunks"`
+	Embedding   []float64              `json:"embedding"`
+	Links       []string               `json:"links,omitempty"`
+	Fields      map[string]interface{} `json:"-"` // dynamic frontmatter fields, merged at upsert time
+}
+
+// ToMap converts the document (including dynamic Fields) to a flat map for Typesense upsert.
+func (d *ChunkDocument) ToMap() map[string]interface{} {
+	m := map[string]interface{}{
+		"collection":   d.Collection,
+		"path":         d.Path,
+		"title":        d.Title,
+		"content":      d.Content,
+		"hash":         d.Hash,
+		"chunk_seq":    d.ChunkSeq,
+		"total_chunks": d.TotalChunks,
+		"embedding":    d.Embedding,
+	}
+	if d.Links != nil {
+		m["links"] = d.Links
+	}
+	for k, v := range d.Fields {
+		m[k] = v
+	}
+	return m
 }
 
 // New creates a new Typesense client wrapper.
@@ -50,11 +80,14 @@ func New(cfg Config) *Client {
 	}
 }
 
-// EnsureSchema creates the chunks collection if it does not exist.
-func (c *Client) EnsureSchema(ctx context.Context, numDim int) error {
-	if numDim == 0 {
-		numDim = defaultNumDim
+// EnsureSchema creates the chunks collection (or adds missing fields) with base fields
+// plus any extra fields derived from collection-level frontmatter configs.
+func (c *Client) EnsureSchema(ctx context.Context, embedDim int, extraFields []SchemaField) error {
+	if embedDim == 0 {
+		embedDim = defaultNumDim
 	}
+
+	desired := buildDesiredFields(embedDim, extraFields)
 
 	collections, err := c.client.Collections().Retrieve(ctx, nil)
 	if err != nil {
@@ -63,37 +96,78 @@ func (c *Client) EnsureSchema(ctx context.Context, numDim int) error {
 
 	for _, col := range collections {
 		if col.Name == chunksCollection {
-			return nil
+			return c.updateSchema(ctx, col.Fields, desired)
 		}
 	}
 
-	schema := &api.CollectionSchema{
-		Name: chunksCollection,
-		Fields: []api.Field{
-			{Name: "collection", Type: "string", Facet: boolPtr(true)},
-			{Name: "path", Type: "string", Facet: boolPtr(true)},
-			{Name: "title", Type: "string"},
-			{Name: "content", Type: "string"},
-			{Name: "hash", Type: "string"},
-			{Name: "chunk_seq", Type: "int32"},
-			{Name: "total_chunks", Type: "int32"},
-			{Name: "embedding", Type: "float[]", NumDim: intPtr(numDim)},
-			{Name: "links", Type: "string[]", Facet: boolPtr(true), Optional: boolPtr(true)},
-		},
-	}
+	return c.createSchema(ctx, desired)
+}
 
-	_, err = c.client.Collections().Create(ctx, schema)
+// buildDesiredFields returns the complete list of Typesense fields (base + extra).
+func buildDesiredFields(embedDim int, extraFields []SchemaField) []api.Field {
+	fields := []api.Field{
+		{Name: "collection", Type: "string", Facet: boolPtr(true)},
+		{Name: "path", Type: "string", Facet: boolPtr(true)},
+		{Name: "title", Type: "string"},
+		{Name: "content", Type: "string"},
+		{Name: "hash", Type: "string"},
+		{Name: "chunk_seq", Type: "int32"},
+		{Name: "total_chunks", Type: "int32"},
+		{Name: "embedding", Type: "float[]", NumDim: intPtr(embedDim)},
+		{Name: "links", Type: "string[]", Facet: boolPtr(true), Optional: boolPtr(true)},
+	}
+	for _, sf := range extraFields {
+		fields = append(fields, api.Field{
+			Name:     sf.Name,
+			Type:     sf.Type,
+			Facet:    boolPtr(sf.Facet),
+			Sort:     boolPtr(sf.Sort),
+			Optional: boolPtr(true),
+		})
+	}
+	return fields
+}
+
+// updateSchema adds any desired fields that don't already exist on the collection.
+func (c *Client) updateSchema(ctx context.Context, existing []api.Field, desired []api.Field) error {
+	existingMap := make(map[string]bool)
+	for _, f := range existing {
+		existingMap[f.Name] = true
+	}
+	var newFields []api.Field
+	for _, f := range desired {
+		if !existingMap[f.Name] {
+			newFields = append(newFields, f)
+		}
+	}
+	if len(newFields) == 0 {
+		return nil
+	}
+	_, err := c.client.Collection(chunksCollection).Update(ctx, &api.CollectionUpdateSchema{Fields: newFields})
 	if err != nil {
-		return fmt.Errorf("creating chunks collection: %w", err)
+		return fmt.Errorf("updating schema: %w", err)
 	}
-
 	return nil
 }
 
-// UpsertChunks inserts or replaces a batch of chunk documents for a given path.
+// createSchema creates a new chunks collection with the given fields.
+func (c *Client) createSchema(ctx context.Context, fields []api.Field) error {
+	_, err := c.client.Collections().Create(ctx, &api.CollectionSchema{
+		Name:   chunksCollection,
+		Fields: fields,
+	})
+	if err != nil {
+		return fmt.Errorf("creating chunks collection: %w", err)
+	}
+	return nil
+}
+
+// UpsertChunks inserts or replaces a batch of chunk documents.
+// Dynamic Fields on each ChunkDocument are merged into the Typesense document.
 func (c *Client) UpsertChunks(ctx context.Context, chunks []ChunkDocument) error {
 	for _, ch := range chunks {
-		_, err := c.client.Collection(chunksCollection).Documents().Upsert(ctx, ch, &api.DocumentIndexParameters{})
+		doc := ch.ToMap()
+		_, err := c.client.Collection(chunksCollection).Documents().Upsert(ctx, doc, &api.DocumentIndexParameters{})
 		if err != nil {
 			return fmt.Errorf("upserting chunk %s: %w", ch.Path, err)
 		}
@@ -151,6 +225,20 @@ func (c *Client) countByField(ctx context.Context, field, value string) (int64, 
 		return int64(*resp.Found), nil
 	}
 	return 0, nil
+}
+
+// GetSchemaFields returns the current field definitions of the chunks collection.
+func (c *Client) GetSchemaFields(ctx context.Context) ([]api.Field, error) {
+	collections, err := c.client.Collections().Retrieve(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("retrieving collections: %w", err)
+	}
+	for _, col := range collections {
+		if col.Name == chunksCollection {
+			return col.Fields, nil
+		}
+	}
+	return nil, nil
 }
 
 // CollectionCount returns the total number of documents in the chunks collection.

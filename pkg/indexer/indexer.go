@@ -14,6 +14,7 @@ import (
 	"github.com/verdverm/gmd/pkg/config"
 	"github.com/verdverm/gmd/pkg/llm"
 	"github.com/verdverm/gmd/pkg/ts"
+	"github.com/verdverm/gmd/pkg/wiki"
 )
 
 // TSClient defines the Typesense operations needed by the indexer.
@@ -179,7 +180,7 @@ func (idx *Indexer) updateCollection(ctx context.Context, name string, col confi
 			}
 		}
 
-		chunks, err := idx.processFile(ctx, fsys, fi, relPath, name, hash)
+		chunks, err := idx.processFile(ctx, fsys, fi, relPath, name, hash, col)
 		if err != nil {
 			fullPath := filepath.Join(colPath, fi)
 			result.Errors = append(result.Errors, fmt.Sprintf("[%s] process error %s: %v", name, fullPath, err))
@@ -209,13 +210,31 @@ func (idx *Indexer) updateCollection(ctx context.Context, name string, col confi
 	return result
 }
 
-func (idx *Indexer) processFile(ctx context.Context, fsys fs.FS, fsPath, relPath, collection, hash string) ([]ts.ChunkDocument, error) {
+func (idx *Indexer) processFile(ctx context.Context, fsys fs.FS, fsPath, relPath, collection, hash string, colCfg config.CollectionConfig) ([]ts.ChunkDocument, error) {
 	data, err := fs.ReadFile(fsys, fsPath)
 	if err != nil {
 		return nil, fmt.Errorf("reading file: %w", err)
 	}
 
 	content := string(data)
+
+	// Extract frontmatter fields if the collection defines any.
+	var frontmatter map[string]interface{}
+	if len(colCfg.Fields) > 0 {
+		fm, remaining, err := wiki.ParseFrontmatter(content)
+		if err != nil {
+			return nil, fmt.Errorf("parsing frontmatter: %w", err)
+		}
+		if fm != nil {
+			fmCfg := &config.FrontmatterConfig{Fields: colCfg.Fields}
+			if err := wiki.ValidateFrontmatter(fm, fmCfg); err != nil {
+				return nil, fmt.Errorf("validating frontmatter: %w", err)
+			}
+			frontmatter = fm
+		}
+		content = remaining
+	}
+
 	chunkCfg := idx.chunkConfig()
 
 	rawChunks, links, _ := chunking.ChunkMarkdownWithMeta(content, chunkCfg)
@@ -236,7 +255,7 @@ func (idx *Indexer) processFile(ctx context.Context, fsys fs.FS, fsPath, relPath
 
 	docChunks := make([]ts.ChunkDocument, len(rawChunks))
 	for i, c := range rawChunks {
-		docChunks[i] = ts.ChunkDocument{
+		doc := ts.ChunkDocument{
 			Collection:  idx.cfg.CollectionKey(collection),
 			Path:        relPath,
 			Title:       c.Title,
@@ -246,9 +265,13 @@ func (idx *Indexer) processFile(ctx context.Context, fsys fs.FS, fsPath, relPath
 			TotalChunks: c.TotalChunks,
 			Links:       links,
 		}
-		if i < len(embeddings) {
-			docChunks[i].Embedding = embeddings[i]
+		if frontmatter != nil {
+			doc.Fields = frontmatter
 		}
+		if i < len(embeddings) {
+			doc.Embedding = embeddings[i]
+		}
+		docChunks[i] = doc
 	}
 
 	return docChunks, nil

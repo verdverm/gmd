@@ -110,6 +110,10 @@ Project root detected by walking up from CWD looking for `.gmd/` sentinel.
   for the user to run.
 - Never modify CUE config files or the Typesense index directly without being asked.
 - Always run `make lint` after code changes.
+- Integration tests can take ~2-3min depending on external service availability (the wiki package
+  starts a Typesense Docker container). Use `make test.integration` but note that the tool timeout
+  must be set high enough (e.g. 10min = 600000ms). Do NOT use Go's `-timeout` flag — set the
+  timeout on the bash/tool invocation instead.
 - Keep `CGO_ENABLED=0` — never introduce CGO dependencies.
 - New CLI commands go in `cmd/gmd/<name>.go` and register in `main.go` init().
 - New library packages go under `pkg/<name>/`.

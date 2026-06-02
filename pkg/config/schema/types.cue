@@ -93,8 +93,14 @@ PipelineConfig: {
 }
 
 // FrontmatterField defines a typed key extracted from YAML frontmatter.
+// The type names align with Typesense field types (with Go YAML parsing in mind):
+//   string  — YAML string
+//   string[] — YAML string array
+//   int32   — YAML int
+//   float   — YAML float64
+//   bool    — YAML bool
 FrontmatterField: {
-	type:  "string" | "string[]" | "int32" | "float64" | "bool"
+	type:  "string" | "string[]" | "int32" | "float" | "bool"
 	facet?: bool | *false
 	sort?:  bool | *false
 }
@@ -119,6 +125,7 @@ CollectionConfig: {
 	context?:          string
 	includeByDefault?: bool | *true
 	wiki?:             WikiConfig | *null   // optional, activates wiki mode
+	fields?:           [string]: FrontmatterField  // optional frontmatter fields to index in Typesense
 }
 
 // EXAConfig defines the EXA web search API settings.

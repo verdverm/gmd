@@ -148,6 +148,7 @@ type FrontmatterConfig struct {
 }
 
 // FrontmatterField maps from the CUE FrontmatterField schema.
+// The Type field uses Typesense-compatible type names (string, string[], int32, float, bool).
 type FrontmatterField struct {
 	Type  string `json:"type"`
 	Facet bool   `json:"facet"`
@@ -157,12 +158,13 @@ type FrontmatterField struct {
 // CollectionConfig maps from the CUE CollectionConfig schema.
 // The collection name is the map key in Config.Collections, not a field in this struct.
 type CollectionConfig struct {
-	Path             string      `json:"path"`
-	Patterns         []string    `json:"patterns"`
-	Ignore           []string    `json:"ignore,omitempty"`
-	Context          string      `json:"context,omitempty"`
-	IncludeByDefault bool        `json:"includeByDefault"`
-	Wiki             *WikiConfig `json:"wiki,omitempty"`
+	Path             string                      `json:"path"`
+	Patterns         []string                    `json:"patterns"`
+	Ignore           []string                    `json:"ignore,omitempty"`
+	Context          string                      `json:"context,omitempty"`
+	IncludeByDefault bool                        `json:"includeByDefault"`
+	Wiki             *WikiConfig                 `json:"wiki,omitempty"`
+	Fields           map[string]FrontmatterField `json:"fields,omitempty"`
 }
 
 //go:embed schema/*.cue

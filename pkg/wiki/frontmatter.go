@@ -62,9 +62,9 @@ func ValidateFrontmatter(fm map[string]interface{}, cfg *config.FrontmatterConfi
 			if _, ok := val.(int); !ok {
 				return fmt.Errorf("frontmatter field %q: expected int, got %T", name, val)
 			}
-		case "float64":
+		case "float":
 			if _, ok := val.(float64); !ok {
-				return fmt.Errorf("frontmatter field %q: expected float64, got %T", name, val)
+				return fmt.Errorf("frontmatter field %q: expected float, got %T", name, val)
 			}
 		case "bool":
 			if _, ok := val.(bool); !ok {
@@ -111,7 +111,7 @@ func FrontmatterToFilter(fm map[string]interface{}, cfg *config.FrontmatterConfi
 			}
 		case "int32":
 			parts = append(parts, fmt.Sprintf("%s:=%v", name, val))
-		case "float64":
+		case "float":
 			parts = append(parts, fmt.Sprintf("%s:=%v", name, val))
 		case "bool":
 			parts = append(parts, fmt.Sprintf("%s:=%v", name, val))

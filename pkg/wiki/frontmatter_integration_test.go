@@ -136,7 +136,7 @@ func TestIntegrationValidateFrontmatter_IntField(t *testing.T) {
 func TestIntegrationValidateFrontmatter_FloatField(t *testing.T) {
 	cfg := &config.FrontmatterConfig{
 		Fields: map[string]config.FrontmatterField{
-			"score": {Type: "float64"},
+			"score": {Type: "float"},
 		},
 	}
 	if err := ValidateFrontmatter(map[string]interface{}{"score": 3.14}, cfg); err != nil {
@@ -218,7 +218,7 @@ func TestIntegrationFrontmatterToFilter_IntField(t *testing.T) {
 func TestIntegrationFrontmatterToFilter_FloatField(t *testing.T) {
 	cfg := &config.FrontmatterConfig{
 		Fields: map[string]config.FrontmatterField{
-			"score": {Type: "float64"},
+			"score": {Type: "float"},
 		},
 	}
 	s := FrontmatterToFilter(map[string]interface{}{"score": 3.14}, cfg)

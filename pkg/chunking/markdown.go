@@ -1,11 +1,15 @@
 package chunking
 
 import (
+	"bytes"
 	"math"
 	"regexp"
 	"strings"
 	"unicode/utf8"
 
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/text"
 	"gopkg.in/yaml.v3"
 )
 
@@ -61,33 +65,34 @@ type segment struct {
 	startLine int
 }
 
-func extractHeadings(lines []string) []headingInfo {
+func extractHeadings(content string) []headingInfo {
 	var headings []headingInfo
-	for i, line := range lines {
-		trimmed := strings.TrimLeft(line, " \t")
-		if trimmed == "" {
-			continue
+	reader := text.NewReader([]byte(content))
+	md := goldmark.New()
+	doc := md.Parser().Parse(reader)
+
+	ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
 		}
-		if trimmed[0] == '#' {
-			level := 0
-			for _, ch := range trimmed {
-				if ch == '#' {
-					level++
-				} else if ch == ' ' {
-					break
-				} else {
-					break
+		if n.Kind() == ast.KindHeading {
+			h := n.(*ast.Heading)
+			var buf bytes.Buffer
+			for c := n.FirstChild(); c != nil; c = c.NextSibling() {
+				if c.Kind() == ast.KindText || c.Kind() == ast.KindString {
+					buf.Write(c.Text([]byte(content)))
 				}
 			}
-			if level > 0 && level <= 6 && len(trimmed) > level && trimmed[level] == ' ' {
-				headings = append(headings, headingInfo{
-					level:   level,
-					text:    strings.TrimSpace(trimmed[level:]),
-					lineIdx: i,
-				})
-			}
+			seg := n.Lines().At(0)
+			lineIdx := bytes.Count([]byte(content[:seg.Start]), []byte("\n"))
+			headings = append(headings, headingInfo{
+				level:   h.Level,
+				text:    strings.TrimSpace(buf.String()),
+				lineIdx: lineIdx,
+			})
 		}
-	}
+		return ast.WalkContinue, nil
+	})
 	return headings
 }
 
@@ -135,7 +140,7 @@ func ChunkMarkdownWithMeta(content string, cfg Config) ([]Chunk, []string, map[s
 
 func ChunkMarkdown(content string, cfg Config) []Chunk {
 	lines := strings.Split(content, "\n")
-	headings := extractHeadings(lines)
+	headings := extractHeadings(content)
 
 	docTitle := ""
 	if len(headings) > 0 && headings[0].level == 1 {

@@ -1,6 +1,7 @@
 package chunking
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -83,8 +84,7 @@ func TestExtractHeadings(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lines := strings.Split(tt.input, "\n")
-			got := extractHeadings(lines)
+			got := extractHeadings(tt.input)
 			if len(got) != len(tt.want) {
 				t.Fatalf("got %d headings, want %d: %+v", len(got), len(tt.want), got)
 			}
@@ -269,6 +269,22 @@ func TestChunkMarkdownLargeDoc(t *testing.T) {
 	}
 }
 
+func TestChunkMarkdownOverlapCarryFullPrev(t *testing.T) {
+	content := "# H1\nhello\n# H2\n" + strings.Repeat("word ", 100)
+	cfg := DefaultConfig()
+	cfg.TargetTokens = 50
+	cfg.Overlap = 0.9
+
+	chunks := ChunkMarkdown(content, cfg)
+
+	if len(chunks) < 2 {
+		t.Fatalf("expected multiple chunks, got %d", len(chunks))
+	}
+	if !strings.Contains(chunks[1].Content, "hello") {
+		t.Errorf("chunk 1 should carry full prev overlap, got: %q", chunks[1].Content[:50])
+	}
+}
+
 func TestChunkMarkdownUTF8(t *testing.T) {
 	content := strings.Repeat("こんにちは世界", 500)
 	cfg := DefaultConfig()
@@ -283,5 +299,190 @@ func TestChunkMarkdownUTF8(t *testing.T) {
 		if c.Content == "" {
 			t.Errorf("found empty chunk")
 		}
+	}
+}
+
+func TestExtractWikilinks(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want []string
+	}{
+		{
+			name: "no wikilinks",
+			in:   "plain text with no links",
+			want: nil,
+		},
+		{
+			name: "single wikilink",
+			in:   "see [[TargetPage]] for details",
+			want: []string{"TargetPage"},
+		},
+		{
+			name: "multiple wikilinks",
+			in:   "[[PageA]] and [[PageB]] are related",
+			want: []string{"PageA", "PageB"},
+		},
+		{
+			name: "deduplication",
+			in:   "[[Same]] and [[Same]] again",
+			want: []string{"Same"},
+		},
+		{
+			name: "with display text after pipe",
+			in:   "[[Target|display text]]",
+			want: []string{"Target"},
+		},
+		{
+			name: "with anchor fragment",
+			in:   "[[Target#section]]",
+			want: []string{"Target"},
+		},
+		{
+			name: "whitespace trimmed",
+			in:   "[[  Spaced  ]]",
+			want: []string{"Spaced"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ExtractWikilinks(tt.in)
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %v, want %v", got, tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("links[%d] = %q, want %q", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestExtractFrontmatter(t *testing.T) {
+	tests := []struct {
+		name   string
+		in     string
+		wantFM map[string]interface{}
+		wantOK bool
+	}{
+		{
+			name:   "no frontmatter",
+			in:     "# Just content\n\nhello",
+			wantFM: nil,
+			wantOK: false,
+		},
+		{
+			name: "valid frontmatter",
+			in:   "---\ntitle: My Doc\ntags: [a, b]\n---\n# Content",
+			wantFM: map[string]interface{}{
+				"title": "My Doc",
+				"tags":  []interface{}{"a", "b"},
+			},
+			wantOK: true,
+		},
+
+		{
+			name:   "invalid yaml frontmatter",
+			in:     "---\n: invalid yaml\n---\n# Content",
+			wantFM: nil,
+			wantOK: false,
+		},
+		{
+			name:   "dashes in content",
+			in:     "---\nkey: val\n---\nMore --- dashes",
+			wantFM: map[string]interface{}{"key": "val"},
+			wantOK: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fm, remaining := ExtractFrontmatter(tt.in)
+			if tt.wantOK {
+				if fm == nil {
+					t.Fatal("expected frontmatter, got nil")
+				}
+				for k, v := range tt.wantFM {
+					if !reflect.DeepEqual(fm[k], v) {
+						t.Errorf("fm[%q] = %v (%T), want %v (%T)", k, fm[k], fm[k], v, v)
+					}
+				}
+				if remaining == tt.in {
+					t.Error("remaining should differ from input when frontmatter is extracted")
+				}
+			} else {
+				if fm != nil {
+					t.Errorf("expected nil frontmatter, got %v", fm)
+				}
+				if remaining != tt.in {
+					t.Error("remaining should equal input when no frontmatter")
+				}
+			}
+		})
+	}
+}
+
+func TestChunkMarkdownWithMeta(t *testing.T) {
+	tests := []struct {
+		name      string
+		in        string
+		wantTitle string
+		wantLinks []string
+		wantFM    bool
+	}{
+		{
+			name:      "plain content, no metadata",
+			in:        "# Doc\n\nhello world",
+			wantTitle: "Doc",
+			wantLinks: nil,
+			wantFM:    false,
+		},
+		{
+			name:      "with frontmatter and wikilinks",
+			in:        "---\ntitle: Metadata\n---\n# Doc\n\nsee [[Other]] page",
+			wantTitle: "Doc",
+			wantLinks: []string{"Other"},
+			wantFM:    true,
+		},
+		{
+			name:      "multiple wikilinks",
+			in:        "---\nkey: val\n---\n# Doc\n\n[[A]] and [[B]] and [[A]]",
+			wantTitle: "Doc",
+			wantLinks: []string{"A", "B"},
+			wantFM:    true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			chunks, links, fm := ChunkMarkdownWithMeta(tt.in, DefaultConfig())
+			if len(chunks) == 0 {
+				t.Fatal("expected at least one chunk")
+			}
+			if chunks[0].Title != tt.wantTitle {
+				t.Errorf("title = %q, want %q", chunks[0].Title, tt.wantTitle)
+			}
+			if len(links) != len(tt.wantLinks) {
+				t.Fatalf("links = %v, want %v", links, tt.wantLinks)
+			}
+			for i := range links {
+				if links[i] != tt.wantLinks[i] {
+					t.Errorf("links[%d] = %q, want %q", i, links[i], tt.wantLinks[i])
+				}
+			}
+			if tt.wantFM && fm == nil {
+				t.Error("expected frontmatter, got nil")
+			}
+			if !tt.wantFM && fm != nil {
+				t.Errorf("expected nil frontmatter, got %v", fm)
+			}
+			for _, c := range chunks {
+				if len(c.Links) != len(tt.wantLinks) {
+					t.Errorf("chunk[%d] links = %v, want %v", c.ChunkSeq, c.Links, tt.wantLinks)
+				}
+				if tt.wantFM && c.Frontmatter == nil {
+					t.Errorf("chunk[%d] frontmatter should not be nil", c.ChunkSeq)
+				}
+			}
+		})
 	}
 }

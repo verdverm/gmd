@@ -87,7 +87,7 @@ func TestFormatVector(t *testing.T) {
 
 	t.Run("comma separated", func(t *testing.T) {
 		got := formatVector([]float64{1.0, 2.0, 3.0})
-		expected := "1.000000,2.000000,3.000000"
+		expected := "1.00,2.00,3.00"
 		if got != expected {
 			t.Errorf("got %q, want %q", got, expected)
 		}

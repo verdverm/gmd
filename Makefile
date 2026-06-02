@@ -1,4 +1,4 @@
-.PHONY: all build build-all clean generate lint tidy test
+.PHONY: all build build-all clean generate lint tidy test cover cover.detailed
 
 GO ?= go
 CGO_ENABLED ?= 0
@@ -22,5 +22,13 @@ lint:
 test:
 	CGO_ENABLED=$(CGO_ENABLED) $(GO) test ./... -v
 
+cover:
+	CGO_ENABLED=$(CGO_ENABLED) $(GO) test ./... -cover
+
+cover.detailed:
+	CGO_ENABLED=$(CGO_ENABLED) $(GO) test ./... -coverprofile=coverage.out
+	$(GO) tool cover -html=coverage.out -o coverage.html
+	$(GO) tool cover -func=coverage.out
+
 clean:
-	rm -rf $(BINDIR)
+	rm -rf $(BINDIR) coverage.out coverage.html

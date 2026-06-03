@@ -11,19 +11,22 @@ import (
 )
 
 var (
-	webSearchLimit        int
-	webSearchType         string
-	webSearchText         bool
-	webSearchHighlights   bool
-	webSearchSummary      string
-	webSearchMaxChars     int
-	webSearchJSON         bool
-	webSearchNoAutoprompt bool
-	webSearchDomains      []string
-	webSearchExcludeDom   []string
-	webSearchDateStart    string
-	webSearchDateEnd      string
-	webSearchCategory     string
+	webSearchLimit             int
+	webSearchType              string
+	webSearchText              bool
+	webSearchHighlights        bool
+	webSearchSummary           string
+	webSearchMaxChars          int
+	webSearchJSON              bool
+	webSearchNoAutoprompt      bool
+	webSearchDomains           []string
+	webSearchExcludeDom        []string
+	webSearchDateStart         string
+	webSearchDateEnd           string
+	webSearchCategory          string
+	webSearchAdditionalQueries []string
+	webSearchSystemPrompt      string
+	webSearchNoModeration      bool
 )
 
 var webSearchCmd = &cobra.Command{
@@ -84,6 +87,16 @@ Examples:
 
 		if !webSearchNoAutoprompt {
 			req.UseAutoprompt = boolPtr(true)
+		}
+
+		if len(webSearchAdditionalQueries) > 0 {
+			req.AdditionalQueries = webSearchAdditionalQueries
+		}
+		if webSearchSystemPrompt != "" {
+			req.SystemPrompt = webSearchSystemPrompt
+		}
+		if !webSearchNoModeration {
+			req.Moderation = boolPtr(true)
 		}
 
 		if webSearchText {
@@ -173,7 +186,9 @@ func init() {
 	webSearchCmd.Flags().StringSliceVar(&webSearchExcludeDom, "exclude-domain", nil, "Exclude domain (repeatable)")
 	webSearchCmd.Flags().StringVar(&webSearchDateStart, "date-start", "", "Filter by publish date start (ISO 8601)")
 	webSearchCmd.Flags().StringVar(&webSearchDateEnd, "date-end", "", "Filter by publish date end (ISO 8601)")
-	webSearchCmd.Flags().StringVar(&webSearchCategory, "category", "", "Category: company, research paper, news, personal site, financial report")
+	webSearchCmd.Flags().StringSliceVar(&webSearchAdditionalQueries, "additional-queries", nil, "Additional queries to expand search (repeatable)")
+	webSearchCmd.Flags().StringVar(&webSearchSystemPrompt, "system-prompt", "", "System prompt for EXA's LLM summarization")
+	webSearchCmd.Flags().BoolVar(&webSearchNoModeration, "no-moderation", false, "Disable content moderation")
 
 	webSearchCmd.Flags().MarkHidden("summary")
 }

@@ -14,10 +14,12 @@ type SearchRequest struct {
 	StartPublishedDate *time.Time       `json:"startPublishedDate,omitempty"`
 	EndPublishedDate   *time.Time       `json:"endPublishedDate,omitempty"`
 	Category           string           `json:"category,omitempty"`
+	AdditionalQueries  []string         `json:"additionalQueries,omitempty"`
 	Contents           *ContentsOptions `json:"contents,omitempty"`
 	UseAutoprompt      *bool            `json:"useAutoprompt,omitempty"`
 	OutputSchema       any              `json:"outputSchema,omitempty"`
 	SystemPrompt       string           `json:"systemPrompt,omitempty"`
+	Moderation         *bool            `json:"moderation,omitempty"`
 }
 
 type SearchResponse struct {

@@ -1,7 +1,12 @@
 package main
 
 import (
+	"fmt"
+	"os"
+	"strings"
+
 	"github.com/spf13/cobra"
+	"github.com/verdverm/gmd/pkg/exa"
 )
 
 var webCmd = &cobra.Command{
@@ -18,6 +23,34 @@ Workflows:
   3. Agent:    gmd web agent "your research question" --steps 5
 
 Requires EXA_API_KEY environment variable to be set.`,
+}
+
+func slugify(s string) string {
+	s = strings.ToLower(s)
+	var result strings.Builder
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			result.WriteRune(r)
+		} else if r == ' ' || r == '_' {
+			result.WriteRune('-')
+		}
+	}
+	out := result.String()
+	if len(out) > 60 {
+		out = out[:60]
+	}
+	return strings.Trim(out, "-")
+}
+
+func printCost(cost *exa.CostDollars) {
+	if cost == nil {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "\nCost: $%.6f\n", cost.Total)
+}
+
+func boolPtr(b bool) *bool {
+	return &b
 }
 
 func init() {

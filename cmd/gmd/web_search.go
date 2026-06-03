@@ -177,7 +177,3 @@ func init() {
 
 	webSearchCmd.Flags().MarkHidden("summary")
 }
-
-func boolPtr(b bool) *bool {
-	return &b
-}

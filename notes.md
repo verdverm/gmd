@@ -20,7 +20,6 @@ my (human) ideas & questions
 
 in-code: `XXX-AGENT ...` comments
 
-- inconsistent ./cmd/gmd/... organization / file naming
 
 - ./pkg/runtime ought to have more on it, like LLMs?
 - ./pkg/web vs ./pkg/exa being separate
@@ -31,6 +30,7 @@ in-code: `XXX-AGENT ...` comments
 
 ## Fixed
 
+- inconsistent ./cmd/gmd/... organization / file naming
 - ./pkg/agents
     - rename to agentsmd
     - options from file names, not hardcoded

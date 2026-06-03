@@ -74,49 +74,8 @@ understanding and relevance-ranked results, use 'gmd query' instead.`,
 	},
 }
 
-var vsearchCmd = &cobra.Command{
-	Use:   "vsearch <query>",
-	Short: "Vector similarity search — semantic matching via embeddings",
-	Long: `Embeds the query and performs a vector similarity search using cosine
-distance against document chunk embeddings in Typesense.
-
-This finds semantically related content even when exact keywords don't
-match. No query expansion or reranking is performed — for the full
-pipeline with those features, use 'gmd query' instead.`,
-	Args: cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return searchRun(args, search.ModeVector)
-	},
-}
-
-var queryCmd = &cobra.Command{
-	Use:   "query <query>",
-	Short: "Full hybrid search pipeline — expansion, RRF fusion, rerank, blend",
-	Long: `Runs the complete search pipeline for best-quality results:
-
-  1. Strong signal detection — fast path if a top result is obvious
-  2. LLM query expansion — generates lex, vec, and HyDE variants
-  3. Hybrid search — text + vector for each variant, grouped by doc
-  4. RRF fusion — merges results across all variants with weights
-  5. LLM reranking — re-scores candidates for relevance
-  6. Position blending — tiers results by position with configurable weights
-
-This is the recommended command for general-purpose search. Use
-'gmd search' for fast keyword lookups without LLM overhead.`,
-	Args: cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return searchRun(args, search.ModeHybrid)
-	},
-}
-
 func init() {
 	searchCmd.Flags().IntVarP(&searchLimit, "limit", "n", 5, "max results")
 	searchCmd.Flags().StringVarP(&searchFormat, "format", "f", "cli", "output format")
 	searchCmd.Flags().StringSliceVarP(&searchCollections, "collection", "c", nil, "collection(s) to search (default: auto-detect from CWD)")
-	vsearchCmd.Flags().IntVarP(&searchLimit, "limit", "n", 5, "max results")
-	vsearchCmd.Flags().StringVarP(&searchFormat, "format", "f", "cli", "output format")
-	vsearchCmd.Flags().StringSliceVarP(&searchCollections, "collection", "c", nil, "collection(s) to search (default: auto-detect from CWD)")
-	queryCmd.Flags().IntVarP(&searchLimit, "limit", "n", 5, "max results")
-	queryCmd.Flags().StringVarP(&searchFormat, "format", "f", "cli", "output format")
-	queryCmd.Flags().StringSliceVarP(&searchCollections, "collection", "c", nil, "collection(s) to search (default: auto-detect from CWD)")
 }

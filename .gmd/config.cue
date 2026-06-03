@@ -26,7 +26,12 @@ Config: {
 	collections: docs: {
 		path:    "."
 		patterns: ["**/*.md"]
-		ignore:  ["qmd/**", "node_modules/**", "tmp/**", "pkg/agents/content/**"]
+		ignore:  [
+			"qmd/**",
+			"tmp/**",
+			"pkg/agentsmd/content/**",
+			"pkg/wiki/skills/**",
+		]
 		context: "Project documentation"
 
 		// Optional: define frontmatter fields to index for faceted search/filtering.

@@ -114,9 +114,14 @@ func indexFile(ctx context.Context, tsClient *ts.Client, cfg *config.Config, wik
 	collectionKey := cfg.CollectionKey(wikiName)
 
 	_ = tsClient.DeleteChunksByPath(ctx, relPath)
+	_ = tsClient.DeleteDocByPath(ctx, relPath)
 
 	var tsDocs []ts.ChunkDocument
-	for _, c := range chunks {
+	var title string
+	for i, c := range chunks {
+		if i == 0 {
+			title = c.Title
+		}
 		tsDocs = append(tsDocs, ts.ChunkDocument{
 			Collection:  collectionKey,
 			Path:        relPath,
@@ -128,7 +133,16 @@ func indexFile(ctx context.Context, tsClient *ts.Client, cfg *config.Config, wik
 	}
 
 	if len(tsDocs) > 0 {
-		return tsClient.UpsertChunks(ctx, tsDocs)
+		if err := tsClient.UpsertChunks(ctx, tsDocs); err != nil {
+			return err
+		}
 	}
-	return nil
+
+	return tsClient.UpsertDoc(ctx, ts.DocDocument{
+		Collection: collectionKey,
+		Path:       relPath,
+		Title:      title,
+		Content:    stripped,
+		Links:      links,
+	})
 }

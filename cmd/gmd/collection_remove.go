@@ -32,7 +32,11 @@ Example:
 			return fmt.Errorf("deleting chunks for %q: %w", name, err)
 		}
 
-		fmt.Printf("Removed collection %q and its chunks.\n", name)
+		if err := r.TSClient().DeleteDocsByCollection(context.Background(), r.Config().CollectionKey(name)); err != nil {
+			return fmt.Errorf("deleting docs for %q: %w", name, err)
+		}
+
+		fmt.Printf("Removed collection %q and its documents.\n", name)
 		return nil
 	},
 }

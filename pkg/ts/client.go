@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/typesense/typesense-go/v4/typesense"
 	"github.com/typesense/typesense-go/v4/typesense/api"
@@ -19,6 +20,7 @@ type SchemaField struct {
 
 const (
 	chunksCollection = "chunks"
+	docsCollection   = "documents"
 	defaultNumDim    = 768
 )
 
@@ -69,6 +71,35 @@ func (d *ChunkDocument) ToMap() map[string]interface{} {
 	return m
 }
 
+// DocDocument represents a full document indexed in Typesense (not chunked).
+type DocDocument struct {
+	Collection string                 `json:"collection"`
+	Path       string                 `json:"path"`
+	Title      string                 `json:"title"`
+	Content    string                 `json:"content"`
+	Hash       string                 `json:"hash"`
+	Links      []string               `json:"links,omitempty"`
+	Fields     map[string]interface{} `json:"-"`
+}
+
+// ToMap converts the DocDocument (including dynamic Fields) to a flat map for Typesense upsert.
+func (d *DocDocument) ToMap() map[string]interface{} {
+	m := map[string]interface{}{
+		"collection": d.Collection,
+		"path":       d.Path,
+		"title":      d.Title,
+		"content":    d.Content,
+		"hash":       d.Hash,
+	}
+	if d.Links != nil {
+		m["links"] = d.Links
+	}
+	for k, v := range d.Fields {
+		m[k] = v
+	}
+	return m
+}
+
 // New creates a new Typesense client wrapper.
 func New(cfg Config) *Client {
 	return &Client{
@@ -86,25 +117,40 @@ func (c *Client) EnsureSchema(ctx context.Context, embedDim int, extraFields []S
 	if embedDim == 0 {
 		embedDim = defaultNumDim
 	}
+	return c.ensureCollection(ctx, chunksCollection, buildChunkFields(embedDim, extraFields))
+}
 
-	desired := buildDesiredFields(embedDim, extraFields)
+// EnsureDocSchema creates the documents collection (or adds missing fields).
+func (c *Client) EnsureDocSchema(ctx context.Context, extraFields []SchemaField) error {
+	return c.ensureCollection(ctx, docsCollection, buildDocFields(extraFields))
+}
 
+// EnsureAllSchemas ensures both the chunks and documents collections exist.
+func (c *Client) EnsureAllSchemas(ctx context.Context, embedDim int, extraFields []SchemaField) error {
+	if err := c.EnsureSchema(ctx, embedDim, extraFields); err != nil {
+		return err
+	}
+	return c.EnsureDocSchema(ctx, extraFields)
+}
+
+// ensureCollection creates or updates a single Typesense collection.
+func (c *Client) ensureCollection(ctx context.Context, name string, desired []api.Field) error {
 	collections, err := c.client.Collections().Retrieve(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("retrieving collections: %w", err)
 	}
 
 	for _, col := range collections {
-		if col.Name == chunksCollection {
-			return c.updateSchema(ctx, col.Fields, desired)
+		if col.Name == name {
+			return c.updateCollectionSchema(ctx, name, col.Fields, desired)
 		}
 	}
 
-	return c.createSchema(ctx, desired)
+	return c.createCollection(ctx, name, desired)
 }
 
-// buildDesiredFields returns the complete list of Typesense fields (base + extra).
-func buildDesiredFields(embedDim int, extraFields []SchemaField) []api.Field {
+// buildChunkFields returns the field schema for the chunks collection.
+func buildChunkFields(embedDim int, extraFields []SchemaField) []api.Field {
 	fields := []api.Field{
 		{Name: "collection", Type: "string", Facet: boolPtr(true)},
 		{Name: "path", Type: "string", Facet: boolPtr(true)},
@@ -128,8 +174,30 @@ func buildDesiredFields(embedDim int, extraFields []SchemaField) []api.Field {
 	return fields
 }
 
-// updateSchema adds any desired fields that don't already exist on the collection.
-func (c *Client) updateSchema(ctx context.Context, existing []api.Field, desired []api.Field) error {
+// buildDocFields returns the field schema for the documents collection.
+func buildDocFields(extraFields []SchemaField) []api.Field {
+	fields := []api.Field{
+		{Name: "collection", Type: "string", Facet: boolPtr(true)},
+		{Name: "path", Type: "string", Facet: boolPtr(true)},
+		{Name: "title", Type: "string"},
+		{Name: "content", Type: "string"},
+		{Name: "hash", Type: "string"},
+		{Name: "links", Type: "string[]", Facet: boolPtr(true), Optional: boolPtr(true)},
+	}
+	for _, sf := range extraFields {
+		fields = append(fields, api.Field{
+			Name:     sf.Name,
+			Type:     sf.Type,
+			Facet:    boolPtr(sf.Facet),
+			Sort:     boolPtr(sf.Sort),
+			Optional: boolPtr(true),
+		})
+	}
+	return fields
+}
+
+// updateCollectionSchema adds any desired fields that don't already exist on the collection.
+func (c *Client) updateCollectionSchema(ctx context.Context, name string, existing []api.Field, desired []api.Field) error {
 	existingMap := make(map[string]bool)
 	for _, f := range existing {
 		existingMap[f.Name] = true
@@ -143,21 +211,21 @@ func (c *Client) updateSchema(ctx context.Context, existing []api.Field, desired
 	if len(newFields) == 0 {
 		return nil
 	}
-	_, err := c.client.Collection(chunksCollection).Update(ctx, &api.CollectionUpdateSchema{Fields: newFields})
+	_, err := c.client.Collection(name).Update(ctx, &api.CollectionUpdateSchema{Fields: newFields})
 	if err != nil {
 		return fmt.Errorf("updating schema: %w", err)
 	}
 	return nil
 }
 
-// createSchema creates a new chunks collection with the given fields.
-func (c *Client) createSchema(ctx context.Context, fields []api.Field) error {
+// createCollection creates a new Typesense collection with the given fields.
+func (c *Client) createCollection(ctx context.Context, name string, fields []api.Field) error {
 	_, err := c.client.Collections().Create(ctx, &api.CollectionSchema{
-		Name:   chunksCollection,
+		Name:   name,
 		Fields: fields,
 	})
 	if err != nil {
-		return fmt.Errorf("creating chunks collection: %w", err)
+		return fmt.Errorf("creating %s collection: %w", name, err)
 	}
 	return nil
 }
@@ -173,6 +241,204 @@ func (c *Client) UpsertChunks(ctx context.Context, chunks []ChunkDocument) error
 		}
 	}
 	return nil
+}
+
+// UpsertDoc inserts or replaces a single full document.
+func (c *Client) UpsertDoc(ctx context.Context, doc DocDocument) error {
+	_, err := c.client.Collection(docsCollection).Documents().Upsert(ctx, doc.ToMap(), &api.DocumentIndexParameters{})
+	if err != nil {
+		return fmt.Errorf("upserting doc %s: %w", doc.Path, err)
+	}
+	return nil
+}
+
+// FetchDocByPath retrieves the full document for a given path from the documents collection.
+func (c *Client) FetchDocByPath(ctx context.Context, path string) (*DocDocument, error) {
+	searchParams := &api.SearchCollectionParams{
+		Q:        stringPtr(""),
+		QueryBy:  stringPtr("content"),
+		FilterBy: stringPtr(fmt.Sprintf("path:=%s", path)),
+		PerPage:  intPtr(1),
+	}
+
+	resp, err := c.client.Collection(docsCollection).Documents().Search(ctx, searchParams)
+	if err != nil {
+		return nil, fmt.Errorf("fetching doc %s: %w", path, err)
+	}
+	if resp.Hits == nil || len(*resp.Hits) == 0 {
+		return nil, nil
+	}
+
+	hit := (*resp.Hits)[0]
+	if hit.Document == nil {
+		return nil, nil
+	}
+	docMap := *hit.Document
+
+	doc := &DocDocument{}
+	if v, ok := docMap["collection"]; ok {
+		doc.Collection = fmt.Sprint(v)
+	}
+	if v, ok := docMap["path"]; ok {
+		doc.Path = fmt.Sprint(v)
+	}
+	if v, ok := docMap["title"]; ok {
+		doc.Title = fmt.Sprint(v)
+	}
+	if v, ok := docMap["content"]; ok {
+		doc.Content = fmt.Sprint(v)
+	}
+	if v, ok := docMap["hash"]; ok {
+		doc.Hash = fmt.Sprint(v)
+	}
+	if v, ok := docMap["links"]; ok {
+		switch links := v.(type) {
+		case []interface{}:
+			for _, l := range links {
+				doc.Links = append(doc.Links, fmt.Sprint(l))
+			}
+		}
+	}
+	return doc, nil
+}
+
+// FetchDocs retrieves documents matching a path query.
+// If the query contains glob characters (* ? [), it's treated as a path filter.
+// Otherwise, exact match is attempted first, then prefix match.
+func (c *Client) FetchDocs(ctx context.Context, query string) ([]DocDocument, error) {
+	if hasGlobChars(query) {
+		return c.searchDocsByPattern(ctx, query)
+	}
+
+	doc, err := c.FetchDocByPath(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	if doc != nil {
+		return []DocDocument{*doc}, nil
+	}
+
+	return c.searchDocsByPattern(ctx, query+"*")
+}
+
+// searchDocsByPattern searches the documents collection with a path filter.
+func (c *Client) searchDocsByPattern(ctx context.Context, filter string) ([]DocDocument, error) {
+	perPage := 250
+	page := 1
+	f := fmt.Sprintf("path:%s", filter)
+	var all []DocDocument
+
+	for {
+		searchParams := &api.SearchCollectionParams{
+			Q:        stringPtr(""),
+			QueryBy:  stringPtr("content"),
+			FilterBy: &f,
+			PerPage:  intPtr(perPage),
+			Page:     &page,
+		}
+
+		resp, err := c.client.Collection(docsCollection).Documents().Search(ctx, searchParams)
+		if err != nil {
+			return nil, fmt.Errorf("searching docs by pattern: %w", err)
+		}
+
+		if resp.Hits == nil || len(*resp.Hits) == 0 {
+			break
+		}
+
+		for _, hit := range *resp.Hits {
+			if hit.Document == nil {
+				continue
+			}
+			docMap := *hit.Document
+			var doc DocDocument
+			if v, ok := docMap["collection"]; ok {
+				doc.Collection = fmt.Sprint(v)
+			}
+			if v, ok := docMap["path"]; ok {
+				doc.Path = fmt.Sprint(v)
+			}
+			if v, ok := docMap["title"]; ok {
+				doc.Title = fmt.Sprint(v)
+			}
+			if v, ok := docMap["content"]; ok {
+				doc.Content = fmt.Sprint(v)
+			}
+			if v, ok := docMap["hash"]; ok {
+				doc.Hash = fmt.Sprint(v)
+			}
+			if v, ok := docMap["links"]; ok {
+				switch links := v.(type) {
+				case []interface{}:
+					for _, l := range links {
+						doc.Links = append(doc.Links, fmt.Sprint(l))
+					}
+				}
+			}
+			all = append(all, doc)
+		}
+
+		if len(*resp.Hits) < perPage {
+			break
+		}
+		page++
+	}
+
+	return all, nil
+}
+
+func hasGlobChars(s string) bool {
+	return strings.ContainsAny(s, "*?[")
+}
+
+// DeleteDocByPath removes a full document for a given path from the documents collection.
+func (c *Client) DeleteDocByPath(ctx context.Context, path string) error {
+	filter := fmt.Sprintf("path:=%s", path)
+	batchSize := 10000
+	_, err := c.client.Collection(docsCollection).Documents().Delete(ctx, &api.DeleteDocumentsParams{
+		FilterBy:  &filter,
+		BatchSize: &batchSize,
+	})
+	if err != nil {
+		return fmt.Errorf("deleting doc %s: %w", path, err)
+	}
+	return nil
+}
+
+// DeleteDocsByCollection removes all documents for a given collection name from the documents collection.
+func (c *Client) DeleteDocsByCollection(ctx context.Context, name string) error {
+	filter := fmt.Sprintf("collection:=%s", name)
+	batchSize := 10000
+	_, err := c.client.Collection(docsCollection).Documents().Delete(ctx, &api.DeleteDocumentsParams{
+		FilterBy:  &filter,
+		BatchSize: &batchSize,
+	})
+	if err != nil {
+		return fmt.Errorf("deleting docs for collection %s: %w", name, err)
+	}
+	return nil
+}
+
+// CountDocsByCollection returns the number of full documents for each given collection name.
+func (c *Client) CountDocsByCollection(ctx context.Context, names []string) (map[string]int64, error) {
+	result := make(map[string]int64)
+	for _, name := range names {
+		filter := fmt.Sprintf("collection:=%s", name)
+		searchParams := &api.SearchCollectionParams{
+			Q:        stringPtr(""),
+			QueryBy:  stringPtr("content"),
+			FilterBy: &filter,
+			PerPage:  intPtr(0),
+		}
+		resp, err := c.client.Collection(docsCollection).Documents().Search(ctx, searchParams)
+		if err != nil {
+			return nil, err
+		}
+		if resp.Found != nil {
+			result[name] = int64(*resp.Found)
+		}
+	}
+	return result, nil
 }
 
 // CountByCollection returns the number of chunk documents for each given collection name.
@@ -243,12 +509,21 @@ func (c *Client) GetSchemaFields(ctx context.Context) ([]api.Field, error) {
 
 // CollectionCount returns the total number of documents in the chunks collection.
 func (c *Client) CollectionCount(ctx context.Context) (int64, error) {
+	return c.collectionDocCount(ctx, chunksCollection)
+}
+
+// DocCollectionCount returns the total number of documents in the documents collection.
+func (c *Client) DocCollectionCount(ctx context.Context) (int64, error) {
+	return c.collectionDocCount(ctx, docsCollection)
+}
+
+func (c *Client) collectionDocCount(ctx context.Context, name string) (int64, error) {
 	collections, err := c.client.Collections().Retrieve(ctx, nil)
 	if err != nil {
 		return 0, fmt.Errorf("retrieving collections: %w", err)
 	}
 	for _, col := range collections {
-		if col.Name == chunksCollection {
+		if col.Name == name {
 			if col.NumDocuments != nil {
 				return int64(*col.NumDocuments), nil
 			}
@@ -636,6 +911,45 @@ func (c *Client) SearchChunksByPath(ctx context.Context, filter string, limit in
 	}
 
 	return groupedHitsToResults(resp), nil
+}
+
+// FetchChunksByPath retrieves all chunks for a given path, sorted by chunk_seq ascending.
+// Paginates internally to support files with more than 250 chunks.
+func (c *Client) FetchChunksByPath(ctx context.Context, path string) ([]HybridSearchResult, error) {
+	perPage := 250
+	page := 1
+	var allResults []HybridSearchResult
+
+	for {
+		searchParams := &api.SearchCollectionParams{
+			Q:        stringPtr(""),
+			QueryBy:  stringPtr("content"),
+			FilterBy: stringPtr(fmt.Sprintf("path:=%s", path)),
+			SortBy:   stringPtr("chunk_seq:asc"),
+			PerPage:  intPtr(perPage),
+			Page:     &page,
+		}
+
+		resp, err := c.client.Collection(chunksCollection).Documents().Search(ctx, searchParams)
+		if err != nil {
+			return nil, fmt.Errorf("fetching chunks: %w", err)
+		}
+
+		if resp.Hits == nil || len(*resp.Hits) == 0 {
+			break
+		}
+
+		for _, hit := range *resp.Hits {
+			allResults = append(allResults, hitToResult(hit))
+		}
+
+		if len(*resp.Hits) < perPage {
+			break
+		}
+		page++
+	}
+
+	return allResults, nil
 }
 
 func boolPtr(b bool) *bool       { return &b }

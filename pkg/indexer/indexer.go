@@ -22,6 +22,8 @@ type TSClient interface {
 	GetHashByPath(ctx context.Context, path string) (string, error)
 	DeleteChunksByPath(ctx context.Context, path string) error
 	UpsertChunks(ctx context.Context, chunks []ts.ChunkDocument) error
+	UpsertDoc(ctx context.Context, doc ts.DocDocument) error
+	DeleteDocByPath(ctx context.Context, path string) error
 	SearchDistinctPaths(ctx context.Context, filter string) ([]string, error)
 }
 
@@ -178,9 +180,14 @@ func (idx *Indexer) updateCollection(ctx context.Context, name string, col confi
 				result.Errors = append(result.Errors, fmt.Sprintf("[%s] delete error %s: %v", name, fullPath, err))
 				continue
 			}
+			if err := idx.ts.DeleteDocByPath(ctx, relPath); err != nil {
+				fullPath := filepath.Join(colPath, fi)
+				result.Errors = append(result.Errors, fmt.Sprintf("[%s] doc delete error %s: %v", name, fullPath, err))
+				continue
+			}
 		}
 
-		chunks, err := idx.processFile(ctx, fsys, fi, relPath, name, hash, col)
+		chunks, doc, err := idx.processFile(ctx, fsys, fi, relPath, name, hash, col)
 		if err != nil {
 			fullPath := filepath.Join(colPath, fi)
 			result.Errors = append(result.Errors, fmt.Sprintf("[%s] process error %s: %v", name, fullPath, err))
@@ -191,6 +198,14 @@ func (idx *Indexer) updateCollection(ctx context.Context, name string, col confi
 			if err := idx.ts.UpsertChunks(ctx, chunks); err != nil {
 				fullPath := filepath.Join(colPath, fi)
 				result.Errors = append(result.Errors, fmt.Sprintf("[%s] upsert error %s: %v", name, fullPath, err))
+				continue
+			}
+		}
+
+		if doc != nil {
+			if err := idx.ts.UpsertDoc(ctx, *doc); err != nil {
+				fullPath := filepath.Join(colPath, fi)
+				result.Errors = append(result.Errors, fmt.Sprintf("[%s] doc upsert error %s: %v", name, fullPath, err))
 				continue
 			}
 		}
@@ -210,34 +225,36 @@ func (idx *Indexer) updateCollection(ctx context.Context, name string, col confi
 	return result
 }
 
-func (idx *Indexer) processFile(ctx context.Context, fsys fs.FS, fsPath, relPath, collection, hash string, colCfg config.CollectionConfig) ([]ts.ChunkDocument, error) {
+func (idx *Indexer) processFile(ctx context.Context, fsys fs.FS, fsPath, relPath, collection, hash string, colCfg config.CollectionConfig) ([]ts.ChunkDocument, *ts.DocDocument, error) {
 	data, err := fs.ReadFile(fsys, fsPath)
 	if err != nil {
-		return nil, fmt.Errorf("reading file: %w", err)
+		return nil, nil, fmt.Errorf("reading file: %w", err)
 	}
 
-	content := string(data)
+	rawContent := string(data)
 
-	// Extract frontmatter fields if the collection defines any.
+	var fullContent string
 	var frontmatter map[string]interface{}
 	if len(colCfg.Fields) > 0 {
-		fm, remaining, err := wiki.ParseFrontmatter(content)
+		fm, remaining, err := wiki.ParseFrontmatter(rawContent)
 		if err != nil {
-			return nil, fmt.Errorf("parsing frontmatter: %w", err)
+			return nil, nil, fmt.Errorf("parsing frontmatter: %w", err)
 		}
 		if fm != nil {
 			fmCfg := &config.FrontmatterConfig{Fields: colCfg.Fields}
 			if err := wiki.ValidateFrontmatter(fm, fmCfg); err != nil {
-				return nil, fmt.Errorf("validating frontmatter: %w", err)
+				return nil, nil, fmt.Errorf("validating frontmatter: %w", err)
 			}
 			frontmatter = fm
 		}
-		content = remaining
+		fullContent = remaining
+	} else {
+		fullContent = rawContent
 	}
 
 	chunkCfg := idx.chunkConfig()
 
-	rawChunks, links, _ := chunking.ChunkMarkdownWithMeta(content, chunkCfg)
+	rawChunks, links, _ := chunking.ChunkMarkdownWithMeta(fullContent, chunkCfg)
 
 	texts := make([]string, len(rawChunks))
 	for i, c := range rawChunks {
@@ -249,8 +266,13 @@ func (idx *Indexer) processFile(ctx context.Context, fsys fs.FS, fsPath, relPath
 		var err error
 		embeddings, err = idx.llm.EmbedBatch(ctx, texts)
 		if err != nil {
-			return nil, fmt.Errorf("embedding chunks: %w", err)
+			return nil, nil, fmt.Errorf("embedding chunks: %w", err)
 		}
+	}
+
+	title := ""
+	if len(rawChunks) > 0 {
+		title = rawChunks[0].Title
 	}
 
 	docChunks := make([]ts.ChunkDocument, len(rawChunks))
@@ -274,7 +296,19 @@ func (idx *Indexer) processFile(ctx context.Context, fsys fs.FS, fsPath, relPath
 		docChunks[i] = doc
 	}
 
-	return docChunks, nil
+	fullDoc := &ts.DocDocument{
+		Collection: idx.cfg.CollectionKey(collection),
+		Path:       relPath,
+		Title:      title,
+		Content:    fullContent,
+		Hash:       hash,
+		Links:      links,
+	}
+	if frontmatter != nil {
+		fullDoc.Fields = frontmatter
+	}
+
+	return docChunks, fullDoc, nil
 }
 
 func (idx *Indexer) chunkConfig() chunking.Config {
@@ -404,7 +438,10 @@ func (idx *Indexer) CleanupDeleted(ctx context.Context, collection string) (int,
 	var deleted int
 	for _, p := range stale {
 		if err := idx.ts.DeleteChunksByPath(ctx, p); err != nil {
-			return deleted, fmt.Errorf("deleting %s: %w", p, err)
+			return deleted, fmt.Errorf("deleting chunks %s: %w", p, err)
+		}
+		if err := idx.ts.DeleteDocByPath(ctx, p); err != nil {
+			return deleted, fmt.Errorf("deleting doc %s: %w", p, err)
 		}
 		deleted++
 	}

@@ -466,6 +466,15 @@ func (m *mockTSClient) UpsertChunks(ctx context.Context, chunks []ts.ChunkDocume
 	return nil
 }
 
+func (m *mockTSClient) UpsertDoc(ctx context.Context, doc ts.DocDocument) error {
+	return nil
+}
+
+func (m *mockTSClient) DeleteDocByPath(ctx context.Context, path string) error {
+	m.deletePaths = append(m.deletePaths, path)
+	return nil
+}
+
 func TestStalePaths(t *testing.T) {
 	dir := t.TempDir()
 

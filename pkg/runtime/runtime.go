@@ -45,7 +45,7 @@ func Open(cfg *config.Config) (*Runtime, error) {
 		return nil, fmt.Errorf("building field schemas: %w", err)
 	}
 
-	if err := r.tsClient.EnsureSchema(ctx, 0, fieldSchemas); err != nil {
+	if err := r.tsClient.EnsureAllSchemas(ctx, 0, fieldSchemas); err != nil {
 		return nil, fmt.Errorf("ensuring typesense schema: %w", err)
 	}
 

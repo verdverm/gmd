@@ -21,10 +21,16 @@ my (human) ideas & questions
 in-code: `XXX-AGENT ...` comments
 
 
-- ./pkg/runtime ought to have more on it, like LLMs?
-- ./pkg/web vs ./pkg/exa being separate
-- ./pkg/output is only for search it seems...
 
+web cmd:
+- ./pkg/web vs ./pkg/exa being separate
+- web prompts as embedded files
+
+other:
+
+- multi-get should go away, get should be flexible enough itself
+- ./pkg/runtime ought to have more on it, like LLMs?
+- ./pkg/output is only for search it seems...
 - count tokens with endpoint, not bad approximation
 - remove markdown/other that should be embeded
 

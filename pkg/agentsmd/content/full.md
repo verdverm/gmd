@@ -172,7 +172,7 @@ PipelineConfig: {
 | `gmd update` | Scan, chunk, embed, and index all collections |
 | `gmd embed` | Re-embed all documents (use when embedding model changes) |
 | `gmd status` | Show index health and per-collection document counts |
-| `gmd cleanup` | Remove stale chunks for files that have been deleted |
+| `gmd cleanup` | Remove stale entries for files that have been deleted (both chunks and documents) |
 
 ### Search
 
@@ -317,9 +317,9 @@ Results
 cmd/gmd/          CLI entry point (cobra commands)
 pkg/config/       CUE config loading, validation, project detection, CUE AST editing
 pkg/chunking/     Markdown chunker (heading-aware breakpoints)
-pkg/indexer/      File scanning + SHA-256 dedup + chunk → embed → upsert pipeline
+pkg/indexer/      File scanning + SHA-256 dedup + chunk → embed → upsert + full doc storage
 pkg/search/       Search pipeline: signal detection, expansion, RRF fusion, rerank, blend
-pkg/ts/           Typesense client wrapper (chunks collection, hybrid/text search, CRUD)
+pkg/ts/           Typesense client wrapper (chunks + documents collections, search, CRUD)
 pkg/llm/          OpenAI-compatible API client (embeddings, chat, rerank)
 pkg/output/       Result formatting (CLI, JSON)
 pkg/runtime/      Runtime struct — owns Typesense client lifecycle
@@ -334,12 +334,12 @@ api/              Reserved for REST API (empty)
 ## Key Design Decisions
 
 - **No operational DB.** Typesense is the sole data store. Filesystem is source of truth.
-- **Content-addressable dedup.** SHA-256 hash stored on every chunk; unchanged files skip re-chunking and re-embedding.
+- **Content-addressable dedup.** SHA-256 hash stored on every chunk and full document; unchanged files skip re-processing.
 - **External embeddings.** Embeddings computed in Go via API, stored in Typesense.
 - **No CGO.** `CGO_ENABLED=0` enforced. No tree-sitter, no sqlite.
 - **CUE config only.** No YAML. Global + project-local CUE files unified at load time.
 - **OpenAI-compatible, not OpenAI-specific.** Any provider via `base_url`. API keys via env vars.
-- **Chunks as Typesense documents.** `group_by=collection,path` collapses to document level for dedup and retrieval.
+- **Two Typesense collections.** `chunks` for vector/hybrid search (with embeddings), `documents` for full-content retrieval (`gmd get`). `group_by=collection,path` on chunks collapses to document level.
 
 ## Markdown Chunking
 
@@ -352,15 +352,15 @@ GMD splits markdown files into chunks using a heading-aware algorithm:
 
 ## Deduplication & Incremental Updates
 
-Each chunk stores a SHA-256 hash of its content. On `gmd update`:
+Each file's SHA-256 hash is stored on every chunk and on the full document. On `gmd update`:
 
 1. GMD scans all files matching collection patterns
-2. For each file, it queries Typesense for existing chunks and their hashes
-3. If the file hasn't changed (all chunk hashes match), it's skipped entirely
-4. If the file has changed, old chunks are deleted and the file is re-chunked, re-embedded, and re-indexed
-5. After processing all files, stale chunks (those for deleted files) are removed
+2. For each file, it queries Typesense for the stored hash
+3. If the file hasn't changed (hash matches), it's skipped entirely
+4. If the file has changed, old chunks and document are deleted; the file is re-chunked, re-embedded, and both chunks and full document are re-indexed
+5. After processing all files, stale entries (those for deleted files) are removed from both collections
 
-This means `gmd update` is fast on subsequent runs — only modified files are re-processed.
+`gmd get` retrieves the full document directly from the `documents` collection — no chunk reassembly needed.
 
 ## Dependencies
 

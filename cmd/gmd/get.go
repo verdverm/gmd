@@ -5,19 +5,20 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/verdverm/gmd/pkg/ts"
 )
 
-var getPath string
-
 var getCmd = &cobra.Command{
-	Use:   "get <path>",
-	Short: "Retrieve full document content by file path",
-	Long: `Fetches the complete content of a document from the index by its relative
-file path. Results are displayed with collection name and relevance score.
+	Use:   "get <path-or-pattern>",
+	Short: "Retrieve document content by path or glob pattern",
+	Long: `Fetches document content from the index. Accepts an exact file path
+or a glob pattern. Pattern matching uses Typesense filter syntax with
+* ? and [ ] wildcards.
 
-Example:
-  gmd get docs/guides/deployment.md`,
+Examples:
+  gmd get README.md
+  gmd get docs/configuration.md
+  gmd get "docs/*"
+  gmd get "*.md"`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
@@ -25,28 +26,22 @@ Example:
 			return err
 		}
 
-		path := args[0]
-		results, err := r.TSClient().TextSearch(context.Background(), ts.HybridSearchParams{
-			Query:      "",
-			FilterBy:   fmt.Sprintf("path:=%s", path),
-			Limit:      10,
-			GroupLimit: 10,
-		})
+		docs, err := r.TSClient().FetchDocs(context.Background(), args[0])
 		if err != nil {
-			return fmt.Errorf("searching for %q: %w", path, err)
+			return fmt.Errorf("fetching %q: %w", args[0], err)
 		}
 
-		if len(results) == 0 {
-			fmt.Printf("no documents found matching %q\n", path)
+		if len(docs) == 0 {
+			fmt.Printf("no documents found matching %q\n", args[0])
 			return nil
 		}
 
-		for _, res := range results {
-			fmt.Printf("=== %s (%s) [score: %.4f] ===\n", res.Path, res.Collection, res.Score)
-			if res.Title != "" {
-				fmt.Printf("Title: %s\n\n", res.Title)
+		for _, doc := range docs {
+			fmt.Printf("=== %s (%s) ===\n", doc.Path, doc.Collection)
+			if doc.Title != "" {
+				fmt.Printf("Title: %s\n\n", doc.Title)
 			}
-			fmt.Println(res.Content)
+			fmt.Println(doc.Content)
 			fmt.Println()
 		}
 		return nil

@@ -94,7 +94,7 @@ pipeline: {
 | `gmd update` | Scan, chunk, embed, and index all collections |
 | `gmd embed` | Re-embed all documents (use when embedding model changes) |
 | `gmd status` | Show index health and per-collection document counts |
-| `gmd cleanup` | Remove stale chunks for files that have been deleted |
+| `gmd cleanup` | Remove stale entries for files that have been deleted (both chunks and documents) |
 
 ### Search
 
@@ -204,9 +204,9 @@ Results
 cmd/gmd/          CLI entry point (cobra commands)
 pkg/config/       CUE config loading, validation, project detection, CUE AST editing
 pkg/chunking/     Markdown chunker (heading-aware breakpoints)
-pkg/indexer/      File scanning + SHA-256 dedup + chunk → embed → upsert pipeline
+pkg/indexer/      File scanning + SHA-256 dedup + chunk → embed → upsert + full doc storage
 pkg/search/       Search pipeline: signal detection, expansion, RRF fusion, rerank, blend
-pkg/ts/           Typesense client wrapper (chunks collection, hybrid/text search, CRUD)
+pkg/ts/           Typesense client wrapper (chunks + documents collections, search, CRUD)
 pkg/llm/          OpenAI-compatible API client (embeddings, chat, rerank)
 pkg/output/       Result formatting (CLI, JSON)
 pkg/runtime/      Runtime struct — owns Typesense client lifecycle
@@ -217,12 +217,12 @@ pkg/mcp/          MCP server tools (wiki-aware tools)
 ## Key Design Decisions
 
 - **No operational DB.** Typesense is the sole data store. Filesystem is source of truth.
-- **Content-addressable dedup.** SHA-256 hash stored on every chunk; unchanged files skip re-chunking and re-embedding.
+- **Content-addressable dedup.** SHA-256 hash stored on every chunk and full document; unchanged files skip re-processing.
 - **External embeddings.** Embeddings computed in Go via API, stored in Typesense.
 - **No CGO.** `CGO_ENABLED=0` enforced. No tree-sitter, no sqlite.
 - **CUE config only.** No YAML. Global + project-local CUE files unified at load time.
 - **OpenAI-compatible, not OpenAI-specific.** Any provider via `base_url`. API keys via env vars.
-- **Chunks as Typesense documents.** `group_by=collection,path` collapses to document level for dedup and retrieval.
+- **Two Typesense collections.** `chunks` for vector/hybrid search (with embeddings), `documents` for full-content retrieval (`gmd get`). `group_by=collection,path` on chunks collapses to document level.
 
 ## Important Rules for AI Agents Using GMD
 

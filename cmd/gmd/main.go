@@ -56,7 +56,6 @@ func init() {
 	rootCmd.AddCommand(vsearchCmd)
 	rootCmd.AddCommand(queryCmd)
 	rootCmd.AddCommand(getCmd)
-	rootCmd.AddCommand(multiGetCmd)
 	rootCmd.AddCommand(collectionCmd)
 	rootCmd.AddCommand(contextCmd)
 	rootCmd.AddCommand(lsCmd)

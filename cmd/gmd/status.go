@@ -38,12 +38,17 @@ Workflow:
 
 		ctx := context.Background()
 
-		totalDocs, err := r.TSClient().CollectionCount(ctx)
+		chunkCount, err := r.TSClient().CollectionCount(ctx)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: cannot get collection count: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Warning: cannot get chunk count: %v\n", err)
+		}
+		docCount, err := r.TSClient().DocCollectionCount(ctx)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: cannot get doc count: %v\n", err)
 		}
 
-		fmt.Printf("Total Chunks:  %d\n", totalDocs)
+		fmt.Printf("Total Chunks:   %d\n", chunkCount)
+		fmt.Printf("Total Documents: %d\n", docCount)
 		fmt.Println()
 
 		colKeys := make([]string, 0, len(cfg.Collections))
@@ -55,21 +60,25 @@ Workflow:
 		}
 
 		if len(colKeys) > 0 {
-			counts, err := r.TSClient().CountByCollection(ctx, colKeys)
+			chunkCounts, err := r.TSClient().CountByCollection(ctx, colKeys)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: cannot get collection counts: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Warning: cannot get collection chunk counts: %v\n", err)
+			}
+			docCounts, err := r.TSClient().CountDocsByCollection(ctx, colKeys)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: cannot get collection doc counts: %v\n", err)
 			}
 			fmt.Println("Collections:")
 			for _, key := range colKeys {
 				name := colNameForKey[key]
 				col := cfg.Collections[name]
-				count := counts[key]
 				fmt.Printf("  %s:\n", name)
-				fmt.Printf("    Path:     %s\n", col.Path)
+				fmt.Printf("    Path:       %s\n", col.Path)
 				if len(col.Patterns) > 0 {
-					fmt.Printf("    Patterns: %v\n", col.Patterns)
+					fmt.Printf("    Patterns:   %v\n", col.Patterns)
 				}
-				fmt.Printf("    Chunks:  %d\n", count)
+				fmt.Printf("    Chunks:     %d\n", chunkCounts[key])
+				fmt.Printf("    Documents:  %d\n", docCounts[key])
 			}
 		}
 

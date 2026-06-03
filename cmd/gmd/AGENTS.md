@@ -11,3 +11,6 @@ Each file contains exactly one cobra command (variable), except `main.go`
 
 Files named as the command chain they implement, joined by underscores.
 
+## Keep commands simple
+
+Commands should contain logic for parsing inputs and formatting outputs. Any core logic and potentially reusable functions should be located in ./pkg/...

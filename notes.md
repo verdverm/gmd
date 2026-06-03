@@ -28,14 +28,14 @@ web cmd:
 
 other:
 
-- multi-get should go away, get should be flexible enough itself
 - ./pkg/runtime ought to have more on it, like LLMs?
-- ./pkg/output is only for search it seems...
+- ./pkg/output is only for search it seems...? (not anymore perhaps)
 - count tokens with endpoint, not bad approximation
 - remove markdown/other that should be embeded
 
 ## Fixed
 
+- multi-get should go away, get should be flexible enough itself
 - inconsistent ./cmd/gmd/... organization / file naming
 - ./pkg/agents
     - rename to agentsmd

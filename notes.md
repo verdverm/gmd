@@ -21,9 +21,6 @@ my (human) ideas & questions
 in-code: `XXX-AGENT ...` comments
 
 - inconsistent ./cmd/gmd/... organization / file naming
-- ./pkg/agents
-    - rename to agentsmd
-    - options from file names, not hardcoded
 
 - ./pkg/runtime ought to have more on it, like LLMs?
 - ./pkg/web vs ./pkg/exa being separate
@@ -31,3 +28,9 @@ in-code: `XXX-AGENT ...` comments
 
 - count tokens with endpoint, not bad approximation
 - remove markdown/other that should be embeded
+
+## Fixed
+
+- ./pkg/agents
+    - rename to agentsmd
+    - options from file names, not hardcoded

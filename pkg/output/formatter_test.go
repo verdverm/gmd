@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/verdverm/gmd/pkg/search"
+	"github.com/verdverm/gmd/pkg/ts"
 )
 
 func makeResult(path, title, content string, score float64) search.Result {
@@ -228,4 +229,74 @@ func TestSnippetNoTruncation(t *testing.T) {
 	if snippet != text {
 		t.Errorf("short content should not be truncated, got %q", snippet)
 	}
+}
+
+func makeTSResult(collection, path string) ts.HybridSearchResult {
+	return ts.HybridSearchResult{
+		Collection: collection,
+		Path:       path,
+		Title:      path,
+		Content:    "content",
+		Score:      1.0,
+	}
+}
+
+func TestFormatLS(t *testing.T) {
+	t.Run("no results", func(t *testing.T) {
+		got := FormatLS(nil)
+		if got != "No indexed documents." {
+			t.Errorf("got %q, want %q", got, "No indexed documents.")
+		}
+	})
+
+	t.Run("empty results", func(t *testing.T) {
+		got := FormatLS([]ts.HybridSearchResult{})
+		if got != "No indexed documents." {
+			t.Errorf("got %q, want %q", got, "No indexed documents.")
+		}
+	})
+
+	t.Run("single collection sorts paths", func(t *testing.T) {
+		results := []ts.HybridSearchResult{
+			makeTSResult("docs", "z.md"),
+			makeTSResult("docs", "a.md"),
+			makeTSResult("docs", "m.md"),
+		}
+		got := FormatLS(results)
+		if !strings.Contains(got, "docs:\n") {
+			t.Errorf("should contain collection header")
+		}
+		if !strings.Contains(got, "  a.md\n") {
+			t.Errorf("paths should be sorted, missing a.md")
+		}
+		if !strings.Contains(got, "  m.md\n") {
+			t.Errorf("paths should be sorted, missing m.md")
+		}
+		if !strings.Contains(got, "  z.md\n") {
+			t.Errorf("paths should be sorted, missing z.md")
+		}
+	})
+
+	t.Run("multiple collections sorted alphabetically", func(t *testing.T) {
+		results := []ts.HybridSearchResult{
+			makeTSResult("zzz", "f.md"),
+			makeTSResult("aaa", "b.md"),
+			makeTSResult("mmm", "c.md"),
+		}
+		got := FormatLS(results)
+		if !strings.HasPrefix(got, "aaa:\n") {
+			t.Errorf("collections should be sorted, first should be aaa, got: %s", got)
+		}
+	})
+
+	t.Run("count matches result length", func(t *testing.T) {
+		results := []ts.HybridSearchResult{
+			makeTSResult("docs", "a.md"),
+			makeTSResult("docs", "b.md"),
+		}
+		got := FormatLS(results)
+		if !strings.Contains(got, "2 document(s) indexed") {
+			t.Errorf("should show correct count")
+		}
+	})
 }

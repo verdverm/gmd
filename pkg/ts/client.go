@@ -414,27 +414,50 @@ func (c *Client) multiSearch(ctx context.Context, params HybridSearchParams, tex
 
 // TextSearch performs a text-only search (no vector).
 func (c *Client) TextSearch(ctx context.Context, params HybridSearchParams) ([]HybridSearchResult, error) {
-	searchParams := &api.SearchCollectionParams{
-		Q:          &params.Query,
-		QueryBy:    stringPtr("content"),
-		GroupBy:    stringPtr("collection,path"),
-		GroupLimit: intPtr(params.GroupLimit),
-		PerPage:    intPtr(params.Limit),
+	perPage := params.Limit
+	if perPage > 250 {
+		perPage = 250
 	}
 
-	if params.FilterBy != "" {
-		searchParams.FilterBy = &params.FilterBy
-	} else if len(params.Collections) > 0 {
-		filter := buildCollectionFilter(params.Collections)
-		searchParams.FilterBy = &filter
+	page := 1
+	var allResults []HybridSearchResult
+
+	for {
+		searchParams := &api.SearchCollectionParams{
+			Q:          &params.Query,
+			QueryBy:    stringPtr("content"),
+			GroupBy:    stringPtr("collection,path"),
+			GroupLimit: intPtr(params.GroupLimit),
+			PerPage:    intPtr(perPage),
+			Page:       &page,
+		}
+
+		if params.FilterBy != "" {
+			searchParams.FilterBy = &params.FilterBy
+		} else if len(params.Collections) > 0 {
+			filter := buildCollectionFilter(params.Collections)
+			searchParams.FilterBy = &filter
+		}
+
+		resp, err := c.client.Collection(chunksCollection).Documents().Search(ctx, searchParams)
+		if err != nil {
+			return nil, fmt.Errorf("text search: %w", err)
+		}
+
+		results := groupedHitsToResults(resp)
+		allResults = append(allResults, results...)
+
+		if len(results) < perPage {
+			break
+		}
+		if params.Limit > 0 && len(allResults) >= params.Limit {
+			allResults = allResults[:params.Limit]
+			break
+		}
+		page++
 	}
 
-	resp, err := c.client.Collection(chunksCollection).Documents().Search(ctx, searchParams)
-	if err != nil {
-		return nil, fmt.Errorf("text search: %w", err)
-	}
-
-	return groupedHitsToResults(resp), nil
+	return allResults, nil
 }
 
 func groupedHitsToResults(resp *api.SearchResult) []HybridSearchResult {
@@ -581,6 +604,17 @@ func (c *Client) SearchDistinctPaths(ctx context.Context, filter string) ([]stri
 	}
 
 	return allPaths, nil
+}
+
+// ListDocuments returns all indexed documents (one per path) optionally filtered by collections.
+// Results are grouped by collection and path (one hit per group) and paginated internally.
+func (c *Client) ListDocuments(ctx context.Context, collections []string) ([]HybridSearchResult, error) {
+	return c.TextSearch(ctx, HybridSearchParams{
+		Query:       "",
+		Collections: collections,
+		Limit:       10000,
+		GroupLimit:  1,
+	})
 }
 
 // SearchChunksByPath searches for chunks matching a given path filter.

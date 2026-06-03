@@ -3,9 +3,11 @@ package output
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/verdverm/gmd/pkg/search"
+	"github.com/verdverm/gmd/pkg/ts"
 )
 
 func FormatResults(results []search.Result, format string) (string, error) {
@@ -52,6 +54,39 @@ func formatCLI(results []search.Result) string {
 		fmt.Fprintln(&b)
 	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+// FormatLS formats a list of documents grouped by collection with sorted paths.
+func FormatLS(results []ts.HybridSearchResult) string {
+	if len(results) == 0 {
+		return "No indexed documents."
+	}
+
+	type colGroup struct{ paths []string }
+	byCol := make(map[string]*colGroup)
+	colOrder := make([]string, 0)
+	for _, res := range results {
+		g, ok := byCol[res.Collection]
+		if !ok {
+			g = &colGroup{}
+			byCol[res.Collection] = g
+			colOrder = append(colOrder, res.Collection)
+		}
+		g.paths = append(g.paths, res.Path)
+	}
+	sort.Strings(colOrder)
+
+	var b strings.Builder
+	for _, col := range colOrder {
+		g := byCol[col]
+		sort.Strings(g.paths)
+		b.WriteString(col + ":\n")
+		for _, p := range g.paths {
+			b.WriteString("  " + p + "\n")
+		}
+	}
+	b.WriteString(fmt.Sprintf("\n%d document(s) indexed\n", len(results)))
+	return b.String()
 }
 
 func makeSnippet(content string, maxLen int) string {

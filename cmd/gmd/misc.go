@@ -8,52 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/verdverm/gmd/pkg/indexer"
 	"github.com/verdverm/gmd/pkg/llm"
-	"github.com/verdverm/gmd/pkg/ts"
 )
-
-var lsCmd = &cobra.Command{
-	Use:   "ls [collection]",
-	Short: "List indexed documents with scores",
-	Long: `Lists all indexed documents with their paths, collection names, and
-relevance scores.
-
-Optionally filter by collection name. Useful for verifying what has been
-indexed and browsing available content.
-
-Examples:
-  gmd ls
-  gmd ls docs`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		r, err := getRuntime()
-		if err != nil {
-			return err
-		}
-
-		results, err := r.TSClient().TextSearch(context.Background(), ts.HybridSearchParams{
-			Query:      "",
-			Limit:      1000,
-			GroupLimit: 1,
-		})
-		if err != nil {
-			return fmt.Errorf("listing documents: %w", err)
-		}
-
-		if len(results) == 0 {
-			fmt.Println("No indexed documents.")
-			return nil
-		}
-
-		for _, res := range results {
-			title := res.Title
-			if title == "" {
-				title = res.Path
-			}
-			fmt.Printf("  %-40s  %s  (score: %.4f)\n", title, res.Collection, res.Score)
-		}
-		fmt.Printf("\n%d document(s) indexed\n", len(results))
-		return nil
-	},
-}
 
 var doctorCmd = &cobra.Command{
 	Use:   "doctor",

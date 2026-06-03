@@ -6,19 +6,23 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/verdverm/gmd/pkg/exa"
 )
 
 var (
-	webFetchFormat     string
-	webFetchHighlights bool
-	webFetchSummary    string
-	webFetchMaxChars   int
-	webFetchOutput     string
-	webFetchOutdir     string
-	webFetchJSON       bool
+	webFetchFormat       string
+	webFetchHighlights   bool
+	webFetchSummary      string
+	webFetchMaxChars     int
+	webFetchOutput       string
+	webFetchOutdir       string
+	webFetchJSON         bool
+	webFetchSubpageCount int
+	webFetchSubpages     []string
+	webFetchMaxAge       int
 )
 
 var webFetchCmd = &cobra.Command{
@@ -33,7 +37,10 @@ Examples:
   gmd web fetch https://example.com/article
   gmd web fetch https://a.com https://b.com --max-chars 2000
   gmd web fetch https://example.com --summary "key claims about"
-  gmd web fetch https://example.com --output file -o ./fetched/`,
+  gmd web fetch https://example.com --output file -o ./fetched/
+  gmd web fetch https://example.com --subpage-count 3
+  gmd web fetch https://example.com --subpage-count 3 --subpage about --subpage careers --subpage press
+  gmd web fetch https://example.com --max-age 48`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := getRuntime()
@@ -49,7 +56,10 @@ Examples:
 		ctx := context.Background()
 
 		req := exa.ContentsRequest{
-			URLs: args,
+			URLs:          args,
+			Subpages:      webFetchSubpageCount,
+			SubpageTarget: webFetchSubpages,
+			MaxAgeHours:   &webFetchMaxAge,
 		}
 
 		if webFetchHighlights {
@@ -97,6 +107,17 @@ Examples:
 					return fmt.Errorf("writing %s: %w", outPath, err)
 				}
 				fmt.Printf("Wrote: %s\n", outPath)
+				for j, sp := range r.Subpages {
+					spFilename := filename + "--subpage-" + slugify(sp.Title)
+					if spFilename == filename+"--subpage-" {
+						spFilename = fmt.Sprintf("%s--subpage-%d", filename, j+1)
+					}
+					spPath := filepath.Join(webFetchOutdir, spFilename+ext)
+					if err := os.WriteFile(spPath, []byte(sp.Text), 0644); err != nil {
+						return fmt.Errorf("writing subpage %s: %w", spPath, err)
+					}
+					fmt.Printf("Wrote: %s\n", spPath)
+				}
 			}
 		default:
 			for i, r := range resp.Results {
@@ -108,6 +129,20 @@ Examples:
 				}
 				if r.Summary != "" {
 					fmt.Printf("\n--- Summary ---\n%s\n", r.Summary)
+				}
+				if len(r.Subpages) > 0 {
+					fmt.Printf("\n--- Subpages (%d) ---\n", len(r.Subpages))
+					for j, sp := range r.Subpages {
+						fmt.Printf("\n  %d. %s\n", j+1, sp.URL)
+						if sp.Title != "" {
+							fmt.Printf("     %s\n", sp.Title)
+						}
+						if sp.Text != "" {
+							for _, line := range strings.Split(sp.Text, "\n") {
+								fmt.Printf("     %s\n", line)
+							}
+						}
+					}
 				}
 				if i < len(resp.Results)-1 {
 					fmt.Println()
@@ -128,4 +163,7 @@ func init() {
 	webFetchCmd.Flags().StringVar(&webFetchOutput, "output", "stdout", "Write to stdout or file(s)")
 	webFetchCmd.Flags().StringVarP(&webFetchOutdir, "outdir", "o", ".", "Output directory for --output file")
 	webFetchCmd.Flags().BoolVar(&webFetchJSON, "json", false, "Output raw JSON from EXA API")
+	webFetchCmd.Flags().IntVar(&webFetchSubpageCount, "subpage-count", 0, "Number of subpages to fetch per URL")
+	webFetchCmd.Flags().StringSliceVar(&webFetchSubpages, "subpage", nil, "Keywords to prioritize when selecting subpages (repeatable)")
+	webFetchCmd.Flags().IntVar(&webFetchMaxAge, "max-age", 0, "Max age in hours for cached content")
 }

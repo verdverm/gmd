@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/verdverm/gmd/pkg/agents"
+	"github.com/verdverm/gmd/pkg/agentsmd"
 )
 
 func detectProjectName(dir string) string {
@@ -76,11 +76,19 @@ Config: {
 		}
 		fmt.Printf("Created GMD config at %s\n", configPath)
 		fmt.Println()
-		fmt.Println("Tip: run 'gmd agents' to get AGENTS.md content for your AI coding assistant.")
+		fmt.Println("Tip: run 'gmd agentsmd' to get AGENTS.md content for your AI coding assistant.")
 		fmt.Println()
-		fmt.Println(agents.MustGetContent(agents.Oneline))
+		oneline, err := agentsmd.GetContent("oneline")
+		if err != nil {
+			return err
+		}
+		fmt.Println(oneline)
 		fmt.Println()
-		fmt.Println(agents.MustGetContent(agents.Summary))
+		summary, err := agentsmd.GetContent("summary")
+		if err != nil {
+			return err
+		}
+		fmt.Println(summary)
 		return nil
 	},
 }

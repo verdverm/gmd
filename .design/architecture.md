@@ -427,7 +427,7 @@ Config: {
 | Manual `--collection` flag | Auto-detected from CWD + project root | Zero-config in project dirs |
 | Fixed pipeline parameters | All pipeline knobs exposed in CUE schema | Power-user customization |
 | CLI only | CLI + REST API + MCP server | `gmd serve`, `gmd mcp`, and `gmd <subcommand>` |
-| No agent docs | `gmd agents` embedded content (oneline/summary/detailed/full) | AI agent onboarding without external docs |
+| No agent docs | `gmd agentsmd` embedded content (oneline/summary/detailed/full) | AI agent onboarding without external docs |
 
 ## 12. K8s Infrastructure (gmd namespace)
 

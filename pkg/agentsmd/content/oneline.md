@@ -1,0 +1,1 @@
+GMD is a local Markdown search engine with LLM Wiki integration — index with `gmd update`, search with `gmd query "<question>"`, build a compounding knowledge base with `gmd wiki ingest`. See `gmd agentsmd summary` for details.

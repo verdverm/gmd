@@ -45,7 +45,7 @@ gmd doctor                             # Diagnostics
 gmd cleanup                            # Remove stale chunks for deleted files
 gmd serve [--port] [--host]            # REST API server (stub, Phase 5)
 gmd mcp [--http]                       # MCP server (stub, Phase 6)
-gmd agents [oneline|summary|detailed|full]  # Output AGENTS.md content for users
+gmd agentsmd [oneline|summary|detailed|full]  # Output AGENTS.md content for users
 gmd wiki init [--name] [--path]        # Create wiki scaffold + CUE config entry
 gmd wiki ingest <src> [--name]         # LLM agent reads source → writes wiki pages
 gmd wiki query "..." [--name] [--save] # Search wiki → LLM synthesis with citations
@@ -67,7 +67,7 @@ pkg/ts/           Typesense client wrapper (chunks collection, hybrid/text searc
 pkg/llm/          OpenAI-compatible API client (embeddings, chat, rerank)
 pkg/output/       Result formatting (CLI, JSON)
 pkg/runtime/      Runtime struct — owns Typesense client lifecycle
-pkg/agents/       Embedded AGENTS.md content (oneline/summary/detailed/full)
+pkg/agentsmd/     Embedded AGENTS.md content (oneline/summary/detailed/full)
 pkg/wiki/         LLM Wiki: scaffold, built-in agent, graph, lint, skills
 pkg/mcp/          MCP server tools (wiki-aware tools)
 models/           vLLM serve scripts + systemd units for 3 LLM models
@@ -120,7 +120,7 @@ Project root detected by walking up from CWD looking for `.gmd/` sentinel.
 - Tests live alongside source files (`*_test.go`).
 - Integration tests requiring external systems (Typesense, LLMs) use `//go:build integration`
   build tag and are excluded from `make test`. Run `make test.integration` to include them.
-- The `gmd agents` command outputs embedded content from `pkg/agents/content/`. Those files are
+- The `gmd agentsmd` command outputs embedded content from `pkg/agentsmd/content/`. Those files are
   user-facing (for end users and AI agents consuming gmd), not developer-facing. Update them
   when CLI commands or architecture change, but keep content focused on usage, not development.
 - Never commit `bin/` or `qmd/` (both in .gitignore).

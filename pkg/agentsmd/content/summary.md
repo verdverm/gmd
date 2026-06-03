@@ -13,6 +13,7 @@ gmd search "<terms>"         # Text-only keyword search (fast, no LLM)
 gmd get <path>               # Retrieve document content by file path
 gmd ls [collection]          # List indexed documents
 gmd collection list          # List all collections
+gmd agentsmd [name]          # Output AGENTS.md content for AI assistants (oneline, summary, detailed, full)
 gmd wiki init [--name]        # Create a Karpathy-style LLM Wiki
 gmd wiki ingest <src>         # LLM agent reads source, creates/updates wiki pages
 gmd wiki query "<q>"          # RAG search → LLM synthesis with [[page]] citations

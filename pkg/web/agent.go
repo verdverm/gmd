@@ -157,6 +157,7 @@ func (a *Agent) analyzeResults(ctx context.Context, query string, results []exa.
 
 	resp, err := a.llmClient.Chat(ctx, messages)
 	if err != nil {
+		// XXX-AGENT we are losing an error here
 		return "DONE", nil
 	}
 

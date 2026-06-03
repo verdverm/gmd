@@ -73,7 +73,7 @@ All commands backed by `pkg/` code:
 - [x] `gmd ls` — list indexed documents via `pkg/ts`
 - [x] `gmd doctor` — diagnostics via `pkg/config` + `pkg/runtime` + `pkg/ts`
 - [x] `gmd cleanup` — stale chunk detection via `pkg/indexer` + `pkg/ts`
-- [x] `gmd agents` — embedded AGENTS.md content for AI coding assistants
+- [x] `gmd agentsmd` — embedded AGENTS.md content for AI coding assistants
 
 ### Phase 5: REST API Server — Stub Exists
 - [ ] `gmd serve` — HTTP handler code not implemented; CLI stub with `--host`/`--port` flags in `cmd/gmd/serve.go`

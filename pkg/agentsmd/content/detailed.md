@@ -144,6 +144,7 @@ Search flags:
 | `gmd serve [--port] [--host]` | Start REST API server (default: `:8181`) |
 | `gmd mcp [--http]` | Start MCP server for AI agent integration |
 | `gmd doctor` | Run system diagnostics |
+| `gmd agentsmd [oneline|summary|detailed|full]` | Output AGENTS.md content for AI coding assistants |
 
 ### LLM Wiki
 

@@ -245,3 +245,5 @@ Project and global configs merge automatically, with project values taking prece
 ## Development
 
 See [docs/development.md](docs/development.md) for build, test, and contribution instructions.
+
+This project is developed with OpenCode + DeepSeek-v4-flash/pro via [OpenCode Go](https://opencode.ai/go?ref=73R104W9KX).

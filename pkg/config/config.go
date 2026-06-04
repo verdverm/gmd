@@ -14,11 +14,17 @@ import (
 type Config struct {
 	LLM         LLMConfig                   `json:"llm"`
 	Typesense   TypesenseConfig             `json:"typesense"`
-	EXA         EXAConfig                   `json:"exa,omitempty"`
+	Web         WebConfig                   `json:"web,omitempty"`
 	Pipeline    PipelineConfig              `json:"pipeline"`
 	Collections map[string]CollectionConfig `json:"collections"`
 	ProjectRoot string                      `json:"-"`
 	Project     string                      `json:"project,omitempty"`
+}
+
+// WebConfig groups all web search provider configurations.
+type WebConfig struct {
+	Provider string    `json:"provider"`
+	EXA      EXAConfig `json:"exa,omitempty"`
 }
 
 // EXAConfig maps from the CUE EXAConfig schema.
@@ -258,7 +264,9 @@ func Load(cwd string) (*Config, error) {
 	cfg.LLM.GeneralMidAPIKey = envOrFallback("GMD_GENERAL_MID_API_KEY", cfg.LLM.APIKey)
 	cfg.LLM.GeneralSmallAPIKey = envOrFallback("GMD_GENERAL_SMALL_API_KEY", cfg.LLM.APIKey)
 	cfg.Typesense.APIKey = os.Getenv("GMD_TYPESENSE_API_KEY")
-	cfg.EXA.APIKey = os.Getenv("EXA_API_KEY")
+	if v := os.Getenv("EXA_API_KEY"); v != "" {
+		cfg.Web.EXA.APIKey = v
+	}
 
 	cfg.ProjectRoot = projectRoot
 	if cfg.Project == "" && projectRoot != "" {

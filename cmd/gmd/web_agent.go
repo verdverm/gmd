@@ -6,9 +6,9 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/verdverm/gmd/pkg/exa"
 	"github.com/verdverm/gmd/pkg/llm"
 	"github.com/verdverm/gmd/pkg/web"
+	"github.com/verdverm/gmd/pkg/web/exa"
 )
 
 var (
@@ -42,11 +42,11 @@ Examples:
 
 		config := cfg.Config()
 
-		if config.EXA.APIKey == "" {
+		if config.Web.EXA.APIKey == "" {
 			return fmt.Errorf("EXA_API_KEY environment variable is not set")
 		}
 
-		exaClient := exa.New(config.EXA.APIKey)
+		exaClient := exa.New(config.Web.EXA.APIKey)
 
 		llmClient := llm.New(llmConfigFromConfig(config))
 

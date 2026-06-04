@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/verdverm/gmd/pkg/exa"
+	"github.com/verdverm/gmd/pkg/web/exa"
 )
 
 var (
@@ -48,11 +48,11 @@ Examples:
 			return err
 		}
 
-		if cfg.Config().EXA.APIKey == "" {
+		if cfg.Config().Web.EXA.APIKey == "" {
 			return fmt.Errorf("EXA_API_KEY environment variable is not set")
 		}
 
-		client := exa.New(cfg.Config().EXA.APIKey)
+		client := exa.New(cfg.Config().Web.EXA.APIKey)
 		ctx := context.Background()
 
 		req := exa.ContentsRequest{

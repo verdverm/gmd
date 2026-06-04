@@ -100,7 +100,7 @@ All commands backed by `pkg/` code:
 - [x] Embedded skill templates (`pkg/wiki/skills/`) for Claude Code, Codex, OpenCode
 
 ### Phase 15: Web Search & Research (EXA) — Designed
-- [ ] `pkg/exa/client.go` — thin HTTP wrapper over EXA REST API
+- [ ] `pkg/web/exa/client.go` — thin HTTP wrapper over EXA REST API
 - [ ] `gmd web fetch <url>` — fetch clean markdown from URLs
 - [ ] `gmd web search <query>` — neural web search with type/domain/date filters
 - [ ] `gmd web agent <query>` — multistep searching agent with LLM orchestration

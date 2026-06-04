@@ -23,7 +23,7 @@ in-code: `XXX-AGENT ...` comments
 
 
 web cmd:
-- ./pkg/web vs ./pkg/exa being separate
+- ./pkg/web/exa
 - web prompts as embedded files
 
 other:

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/verdverm/gmd/pkg/exa"
+	"github.com/verdverm/gmd/pkg/web/exa"
 )
 
 var webCmd = &cobra.Command{

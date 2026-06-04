@@ -18,7 +18,7 @@ infrastructure and optionally feeding into wiki for persistent knowledge.
                     └─────┬─────┴────┬─────┴─────┬─────┘
                           │          │           │
                     ┌─────▼──────────▼───────────▼──────┐
-                    │         pkg/exa/client.go         │
+                    │         pkg/web/exa/client.go         │
                     │  Thin HTTP wrapper over EXA API   │
                     │  Search / Contents / FindSimilar  │
                     └────────────────┬──────────────────┘
@@ -32,7 +32,7 @@ infrastructure and optionally feeding into wiki for persistent knowledge.
 
 | Layer | Owned By | What It Does |
 |---|---|---|
-| `pkg/exa/client.go` | GMD | Thin `net/http` wrapper around EXA REST API. No SDK dependency — the community Go SDK is outdated. |
+| `pkg/web/exa/client.go` | GMD | Thin `net/http` wrapper around EXA REST API. No SDK dependency — the community Go SDK is outdated. |
 | `cmd/gmd/web_fetch.go` | GMD | Fetch clean markdown/text for one or more URLs |
 | `cmd/gmd/web_search.go` | GMD | Neural web search with type/length/domain filtering |
 | `pkg/web/agent.go` | GMD | Agent loop: LLM decides next searches, reads results, synthesizes |
@@ -63,14 +63,14 @@ The web commands are **not dependent on wiki** and wiki is **not dependent on
 web**. They share only the LLM client (`pkg/llm`) and config infrastructure.
 The integration points are opt-in flags (`--wiki`, `--save`).
 
-## 15b. EXA API Client (`pkg/exa/`)
+## 15b. EXA API Client (`pkg/web/exa/`)
 
 We do **not** use the community Go SDK (`github.com/amalucelli/exa-go`). It
 lags behind the current Exa API (missing `deep`, `deep-lite`, `deep-reasoning`,
 `outputSchema`, `systemPrompt`, `stream`). Instead we write a thin `net/http`
 wrapper that maps directly to the REST API.
 
-### `pkg/exa/client.go`
+### `pkg/web/exa/client.go`
 
 ```go
 package exa
@@ -101,7 +101,7 @@ func (c *Client) FindSimilar(ctx context.Context, req FindSimilarRequest) (*Find
 func (c *Client) Answer(ctx context.Context, req AnswerRequest) (*AnswerResponse, error)
 ```
 
-### `pkg/exa/types.go`
+### `pkg/web/exa/types.go`
 
 All types mirror the EXA REST API JSON structure directly — no abstractions, no
 transformations:
@@ -289,7 +289,7 @@ var webFetchCmd = &cobra.Command{
     Args:  cobra.MinimumNArgs(1),
     RunE: func(cmd *cobra.Command, args []string) error {
         cfg := getConfig()
-        client := exa.New(cfg.EXA.APIKey)
+        client := exa.New(cfg.Web.EXA.APIKey)
         // Build ContentsRequest with Text/Highlights/Summary from flags
         // Call client.GetContents()
         // Print results
@@ -333,7 +333,7 @@ var webSearchCmd = &cobra.Command{
     Args:  cobra.ExactArgs(1),
     RunE: func(cmd *cobra.Command, args []string) error {
         cfg := getConfig()
-        client := exa.New(cfg.EXA.APIKey)
+        client := exa.New(cfg.Web.EXA.APIKey)
         // Build SearchRequest from flags
         // Call client.Search()
         // Print results
@@ -623,11 +623,16 @@ EXAConfig: {
 
 Add to `ProjectConfig`:
 ```cue
+WebConfig: {
+    provider?: string | *"exa"
+    exa?:      EXAConfig
+}
+
 ProjectConfig: {
     project?:    string
     llm:         LLMConfig
     typesense:   TypesenseConfig
-    exa?:        EXAConfig
+    web?:        WebConfig
     pipeline?:   PipelineConfig
     collections: [string]: CollectionConfig
 }
@@ -636,9 +641,14 @@ ProjectConfig: {
 ### Go config addition (`pkg/config/config.go`)
 
 ```go
+type WebConfig struct {
+    Provider string    `json:"provider"`
+    EXA      EXAConfig `json:"exa,omitempty"`
+}
+
 type Config struct {
     // ... existing fields ...
-    EXA         EXAConfig                    `json:"exa,omitempty"`
+    Web         WebConfig                    `json:"web,omitempty"`
 }
 
 type EXAConfig struct {
@@ -648,7 +658,7 @@ type EXAConfig struct {
 
 In `Load()`:
 ```go
-cfg.EXA.APIKey = os.Getenv("EXA_API_KEY")
+cfg.Web.EXA.APIKey = os.Getenv("EXA_API_KEY")
 ```
 
 No CUE config file changes needed for typical use — API key comes from env var.
@@ -688,16 +698,16 @@ commands exist, this can be enhanced to:
 ### Wiki ingest from URLs (future)
 
 `gmd wiki ingest https://example.com/article` is already planned but returns
-"not yet implemented". The `pkg/exa` client's `GetContents` method provides
+"not yet implemented". The `pkg/web/exa` client's `GetContents` method provides
 the clean markdown extraction needed to implement this.
 
 ## 15g. Implementation Phases
 
-### Phase W1: EXA Client (`pkg/exa/`)
+### Phase W1: EXA Client (`pkg/web/exa/`)
 
 **Files:**
 ```
-pkg/exa/
+pkg/web/exa/
 ├── client.go      # HTTP client, New(), Search(), GetContents(), FindSimilar(), Answer()
 ├── types.go       # All request/response structs
 └── exa_test.go    # Tests with mock HTTP server
@@ -784,7 +794,7 @@ cmd/gmd/web_research.go # CLI command
 ```
 .design/websearch.md              # This document
 
-pkg/exa/
+pkg/web/exa/
 ├── client.go                     # HTTP client: Search, GetContents, FindSimilar, Answer
 ├── types.go                      # Request/response structs
 └── exa_test.go                   # Tests with httptest.Server
@@ -864,7 +874,7 @@ search types.
 
 | Priority | Task | Depends On |
 |---|---|---|
-| 1 | `pkg/exa/` client + types | Nothing (stdlib only) |
+| 1 | `pkg/web/exa/` client + types | Nothing (stdlib only) |
 | 2 | `gmd web fetch` + `gmd web search` | EXA client |
 | 3 | EXA config (CUE schema + Go struct) | Nothing (can do in parallel with #1) |
 | 4 | `pkg/web/agent.go` (agent loop) | EXA client + LLM client |

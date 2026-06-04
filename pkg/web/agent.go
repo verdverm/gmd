@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/verdverm/gmd/pkg/exa"
 	"github.com/verdverm/gmd/pkg/llm"
+	"github.com/verdverm/gmd/pkg/web/exa"
 )
 
 type Agent struct {

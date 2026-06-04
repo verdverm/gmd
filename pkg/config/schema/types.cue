@@ -143,12 +143,18 @@ EXAConfig: {
 	api_key: string | *"" // from EXA_API_KEY env var
 }
 
+// WebConfig groups all web search provider configurations.
+WebConfig: {
+	provider?: string | *"exa" // active provider: exa, tavily, searxng, ...
+	exa?:      EXAConfig
+}
+
 // ProjectConfig is the root configuration object.
 ProjectConfig: {
 	project?:    string
 	llm:         LLMConfig
 	typesense:   TypesenseConfig
-	exa?:        EXAConfig
+	web?:        WebConfig
 	pipeline?:   PipelineConfig
 	collections: [string]: CollectionConfig
 }

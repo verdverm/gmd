@@ -21,9 +21,9 @@ gmd agentsmd summary            # get AGENTS.md for AI assistants
   (`.gmd/config.cue`); merge is automatic, project values take precedence
 - **Multi-collection projects** — index separate doc sets (e.g. user guide, dev API) as distinct
   collections within the same project, search across all or target one
-- **Web search, fetch, crawl, research** — `gmd web` subcommands using EXA neural search
-- **LLM Wiki** — compounding Karpathy-style knowledge base with built-in agent for ingest, RAG query,
-  graph, and lint
+- **Web search, fetch, crawl, research** — `gmd web` subcommands powered by the EXA API
+- **LLM Wiki** — compounding Karpathy-style knowledge base with built-in agent for ingest,
+    search-powered query, graph, and lint
 - **MCP + REST API** — wiki-aware MCP tools for AI agents (`gmd mcp`); HTTP endpoints for search,
   status, and indexing (`gmd serve`) — see [docs/rest-api.md](docs/rest-api.md)
 - **agentsmd** — output AGENTS.md instructions for AI assistants working with gmd
@@ -37,12 +37,12 @@ See [docs/search-pipeline.md](docs/search-pipeline.md) for the full pipeline dia
 
 **Wiki** (`gmd wiki`) maintains a compounding knowledge base of interlinked markdown pages. The
 built-in LLM agent reads source documents, extracts entities and claims, writes or updates wiki
-pages, and links them via `[[wikilinks]]`. Querying the wiki uses RAG: retrieve relevant pages,
+pages, and links them via `[[wikilinks]]`. Querying the wiki uses the same Typesense-backed search pipeline: retrieve relevant pages,
 synthesize an answer with inline `[[citations]]`.
 
-**Web** (`gmd web`) lets you search the web with EXA neural search, fetch clean content from URLs,
-or run a multi-step LLM-orchestrated research agent that searches, reads, and synthesizes across
-multiple rounds.
+**Web** (`gmd web`) lets you search the web, fetch clean content from URLs, or run a multi-step
+LLM-orchestrated research agent that searches, reads, and synthesizes across multiple rounds — all
+powered by the EXA API.
 
 **Deploy** (`gmd serve` / `gmd mcp`) exposes gmd over HTTP and/or MCP so AI coding assistants and
 other tools can search your docs, query wikis, and browse indexed content.
@@ -77,7 +77,7 @@ automatically. Use `-c` to target specific collections.
 
 ## Web search, fetch, crawl, research
 
-Powered by the [EXA](https://exa.ai) neural search API. Requires `EXA_API_KEY`.
+Powered by the [EXA](https://exa.ai) API (web search, content fetch, crawling). Requires `EXA_API_KEY`.
 
 ```bash
 # Semantic web search
@@ -107,7 +107,7 @@ everything searchable.
 ```bash
 gmd wiki init --name myresearch      # scaffold wiki directory + config
 gmd wiki ingest paper.md             # LLM reads paper, creates/updates wiki pages
-gmd wiki query "what is..."          # RAG search → LLM synthesis with [[citations]]
+gmd wiki query "what is..."          # search → LLM synthesis with [[citations]]
 gmd wiki lint                        # health checks (orphans, broken links)
 gmd wiki doctor                      # diagnostics + auto-configure agent MCP
 gmd wiki graph                       # export wikilink graph (dot/mermaid/json)
@@ -236,7 +236,7 @@ Project and global configs merge automatically, with project values taking prece
 | `gmd web agent <query>` | Multi-step LLM-orchestrated web research agent |
 | `gmd wiki init` | Scaffold wiki directory + CUE config |
 | `gmd wiki ingest <src>` | Ingest a source into the wiki using built-in LLM agent |
-| `gmd wiki query "..."` | Query the wiki with RAG synthesis |
+| `gmd wiki query "..."` | Query the wiki with search + LLM synthesis |
 | `gmd wiki graph` | Export wikilink graph (dot/mermaid/json) |
 | `gmd wiki lint` | Health checks (orphans, broken links, contradictions) |
 | `gmd wiki doctor` | Diagnostics + auto-configure agent MCP |

@@ -8,6 +8,7 @@ require (
 	github.com/openai/openai-go/v3 v3.37.0
 	github.com/spf13/cobra v1.10.2
 	github.com/typesense/typesense-go/v4 v4.0.0-alpha2
+	github.com/yuin/goldmark v1.8.2
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -27,7 +28,6 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
-	github.com/yuin/goldmark v1.8.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/net v0.52.0 // indirect
 	golang.org/x/text v0.35.0 // indirect

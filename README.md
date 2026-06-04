@@ -10,6 +10,49 @@ gmd status                     # see what's indexed
 gmd agentsmd summary           # get AGENTS.md for AI assistants
 ```
 
+## Features
+
+- **Full hybrid search pipeline** — expansion, text+vector hybrid search, RRF fusion, LLM reranking, position blending
+- **LLM Wiki** — compounding Karpathy-style knowledge base with built-in agent for ingest, RAG query, graph, and lint
+- **MCP server** — wiki-aware tools for AI agent integration (`gmd mcp`)
+- **REST API** — HTTP endpoints for search, status, and indexing (`gmd serve`) — see [docs/rest-api.md](docs/rest-api.md)
+- **agentsmd** — output curated AGENTS.md content for AI coding assistants
+
+## How it works
+
+```
+gmd query "deploy config"
+       │
+       ▼
+Strong signal check ──── if score ≥ 0.85 and gap ≥ 0.15 ────► use query directly
+       │
+       ▼
+LLM query expansion ──── generates lex / vec / hyde variants
+       │
+       ▼
+For each variant ──────── embed → Typesense hybrid search (text + vector, grouped by doc)
+       │
+       ▼
+RRF fusion ────────────── Σ(w / (k + rank)) across all variants
+       │
+       ▼
+LLM reranking ─────────── /v1/rerank endpoint (skipped if unsupported)
+       │
+       ▼
+Position blending ─────── top/middle/bottom tiers with configurable weights
+       │
+       ▼
+Results
+```
+
+### Key details
+
+- **Chunking:** heading-aware breakpoints with configurable token target and overlap
+- **Dedup:** SHA-256 hash stored on each chunk; unchanged files skip re-indexing entirely
+- **Changes:** when a file changes, old chunks are deleted and new ones are indexed
+- **No operational DB:** Typesense is the sole data store — filesystem is source of truth
+- **Content-addressable:** changes detected by querying Typesense hash field, no local state needed
+
 ## Requirements
 
 - **Typesense** — must be running (Docker, Kubernetes, or cloud)
@@ -102,7 +145,6 @@ API keys are read from environment variables. Each model role defaults to
 `OPENAI_API_KEY` with per-role overrides (`GMD_EMBEDDING_API_KEY`,
 `GMD_EXPANSION_API_KEY`, `GMD_RERANK_API_KEY`, `GMD_SUMMARIZING_API_KEY`,
 `GMD_GENERAL_BIG_API_KEY`, `GMD_GENERAL_MID_API_KEY`, `GMD_GENERAL_SMALL_API_KEY`).
-See [docs/configuration.md](docs/configuration.md) for the full reference.
 `GMD_TYPESENSE_API_KEY` is used for Typesense.
 
 For shared settings across projects, create `~/.config/gmd/config.cue` with the same structure — project and global configs are merged automatically, with project values taking precedence.
@@ -119,23 +161,20 @@ gmd query "your question here"    # full hybrid search
 
 Run `gmd query` from within `myproject/docs/` and the `myapp` collection is selected automatically.
 
-## Development
+## LLM Wiki
 
-### Build & test
+gmd can maintain a Karpathy-style compounding knowledge base. The built-in LLM agent
+reads sources, extracts entities/concepts/claims, writes interlinked wiki pages, and keeps
+everything searchable.
 
 ```bash
-make build                  # Build binary (CGO_ENABLED=0)
-make test                   # Run unit tests (no external deps needed)
-make test.integration       # Run all tests including integration
-make cover.detailed         # Unit test coverage with HTML report
-make cover.detailed.integration  # Full coverage including integration tests
-make lint                   # go vet ./...
-make tidy                   # go mod tidy
+gmd wiki init --name myresearch      # scaffold wiki directory + config
+gmd wiki ingest paper.md             # LLM reads paper, creates/updates wiki pages
+gmd wiki query "what is..."          # RAG search → LLM synthesis with [[citations]]
+gmd wiki skills write --target all   # install skill templates for AI agents
 ```
 
-Integration tests (requiring Typesense or LLM endpoints) use the `//go:build integration` build tag.
-Add it to any test file that needs external systems — it will be skipped by `make test` and only
-run with `make test.integration`.
+See the wiki skill templates at `gmd wiki skills list` and `WIKI_SCHEMA.md` for conventions.
 
 ## Commands
 
@@ -164,21 +203,6 @@ run with `make test.integration`.
 | `gmd wiki skills` | Manage embedded agent skill templates |
 | `gmd wiki doctor` | Diagnostics + auto-configure agent MCP |
 
-## LLM Wiki
-
-gmd can maintain a Karpathy-style compounding knowledge base. The built-in LLM agent
-reads sources, extracts entities/concepts/claims, writes interlinked wiki pages, and keeps
-everything searchable.
-
-```bash
-gmd wiki init --name myresearch      # scaffold wiki directory + config
-gmd wiki ingest paper.md             # LLM reads paper, creates/updates wiki pages
-gmd wiki query "what is..."          # RAG search → LLM synthesis with [[citations]]
-gmd wiki skills write --target all   # install skill templates for AI agents
-```
-
-See the wiki skill templates at `gmd wiki skills list` and `WIKI_SCHEMA.md` for conventions.
-
 Search flags:
 
 ```
@@ -187,52 +211,6 @@ Search flags:
 --format, -f         output format: cli, json (default: cli)
 ```
 
-## How it works
+## Development
 
-```
-gmd query "deploy config"
-       │
-       ▼
-Strong signal check ──── if score ≥ 0.85 and gap ≥ 0.15 ────► use query directly
-       │
-       ▼
-LLM query expansion ──── generates lex / vec / hyde variants
-       │
-       ▼
-For each variant ──────── embed → Typesense hybrid search (text + vector, grouped by doc)
-       │
-       ▼
-RRF fusion ────────────── Σ(w / (k + rank)) across all variants
-       │
-       ▼
-LLM reranking ─────────── /v1/rerank endpoint (skipped if unsupported)
-       │
-       ▼
-Position blending ─────── top/middle/bottom tiers with configurable weights
-       │
-       ▼
-Results
-```
-
-### Key details
-
-- **Chunking:** heading-aware breakpoints with configurable token target and overlap
-- **Dedup:** SHA-256 hash stored on each chunk; unchanged files skip re-indexing entirely
-- **Changes:** when a file changes, old chunks are deleted and new ones are indexed
-- **No operational DB:** Typesense is the sole data store — filesystem is source of truth
-- **Content-addressable:** changes detected by querying Typesense hash field, no local state needed
-
-## REST API
-
-`gmd serve` starts an HTTP server on `:8181`.
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/health` | GET | Liveness check |
-| `/status` | GET | Index and collection health |
-| `/search` | POST | Full-text search |
-| `/vsearch` | POST | Vector search |
-| `/query` | POST | Full hybrid pipeline |
-| `/documents/{path}` | GET | Get document by path |
-| `/collections` | GET | List collections |
-| `/update` | POST | Trigger reindex |
+See [docs/development.md](docs/development.md) for build, test, and contribution instructions.

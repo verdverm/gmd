@@ -88,6 +88,10 @@ Examples:
 			return nil
 		}
 
+		if len(resp.Results) == 0 {
+			return fmt.Errorf("EXA returned no content for %d requested URL(s) — check accessibility, blocking, or try --max-age 0 for a live fetch", len(args))
+		}
+
 		switch webFetchOutput {
 		case "file":
 			if err := os.MkdirAll(webFetchOutdir, 0755); err != nil {

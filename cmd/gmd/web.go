@@ -44,6 +44,7 @@ func slugify(s string) string {
 
 func printCost(cost *exa.CostDollars) {
 	if cost == nil {
+		fmt.Fprintf(os.Stderr, "\nCost: unavailable\n")
 		return
 	}
 	fmt.Fprintf(os.Stderr, "\nCost: $%.6f\n", cost.Total)

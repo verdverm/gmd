@@ -68,7 +68,10 @@ func (a *Agent) Run(ctx context.Context, query string) (*AgentResult, error) {
 	allResults = append(allResults, searchResp.Results...)
 
 	for step := 1; step < a.maxSteps; step++ {
-		decision, queries := a.analyzeResults(ctx, query, allResults)
+		decision, queries, err := a.analyzeResults(ctx, query, allResults)
+		if err != nil {
+			return nil, fmt.Errorf("analyzing results at step %d: %w", step, err)
+		}
 		if decision == "DONE" {
 			break
 		}
@@ -110,11 +113,12 @@ func (a *Agent) Run(ctx context.Context, query string) (*AgentResult, error) {
 					MaxCharacters: 5000,
 				},
 			})
-			if err == nil {
-				for i, cr := range contentsResp.Results {
-					if i < len(allResults) {
-						allResults[i].Text = cr.Text
-					}
+			if err != nil {
+				return nil, fmt.Errorf("fetching full text for %d URLs: %w", len(urls), err)
+			}
+			for i, cr := range contentsResp.Results {
+				if i < len(allResults) {
+					allResults[i].Text = cr.Text
 				}
 			}
 		}
@@ -145,7 +149,7 @@ func (a *Agent) Run(ctx context.Context, query string) (*AgentResult, error) {
 	}, nil
 }
 
-func (a *Agent) analyzeResults(ctx context.Context, query string, results []exa.SearchResult) (string, []string) {
+func (a *Agent) analyzeResults(ctx context.Context, query string, results []exa.SearchResult) (string, []string, error) {
 	resultsText := formatResultsForLLM(results)
 
 	prompt := strings.ReplaceAll(agentSystemPrompt, "{query}", query)
@@ -157,8 +161,7 @@ func (a *Agent) analyzeResults(ctx context.Context, query string, results []exa.
 
 	resp, err := a.llmClient.Chat(ctx, messages)
 	if err != nil {
-		// XXX-AGENT we are losing an error here
-		return "DONE", nil
+		return "", nil, fmt.Errorf("LLM analysis failed: %w", err)
 	}
 
 	decision := "DONE"
@@ -185,7 +188,7 @@ func (a *Agent) analyzeResults(ctx context.Context, query string, results []exa.
 		}
 	}
 
-	return decision, queries
+	return decision, queries, nil
 }
 
 func (a *Agent) synthesize(ctx context.Context, query string, results []exa.SearchResult) (string, error) {

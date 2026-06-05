@@ -258,6 +258,67 @@ behavior is opt-in. Users who want local browser automation
 install Chromium or set `chromium_auto_download: true` in config.
 Documentation covers setup paths per platform.
 
+#### Browser Attach Mode
+
+Instead of launching a dedicated headless Chromium instance, Rod can attach to
+an already-running Chrome/Chromium-based browser via its remote debugging port:
+
+```
+# Start Chrome with debugging enabled
+chrome --remote-debugging-port=9222
+```
+
+This enables driving the user's **main browser** — logged-in sessions, saved
+passwords, extensions, and cookies are all available. The browser process is
+user-managed; Rod does not start or stop it.
+
+Attach mode is activated by either:
+
+- `--attach` CLI flag (launch mode is the default)
+- `chromium_mode: "attach"` in `LocalConfig`
+- Setting `chromium_remote_url: "http://localhost:9222"` to specify the debug endpoint
+
+Attach mode is `LocalBrowser`-only; cloud providers cannot access the user's
+local browser.
+
+#### Human-Like Input Simulation
+
+CDP's `Input` domain supports raw `mouseMoved`, `mousePressed`, `keyDown`
+events. Rod wraps these as `page.Mouse.Click/Drag/Scroll` and
+`page.Keyboard.Press/Type/InsertText`.
+
+For human-like movement (non-instant cursor jumps), the local provider can layer
+smooth interpolation on top of Rod's mouse API:
+
+- **Bezier curve paths** between points instead of straight lines
+- **Variable velocity** — accelerate at start, decelerate near target
+- **Micro-overshoot** — pass the target slightly, correct back (natural behavior)
+- **Randomized timing** — realistic delays between keystrokes and clicks
+
+This is a thin utility layer, not a library dependency. The Puppeteer ecosystem
+has `ghost-cursor` as a reference implementation; the same technique ports
+directly to Rod's `page.Mouse.Move()`.
+
+#### Recording Interactions
+
+Chrome DevTools includes a built-in **Recorder** panel (DevTools → "Recorder"
+tab) that captures clicks, typing, and scrolls in the user's actual browser
+session. It exports recordings as:
+
+- Puppeteer script (`.js`)
+- Playwright script (`.js`)
+- JSON (replayable by a custom runner)
+
+Recordings use DOM selectors (`click button#submit`), not raw coordinates,
+making them reliable across window sizes. A recorded workflow exported as JSON
+could be replayed through Rod with human-like interpolation applied on top.
+
+Playwright's `codegen` provides similar recording but launches its own browser
+instance (no logged-in sessions), making Chrome DevTools Recorder the preferred
+path for capturing main-browser workflows. This is a future-phase capability,
+not in scope for W8, but fits naturally under the local provider's CDP
+capabilities.
+
 ### SearchProvider (Category 1)
 
 ```go
@@ -510,6 +571,14 @@ LocalConfig: {
     // Set explicitly to use a specific Chromium/Chrome installation.
     chromium_path?: string | *""
 
+    // Browser mode: "launch" (headless instance) or "attach" (connect to
+    // running Chrome via remote debugging port).
+    // Attach requires starting Chrome with --remote-debugging-port=9222.
+    chromium_mode?: string | *"launch"
+
+    // Remote debugging URL when chromium_mode is "attach".
+    chromium_remote_url?: string | *"http://localhost:9222"
+
     // Opt-in: allow Rod to auto-download Chromium (~170MB) on first use.
     chromium_auto_download?: bool | *false
 
@@ -642,6 +711,10 @@ Open questions requiring evaluation:
 - Can Chromium be detected from system installs across macOS/Linux/Windows?
 - What is the per-page memory footprint? Can it be pooled?
 - Is the version-pinning strategy acceptable over time?
+- **Attach mode off-ramp**: Rod can connect to an already-running Chrome via
+  `--remote-debugging-port=9222`, avoiding the auto-download issue entirely
+  for users who already have a browser. This is a lighter-weight entry point
+  for local browser automation than launching a dedicated headless instance.
 
 If Rod is adopted, it is added as a `BrowserProvider` implementation in a
 future phase (`pkg/web/local/rod.go`). Until then, local browser operations

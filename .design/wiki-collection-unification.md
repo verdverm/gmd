@@ -1,10 +1,9 @@
 # Wiki–Collection Unification
 
-**Status:** Design proposal (revised)  
-**Date:** 2026-06-04  
-**Motivation:** Wikis are currently second-class entities nested inside `CollectionConfig`.  
-This makes configuration, CLI conventions, and operational semantics inconsistent with collections.  
-Wikis should be first-class entities with the same ergonomics as collections, plus their own  
+**Date:** 2026-06-04
+**Motivation:** Wikis are currently second-class entities nested inside `CollectionConfig`.
+This makes configuration, CLI conventions, and operational semantics inconsistent with collections.
+Wikis should be first-class entities with the same ergonomics as collections, plus their own
 agent-driven operations (ingest, query, lint, graph, doctor).
 
 ---
@@ -57,8 +56,6 @@ A private `#Source` constraint captures the shared indexing fields. Both `Collec
 and `WikiConfig` unify with it, keeping the schema DRY.
 
 ```cue
-// --- types.cue additions ---
-
 // #Source defines shared file-indexing configuration used by both
 // collections and wikis. Both entity types are indexed into the same
 // Typesense chunks collection.
@@ -72,9 +69,8 @@ and `WikiConfig` unify with it, keeping the schema DRY.
 
 // WikiConfig defines an LLM wiki — a compounding knowledge base with
 // agent-driven content generation, wikilinks, and optional collection aggregation.
-// A wiki is also a collection: collection commands (show, include, exclude,
-// context) accept wiki names identically. Wiki CLI commands are thin proxies
-// that delegate to the same underlying collection CRUD implementation.
+// Collection commands (show, include, exclude, context) accept wiki names
+// identically. Wiki CLI commands delegate to the same collection CRUD internals.
 WikiConfig: #Source & {
     wikiDir:     string | *"wiki"        // subdirectory for wiki content pages
     rawDir:      string | *"raw"         // subdirectory for raw source material
@@ -104,7 +100,7 @@ ProjectConfig: {
     typesense:   TypesenseConfig
     pipeline?:   PipelineConfig
     collections: [string]: CollectionConfig
-    wikis:       [string]: WikiConfig        // ← NEW: first-class wikis
+    wikis:       [string]: WikiConfig
 
     // searchDefaults defines named search presets. Each key is a preset name
     // used with --search, and the value is the list of source names
@@ -348,10 +344,9 @@ func indexSources(ctx context.Context, cfg *Config) {
 }
 ```
 
-If a wiki has no `patterns`, it is skipped during scanning (agent-created pages are all
-that exist, and those are indexed if patterns cover them). Wikis without patterns that
-link to sourceRefs still participate in search — their sourceRef'd collections provide
-the content.
+Wikis without explicit patterns use default patterns (`<wikiDir>/**/*.md`,
+`<rawDir>/**/*.md`), so agent-created pages in `wikiDir` are always indexed.
+SourceRef'd collections provide additional searchable content.
 
 ### `gmd embed` also works on wikis
 
@@ -396,7 +391,8 @@ If any `sourceRef` does not exist in `collections` or `wikis`, `SourceKeysForSea
 returns an error explaining which reference is unknown.
 
 This is transparent to the user — no separate `--wiki` flag needed. The pipeline
-determines expansion by looking up the name in `cfg.Wikis`.
+determines expansion by looking up the name in `cfg.Wikis`. Pass `--no-expansion`
+to search only the wiki's own content without expanding `sourceRefs`.
 
 ### No `--wiki` flag
 
@@ -493,6 +489,7 @@ gmd wiki skills write [--target <agent>]
 
 ```sh
 gmd query "some text" --collection mywiki        # auto-expands sourceRefs if mywiki is a wiki
+gmd query "some text" --collection mywiki --no-expansion  # wiki's own content only
 gmd search "some text" --collection mywiki       # text-only
 gmd vsearch "some text" --collection mywiki      # vector-only
 gmd get wiki/concepts/foo.md                     # resolves via Typesense collection field
@@ -593,64 +590,11 @@ This is a breaking schema change: `wiki` is removed from `CollectionConfig`, and
 new `wikis` top-level map is added. Existing config files will fail CUE validation.
 
 **No migration command is provided.** The tool is still alpha; users should manually
-update their `.gmd/config.cue` files. The config diff is straightforward (see Appendix A).
+update their `.gmd/config.cue` files.
 
 ---
 
-## 8. Open Questions
-
-1. **Should `gmd query` without flags include wikis?**
-   **Yes.** Wikis are content sources like collections. Default (unscoped) search finds
-   everything where `excludeFromDefault` is `false` (the default). The `--collection` flag
-   scopes to a specific source (auto-expanding sourceRefs for wikis). The `--search` flag
-   uses a named `searchDefaults` preset to select a predefined set of sources.
-   `excludeFromDefault` filtering is new runtime behavior that must be implemented from
-   scratch — the current `includeByDefault` field is config-only with no runtime effect.
-
-2. **Should `gmd collection show <name>` warn if a wiki references it?**
-   **Yes.** Add a `referenced by:` line in the output.
-
-3. **Should a wiki without `sourceRefs` be distinguishable from a collection in search?**
-   **No.** At the Typesense level they're identical (same schema, same `collection` field).
-   The difference is behavioral (agent operations, wikilinks, knowledge base lifecycle).
-
-4. **What about wiki directories and `gmd update`?**
-   `gmd update` scans all sources (collections + wikis). A wiki without `patterns` is
-   skipped during file scanning. Its sourceRefs still provide searchable content.
-
-5. **What are the default patterns for `gmd wiki create`?**
-   Default to `["<wikiDir>/**/*.md", "<rawDir>/**/*.md"]` to cover both scaffolded directories.
-   Since `rawDir` content is indexed by default, the patterns must include it. Can be
-   overridden via `--patterns` flag (like `collection create`). To exclude raw content,
-   use `ignore: ["<rawDir>/**"]`.
-
-6. **Should `rawDir` content be indexed?**
-   **Yes, by default.** Most raw source material is markdown. Everything should be searchable.
-   Users who want to skip indexing raw content can opt out via `ignore: ["raw/**"]`.
-
-   The `rawDir` is intended to be tracked in git alongside the wiki pages. This keeps
-   the knowledge base self-contained and reproducible.
-
-7. **How does `sourceRefs` interact with `excludeFromDefault`?**
-   If wiki A references collection B and collection B has `excludeFromDefault: true`, searching
-   wiki A with `--collection A` still pulls in B's content via `sourceRefs` expansion.
-   This is intentional: a wiki's source references are explicit opt-in, overriding
-   B's default-search opt-out. Default (unscoped) searches respect `excludeFromDefault`:
-   A (if not excluded) shows up, B (if excluded) does not, but `A.sourceRefs` does not
-   implicitly include B in unscoped searches.
-
-8. **Should `searchDefaults` be per-source or named presets?**
-   Named presets. `searchDefaults` is a project-level map from preset names to source
-   lists, e.g. `searchDefaults: { "research": ["docs", "papers"] }`. Invoked via
-   `--search research`. This is simpler than per-source mode flags and avoids ambiguity
-   between `searchDefaults` and `excludeFromDefault`. When `--search` is used, the
-   preset's source list replaces default resolution entirely (no intersection with
-   `excludeFromDefault`). When `--search` is absent, unscoped search uses all
-   non-excluded sources.
-
----
-
-## 9. Implementation Order
+## 8. Implementation Order
 
 1. **CUE schema** — add `#Source` constraint, `WikiConfig` top-level (with nested
    `frontmatter`, `excludeFromDefault`, `wikiDir`, `rawDir`, `sourceRefs`), `wikis: [string]:
@@ -678,132 +622,21 @@ update their `.gmd/config.cue` files. The config diff is straightforward (see Ap
 8. **Validation — cycle detection + ref existence** — cycle detection for sourceRefs
    graph. Reject unknown sourceRef names at `wiki ref add` time with a clear error.
 9. **Indexer** — update `gmd update` and `gmd embed` to iterate wikis via shared
-   `SourceConfig`. rawDir is indexed by default; meta files (`_index.md`, `_log.md`) are
-   excluded from scanning. User opt-out via `ignore: ["raw/**"]`.
+    `SourceConfig`. Wikis without explicit patterns use defaults (`<wikiDir>/**/*.md`,
+    `<rawDir>/**/*.md`) and are never skipped. `--collection` flag scopes update/embed
+    to a single source. rawDir is indexed by default; meta files (`_index.md`, `_log.md`)
+    are excluded from scanning. User opt-out via `ignore: ["raw/**"]`.
 10. **Search** — implement `SourceKeysForSearch` (errors on unknown refs), auto-expand
-    sourceRefs in pipeline when `--collection` resolves to a wiki, implement
-    `excludeFromDefault` filtering for unscoped searches (new runtime behavior — the
-    current `includeByDefault` field is config-only with no runtime effect), implement
-    `searchDefaults` preset resolution via `--search` flag (preset's source list replaces
-    default resolution), path collision detection and disambiguation in `gmd get`
-    (new logic: multiple Typesense documents with different `collection` values for the
-    same relative path require `--collection` to disambiguate).
+     sourceRefs in pipeline when `--collection` resolves to a wiki, add `--no-expansion`
+     flag to opt out of sourceRefs expansion and search only the wiki's own content,
+     implement `excludeFromDefault` filtering for unscoped searches (new runtime
+     behavior — the current `includeByDefault` field is config-only with no runtime
+     effect), implement `searchDefaults` preset resolution via `--search` flag (preset's
+     source list replaces default resolution), path collision detection and
+     disambiguation in `gmd get` (new logic: multiple Typesense documents with different
+     `collection` values for the same relative path require `--collection` to
+     disambiguate).
 11. **Cleanup** — remove dead code (old `WikiConfig.Enabled`, old `Wiki`
     struct shape, `CollectionConfig.Wiki`, `IncludeByDefault`), update docs/AGENTS.md.
 
----
 
-## Appendix A: Current vs Proposed Config Comparison
-
-### Current config (wiki nested in collection)
-
-```cue
-Config: {
-    project: "myproject"
-    collections: {
-        docs: { path: ".", patterns: ["**/*.md"] }
-        myresearch: {
-            path:     "."
-            patterns: ["wiki/**/*.md"]
-            ignore:   ["wiki/_index.md", "wiki/_log.md"]
-            wiki: {
-                enabled:    true
-                indexFile:  "_index.md"
-                logFile:    "_log.md"
-                graphLinks: true
-            }
-        }
-    }
-}
-```
-
-### Proposed config (wiki as first-class)
-
-```cue
-Config: {
-    project: "myproject"
-    collections: {
-        docs: { path: ".", patterns: ["**/*.md"] }
-    }
-    wikis: {
-        myresearch: {
-            path:       "."
-            wikiDir:    "wiki"
-            rawDir:     "raw"
-            patterns:   ["wiki/**/*.md"]
-            ignore:     ["wiki/_index.md", "wiki/_log.md"]
-            sourceRefs: ["docs"]
-        }
-    }
-}
-```
-
----
-
-## Appendix B: State Transitions
-
-```
-Before:
-┌─────────────────────────────────────────┐
-│  collections: [string]: CollectionConfig │
-│    ├── mycollection  (plain)            │
-│    └── mywiki        (wiki-enabled)     │
-│         └── wiki: WikiConfig            │
-└─────────────────────────────────────────┘
-
-After:
-┌─────────────────────────────────────────┐
-│  collections: [string]: CollectionConfig │
-│    └── mycollection  (plain)            │
-│                                         │
-│  wikis: [string]: WikiConfig             │
-│    └── mywiki                            │
-│         ├── sourceRefs: [mycollection]   │
-│         └── frontmatter: { fields: ... } │
-└─────────────────────────────────────────┘
-
-After (wiki aggregating two collections):
-┌─────────────────────────────────────────┐
-│  collections: [string]: CollectionConfig │
-│    ├── codebase       (plain)           │
-│    └── papers         (plain)           │
-│                                         │
-│  wikis: [string]: WikiConfig             │
-│    └── research                          │
-│         └── sourceRefs: [codebase, papers]│
-└─────────────────────────────────────────┘
-```
-
----
-
-## Appendix C: Wiki Go struct before/after
-
-### Current `Wiki` struct
-
-```go
-type Wiki struct {
-    Name       string
-    Path       string
-    WikiPath   string
-    RawPath    string
-    Config     *config.CollectionConfig    // ← uses collection config
-    WikiConfig *config.WikiConfig
-}
-```
-
-### Proposed `Wiki` struct
-
-```go
-type Wiki struct {
-    Name     string
-    Path     string
-    WikiPath string   // Path + "/" + Config.WikiDir
-    RawPath  string   // Path + "/" + Config.RawDir
-    Config   *config.WikiConfig  // ← uses wiki config directly (embeds SourceConfig)
-}
-```
-
-`WikiConfig` embeds `SourceConfig`, so `Config.Path`, `Config.Patterns`, `Config.Ignore`,
-`Config.Context`, and `Config.Fields` are all directly accessible. No `CollectionConfig`
-wrapper needed. Wiki-specific frontmatter keys live under `Config.Frontmatter.Fields`,
-separate from Typesense indexing fields in `Config.Fields`.

@@ -29,17 +29,22 @@ roles.
 
 1. **Multiple interfaces, not one.** Forcing all providers into one interface
    creates stub methods and abstraction leaks. Each command selects its
-   interface at runtime. `SearchProvider` for search/fetch, `BrowserProvider`
-   for crawl/scrape/rendered-content.
+   interface at runtime. `SearchProvider` for web index search,
+   `BrowserProvider` for content retrieval, crawl, scrape, and rendered-content.
 
-2. **Provider roles in config.** A user configures `search: exa` and
-   `browser: local` for different workflows. The `providers` object in CUE
-   maps each role to a provider name.
+2. **Named provider groups in config.** Modeled after `searchDefaults`
+   (which maps preset names to lists of collection/wiki sources), provider
+   groups map a preset name to `{search, browser}` provider selections.
+   The global `WebConfig.group` field selects the default group; CLI
+   `--provider-group` overrides per-command. This lets users define
+   "quick" (exa + cloudflare), "offline" (searxng + local), and other
+   workflows as named presets.
 
-3. **User controls provider selection.** No automatic fallback and no default
-   provider. The user must explicitly set `providers.browser` /
-   `providers.search` in config or pass `--provider` per command. Missing or
-   unavailable providers produce errors.
+3. **User controls provider selection.** No automatic fallback. The user
+   configures a provider group (search + browser) or passes
+   `--provider-group` per command. Individual `--search-provider` and
+   `--browser-provider` flags allow overriding one role within a group.
+   Missing or unavailable providers produce errors.
 
 4. **SDKs preferred over raw HTTP wrappers.** Cloud provider clients should use
    official Go SDKs when available and well-maintained. Fall back to raw HTTP
@@ -69,6 +74,14 @@ roles.
    (html-to-markdown, semantic-markdown) and subprocess-based converters
    (Python markitdown, JS Turndown) are both under consideration. The Go binary
    constraint (`CGO_ENABLED=0`) doesn't preclude calling external tools.
+
+10. **Content caching at the provider level.** Not all content needs live
+    retrieval. EXA returns cached/indexed content; Cloudflare renders on
+    demand; Local fetches fresh each time. The `BrowserProvider.GetContent`
+    method accepts a `GetContentOptions` struct with `MaxAge` — providers
+    that cache content can honor it. A future local content cache (on-disk,
+    keyed by URL + fetch time) can optionally sit between the caller and
+    provider for offline/repeat access. Caching strategy is detailed below.
 
 ## Provider Landscape
 
@@ -160,6 +173,7 @@ pkg/web/local/
 ├── fetch.go          # Static HTTP fetch via net/http
 ├── markdown.go       # HTML→MD conversion via html-to-markdown/v2
 ├── crawl.go          # Crawling with robots.txt, rate limits, queue
+├── scrape.go         # CSS selector extraction via goquery
 ├── rod.go            # Rod-based browser automation (future)
 ├── browser_linux.go  # Chromium path detection (future)
 ├── browser_darwin.go # Chromium path detection (future)
@@ -180,12 +194,12 @@ returns markdown in its `text` field, Cloudflare's `/markdown` endpoint converts
 rendered pages to markdown, and Tavily offers markdown extraction. This aligns
 with GMD's LLM-oriented consumption patterns.
 
-Cloudflare Browser Run is a **browser** product by category, but its `/content`
-and `/markdown` endpoints function as an on-demand content retrieval service: any
+Cloudflare Browser Run is a **browser** product — its `/content` and
+`/markdown` endpoints function as an on-demand content retrieval service: any
 URL → rendered markdown. It does not index the web or perform semantic search,
-but it can serve as a `SearchProvider` for the `Fetch` method when live
-rendering is needed. In the registry, Cloudflare registers as both `browser`
-and `search` roles.
+so it registers only in the `browser` role. EXA spans both roles: its `/search`
+endpoint implements `SearchProvider`, and its `/contents` endpoint (cached page
+retrieval) implements `BrowserProvider.GetContent`.
 
 ### Category 2: Browser Automation (cloud)
 
@@ -228,16 +242,16 @@ interface. Covered in `.design/web-browser-advanced.md`.
 │  ┌────────────────────┐  ┌──────────────────────────────┐   │
 │  │ Semantic search    │  │ Browser automation           │   │
 │  │ Web index query    │  │ JS rendering                 │   │
-│  │ Content fetch      │  │ Crawl, scrape                │   │
-│  │ Find similar       │  │ Content→markdown             │   │
+│  │ Find similar       │  │ Crawl, scrape                │   │
+│  │                    │  │ Content→markdown             │   │
 │  │                    │  │                              │   │
 │  │  ┌─────────────┐   │  │   ┌──────────────────┐      │   │
 │  │  │ O V E R L A P│   │  │   │ O V E R L A P     │      │   │
-│  │  │ Markdown     │   │  │   │ Content fetch     │      │   │
-│  │  │ Structured   │   │  │   │ Crawl             │      │   │
-│  │  │ data extract │   │  │   │ Links extraction  │      │   │
-│  │  │              │   │  │   │ (Cloudflare /content│   │   │
-│  │  │              │   │  │   │  in search role)   │      │   │
+│  │  │ EXA /contents│   │  │   │ Content fetch     │      │   │
+│  │  │ (cached page │   │  │   │ Crawl             │      │   │
+│  │  │  retrieval)  │   │  │   │ Links extraction  │      │   │
+│  │  │              │   │  │   │ EXA GetContents,  │      │   │
+│  │  │              │   │  │   │ Cloudflare /content│     │   │
 │  │  └─────────────┘   │  │   └──────────────────┘      │   │
 │  └────────────────────┘  └──────────────────────────────┘   │
 │                                      │                       │
@@ -250,16 +264,19 @@ interface. Covered in `.design/web-browser-advanced.md`.
 │                            └──────────────────┘              │
 └─────────────────────────────────────────────────────────────┘
 ```
-- **Search providers** retrieve pre-computed content from a web index.
-- **Browser providers** render pages on demand. Cloudflare's content/markdown
-  endpoints occupy the overlap: they render like a browser but return structured
-  markdown suitable for search-like consumption.
+- **Search providers** query web indexes and return ranked results. EXA also
+  has a `/contents` endpoint (cached page retrieval) which maps to the
+  `BrowserProvider` role — see below.
+- **Browser providers** retrieve and render content on demand. Every provider
+  in this category is a `BrowserProvider`. EXA's cached content retrieval,
+  Cloudflare's live rendering, and Local's static HTTP fetch all implement
+  `GetContent` with different freshness/latency tradeoffs.
 - **AI browser tools** are AI-driven abstractions on top of browser providers.
   Covered in `.design/web-browser-advanced.md`.
 
 ## Interface Design
 
-The existing `Provider` interface in `pkg/web/provider.go` covers search and fetch:
+The existing `Provider` interface in `pkg/web/provider.go` bundles search and fetch:
 
 ```go
 type Provider interface {
@@ -268,35 +285,78 @@ type Provider interface {
 }
 ```
 
-Multiple interfaces reflect the Venn diagram. A single monolithic interface
-would require all providers to implement all methods.
+This conflates two concerns: querying a web index (search) and retrieving
+page content (fetch). Several providers can do one but not the other:
+SearXNG searches but doesn't fetch, Cloudflare fetches but doesn't search,
+Local fetches but doesn't search. Forcing both methods into a single
+interface requires stub implementations that return `ErrNotSupported`.
+
+The fix: `SearchProvider` does search only. `BrowserProvider` owns content
+retrieval (`GetContent`). Commands that need both (e.g. `gmd web research`)
+compose the two interfaces.
 
 ### SearchProvider (Category 1)
 
 ```go
 type SearchProvider interface {
     Search(ctx context.Context, opts SearchOptions) ([]SearchResult, error)
-    Fetch(ctx context.Context, urls []string) ([]SearchResult, error)
 }
 ```
 
 `SearchOptions` gains an `Extra map[string]any` field for provider-specific
 parameters (e.g., EXA's `useAutoprompt`, `type`, `outputSchema`). Callers
 pass keys the target provider understands; adapters ignore unknown keys.
-This keeps the core interface stable while giving advanced callers an
-escape hatch without leaking provider types into the interface.
 
-Implemented by: **EXA**, **Tavily** (future), **SearXNG** (future),
-**Cloudflare** (Fetch only, via `/content`/`/markdown`)
+`SearchResult` also gains `Extra` so provider-specific response fields
+(`Author`, `PublishedDate`, `Highlights` from EXA) flow through to callers
+that know which provider they're talking to, without leaking provider types
+into the interface:
 
-### BrowserProvider (Category 2)
+```go
+type SearchResult struct {
+    Title   string
+    URL     string
+    Content string
+    Score   float64
+    Extra   map[string]any // provider-specific fields (Author, PublishedDate, Highlights, etc.)
+}
+
+type SearchOptions struct {
+    Query          string
+    NumResults     int
+    IncludeDomains []string
+    ExcludeDomains []string
+    Extra          map[string]any // provider-specific params (useAutoprompt, type, outputSchema, etc.)
+}
+```
+
+Implemented by: **EXA**, **Tavily**, **SearXNG**.
+
+### BrowserProvider (Category 0 + 2)
 
 ```go
 type BrowserProvider interface {
-    GetContent(ctx context.Context, url string) (string, error)
+    GetContent(ctx context.Context, url string, opts *GetContentOptions) (string, error)
     Crawl(ctx context.Context, startURL string, opts *CrawlOptions) ([]Page, error)
     Scrape(ctx context.Context, url string, selector string) ([]Element, error)
     Capabilities() BrowserCapabilities
+}
+```
+
+`GetContent` subsumes the old `Fetch`. Every browser provider implements it:
+EXA via its `/contents` cached-page endpoint, Cloudflare via `/content` and
+`/markdown` live rendering, Local via `net/http` + HTML→MD. Providers that
+support additional methods (Crawl, Scrape) advertise that in
+`Capabilities()`; commands check capabilities before calling those methods.
+
+**GetContentOptions:**
+
+```go
+type GetContentOptions struct {
+    Format     string        // "text", "markdown", "html" (default: "markdown")
+    MaxChars   int           // max characters to return (0 = unlimited)
+    MaxAge     time.Duration // prefer live fetch if cached content is older than this
+    Extra      map[string]any
 }
 ```
 
@@ -333,15 +393,19 @@ type Element struct {
 `NewSession`/`BrowserSession` (CDP sessions, interactive control) are part
 of the advanced browser surface — see `.design/web-browser-advanced.md`.
 
+Implemented by: **Local**, **Cloudflare**, **EXA** (GetContent only; Crawl
+and Scrape return `ErrNotSupported`).
+
 ### BrowserCapabilities
 
 ```go
 type BrowserCapabilities struct {
+    GetContent   bool // supports GetContent() — always true for any BrowserProvider
     Crawl        bool // supports Crawl()
     Scrape       bool // supports Scrape()
     SelfHost     bool // can be self-hosted
     LocalBrowser bool // headless browser available on this machine
-    LocalHTML    bool // can do static HTML→MD
+    LocalHTML    bool // can do static HTML→MD without a browser
     LocalCrawl   bool // can do respectful local crawling
 
     Features []string // e.g. "playwright", "puppeteer", "stagehand"
@@ -353,15 +417,18 @@ in the extended `BrowserCapabilities` covered in the advanced doc.
 
 ### LocalProvider (Category 0)
 
-`LocalProvider` implements **both** `SearchProvider` and `BrowserProvider`:
+`LocalProvider` implements `BrowserProvider`:
 
-- `SearchProvider.Fetch` is served by static HTTP fetch + HTML→MD conversion
-  (always available).
-- `BrowserProvider.GetContent` uses the same static fetch + HTML→MD path.
-- `BrowserProvider.Crawl` and `Scrape` are served when crawling is available.
+- `GetContent`: static HTTP fetch + HTML→MD conversion (always available).
+- `Crawl`: respectful crawling with robots.txt enforcement, per-domain rate
+  limits, and sitemap discovery.
+- `Scrape`: CSS selector extraction via `goquery` (which wraps
+  `golang.org/x/net/html`, already an indirect dependency). No JS needed;
+  works on static HTML.
 
 ```go
 type LocalProvider struct {
+    httpClient  *http.Client
     mdConverter HTMLToMarkdownConverter // interface — backs pure Go or subprocess impl
     // Future: rodClient *rodBrowser (when Rod is adopted)
 }
@@ -369,10 +436,24 @@ type LocalProvider struct {
 
 | Runtime State | Capabilities |
 |---|---|
-| Default | Static fetch + HTML→MD + crawl (`SearchProvider.Fetch`, `BrowserProvider.GetContent/Crawl`) |
-| `GMD_NO_BROWSER=1` or `--no-browser` flag | Static fetch + HTML→MD only |
+| Default | Static fetch + HTML→MD + crawl + scrape |
+| `GMD_NO_BROWSER=1` or `--no-browser` flag | Static fetch + HTML→MD only (Crawl/Scrape false) |
 
 Rod-based JS rendering is a future addition covered in the advanced doc.
+`LocalProvider` does NOT implement `SearchProvider` — it cannot query a web
+index.
+
+### LocalProvider Dependencies
+
+```
+github.com/JohannesKaufmann/html-to-markdown/v2   # HTML→MD (or subprocess alternative)
+github.com/temoto/robotstxt                        # robots.txt parsing
+github.com/PuerkitoBio/goquery                     # CSS selector support for Scrape()
+```
+
+All three meet the `CGO_ENABLED=0` constraint. `goquery` wraps
+`golang.org/x/net/html` (already an indirect dependency of the project via
+other packages).
 
 ### HTML→Markdown Integration (Reference)
 
@@ -414,7 +495,7 @@ EXA-specific result fields (`Author`, `PublishedDate`, `Highlights`).
 | Approach | Description | When |
 |---|---|---|
 | **A: Stay EXA-specific** | Agent keeps `*exa.Client` directly. No interface abstraction. | Now — no other search providers exist yet |
-| **B: SearchProvider + fallback** | Agent takes `SearchProvider`; uses common `SearchResult` fields. Provider-specific extras through `SearchOptions.Extra`. | When a second search provider ships (Tavily / SearXNG) |
+| **B: SearchProvider + Extra** | Agent takes `SearchProvider`; uses common `SearchResult` fields. Provider-specific extras accessed through `SearchResult.Extra["highlights"]` etc. and `SearchOptions.Extra` for params. | When a second search provider ships (Tavily / SearXNG) |
 | **C: Provider-specific agents** | `NewEXAAgent`, `NewTavilyAgent` — each optimized for its provider. | If providers diverge too much for a single agent shape |
 
 **Recommendation:** Start with **A** (no change to agent.go in Phase 1). Move to **B**
@@ -465,6 +546,63 @@ generically, replacing the EXA-specific `printCost` pattern. Billing models
 differ per provider (per-query, per-minute, credit-based) — `Unit` makes the
 distinction visible without leaking provider logic into display code.
 
+## Caching Strategy
+
+Content retrieval sits on a freshness spectrum. Different providers occupy
+different points on it, and the caching strategy must account for all of them
+without tying the interface to any one model.
+
+### Provider Freshness Models
+
+| Provider | Content Source | Freshness | Latency |
+|---|---|---|---|
+| EXA `/contents` | Indexed crawl cache | Hours to days old | Low (pre-indexed) |
+| Cloudflare `/content` | Live browser render | Real-time | Medium (browser startup + render) |
+| Local `net/http` | Live HTTP fetch | Real-time | Low (single HTTP round-trip) |
+
+### Two-Layer Caching
+
+**Layer 1 — Provider-level:** Providers that cache internally (EXA) honor
+`GetContentOptions.MaxAge`. If the cached content is older than `MaxAge`,
+EXA triggers a live crawl (via its `livecrawl` parameter). Cloudflare and
+Local always fetch live (MaxAge is a no-op).
+
+**Layer 2 — Application-level (future):** An optional local disk cache in
+`pkg/web/cache/` sits between the caller and provider. Cache entries are
+keyed by `(provider, url, format)`, stored as markdown files under
+`~/.cache/gmd/web/`. On read, if a cache entry is fresher than
+`MaxAge`, it's returned without calling the provider. On write, successful
+provider responses populate the cache.
+
+```
+Caller → [cache check] → [cache hit, fresh] → return
+                       → [cache miss / stale] → Provider.GetContent() → [write cache] → return
+```
+
+This layer is optional and orthogonal to the provider interfaces — providers
+don't know about it. The cache is enabled/disabled in `LocalConfig`:
+
+```cue
+LocalConfig: {
+    // ...
+    cache_enabled?: bool | *false
+    cache_dir?:     string | *"~/.cache/gmd/web"
+    cache_max_size?: int   | *536870912  // 512 MB
+    cache_ttl?:      string | *"24h"     // default TTL for cached entries
+}
+```
+
+### Cache-Aware GetContentOptions
+
+`GetContentOptions.MaxAge` drives both layers:
+
+- `MaxAge = 0`: always prefer live/fresh content (cache bypass)
+- `MaxAge > 0`: cached content up to this age is acceptable
+- `MaxAge < 0` (e.g. `-1`): prefer cached content regardless of age
+  (offline mode)
+
+The CLI's `--max-age` flag on `gmd web fetch` maps to this field.
+
 ## Provider Registry
 
 Provider names map to constructors via a central, explicit map — no `init()`
@@ -484,14 +622,14 @@ type ProviderRegistry struct {
 func NewRegistry() *ProviderRegistry {
     return &ProviderRegistry{
         search: map[string]ProviderConstructor{
-            "exa":       func(cfg ProviderConfig) (any, error) { return exa.NewSearchProvider(cfg) },
-            "tavily":    func(cfg ProviderConfig) (any, error) { return tavily.NewSearchProvider(cfg) },
-            "searxng":   func(cfg ProviderConfig) (any, error) { return searxng.NewSearchProvider(cfg) },
-            "cloudflare":func(cfg ProviderConfig) (any, error) { return cloudflare.NewSearchProvider(cfg) },
+            "exa":     func(cfg ProviderConfig) (any, error) { return exa.NewSearchProvider(cfg) },
+            "tavily":  func(cfg ProviderConfig) (any, error) { return tavily.NewSearchProvider(cfg) },
+            "searxng": func(cfg ProviderConfig) (any, error) { return searxng.NewSearchProvider(cfg) },
         },
         browser: map[string]ProviderConstructor{
-            "local":      func(cfg ProviderConfig) (any, error) { return local.NewBrowserProvider(cfg) },
+            "exa":        func(cfg ProviderConfig) (any, error) { return exa.NewBrowserProvider(cfg) },
             "cloudflare": func(cfg ProviderConfig) (any, error) { return cloudflare.NewBrowserProvider(cfg) },
+            "local":      func(cfg ProviderConfig) (any, error) { return local.NewBrowserProvider(cfg) },
         },
     }
 }
@@ -507,12 +645,12 @@ one line to the appropriate role map and writing the provider package.
 
 | Role | Valid Names |
 |---|---|
-| `search` | `exa`, `tavily`, `searxng`, `cloudflare` |
-| `browser` | `local`, `cloudflare` |
+| `search` | `exa`, `tavily`, `searxng` |
+| `browser` | `exa`, `cloudflare`, `local` |
 
-A provider can appear in multiple roles (`local` is search and browser;
-`cloudflare` is search and browser). `Resolve` returns typed `error` values
-so callers can distinguish configuration errors from runtime failures.
+A provider can appear in multiple roles (`exa` is both search and browser).
+`Resolve` returns typed `error` values so callers can distinguish
+configuration errors from runtime failures.
 
 ## Required Credentials per Provider
 
@@ -526,7 +664,7 @@ so callers can distinguish configuration errors from runtime failures.
 
 Each provider config block in CUE references these env vars as default values.
 Omitting a config block means "don't use this provider" — the tool only
-initializes providers that appear in `providers.<role>`.
+initializes providers referenced by the active provider group.
 
 ## Config Evolution
 
@@ -541,16 +679,17 @@ WebConfig: {
 Proposed:
 ```cue
 WebConfig: {
-    providers?: WebProviderRoles
+    group?:  string | *"default"  // active provider group
+    groups?: [string]: WebProviderGroup
 
     local?:      LocalConfig
     exa?:        EXAConfig
     cloudflare?: CloudflareConfig
 }
 
-WebProviderRoles: {
-    search?:  string
-    browser?: string
+WebProviderGroup: {
+    search?:  string  // provider name for search role (exa, tavily, searxng)
+    browser?: string  // provider name for browser role (exa, cloudflare, local)
 }
 
 LocalConfig: {
@@ -570,6 +709,12 @@ LocalConfig: {
 
     // Maximum pages to fetch per domain during a crawl
     max_pages_per_domain?: int | *200
+
+    // Cache tuning
+    cache_enabled?:  bool   | *false
+    cache_dir?:      string | *"~/.cache/gmd/web"
+    cache_max_size?: int    | *536870912   // 512 MB
+    cache_ttl?:      string | *"24h"
 }
 
 CloudflareConfig: {
@@ -582,20 +727,42 @@ Go-side struct:
 
 ```go
 type WebConfig struct {
-    Providers  *WebProviderRoles `json:"providers,omitempty"`
-    Local      LocalConfig       `json:"local,omitempty"`
-    EXA        EXAConfig         `json:"exa,omitempty"`
-    Cloudflare CloudflareConfig  `json:"cloudflare,omitempty"`
+    Group      string                        `json:"group"`
+    Groups     map[string]WebProviderGroup   `json:"groups,omitempty"`
+    Local      LocalConfig                   `json:"local,omitempty"`
+    EXA        EXAConfig                     `json:"exa,omitempty"`
+    Cloudflare CloudflareConfig              `json:"cloudflare,omitempty"`
 }
 
-type WebProviderRoles struct {
-    Search  string `json:"search"`
-    Browser string `json:"browser"`
+type WebProviderGroup struct {
+    Search  string `json:"search,omitempty"`
+    Browser string `json:"browser,omitempty"`
 }
 ```
 
 API keys are loaded from environment variables in the config loading path,
 matching the existing pattern for `EXA_API_KEY`.
+
+### Provider Group Design Rationale
+
+Named groups follow the `searchDefaults` pattern already used for
+collections and wikis. `searchDefaults` maps a preset name to a list of
+source names; `WebConfig.groups` maps a preset name to `{search, browser}`
+role selections. Both are flat maps of `string` → structured value, with a
+top-level field (`group` / implicit default) selecting the active preset.
+
+This supports common workflows:
+
+| Group Name | Config | Use Case |
+|---|---|---|
+| `default` | `{search: "exa", browser: "cloudflare"}` | Full-featured: indexed search + live rendering |
+| `offline` | `{search: "searxng", browser: "local"}` | Self-hosted search + static HTTP fetch |
+| `quick` | `{search: "exa", browser: "exa"}` | Single-provider simplicity, no live rendering |
+| `research` | `{search: "tavily", browser: "cloudflare"}` | Alternative index + live content for deep research |
+
+The `--provider-group` flag overrides the configured group per-command.
+Individual `--search-provider` and `--browser-provider` flags override one
+role within the active group without changing the other.
 
 Per-provider endpoint overrides are not included. The provider config blocks
 specify identity and credentials only. A generic HTTP proxy setting may be
@@ -605,19 +772,33 @@ per-provider endpoint customization is premature.
 ## CLI Command Mapping
 
 | `gmd web` Subcommand | Interface Needed | Local | EXA | Cloudflare | Status |
-|---|---|---|---|---|---|---|
+|---|---|---|---|---|---|
 | `gmd web search` | `SearchProvider` | no | yes | no | existing |
-| `gmd web fetch` | `SearchProvider` or `BrowserProvider` | yes static | yes cached | yes /content | existing (EXA only) |
+| `gmd web fetch` | `BrowserProvider.GetContent` | yes static | yes cached | yes /content | existing (EXA only) |
 | `gmd web agent` | `SearchProvider` + LLM | no | yes | no | existing |
-| `gmd web crawl` | `BrowserProvider` | yes | no | yes | new |
-| `gmd web research` | `SearchProvider` + LLM | no | yes | planned | new |
+| `gmd web crawl` | `BrowserProvider.Crawl` | yes | no | yes | new |
+| `gmd web research` | `SearchProvider` + `BrowserProvider` + LLM | search: no, browser: yes | yes | planned | new |
+
+### Fetch vs. Crawl
+
+| Command | Intent | Scope | Recursive? | Use Case |
+|---|---|---|---|---|
+| `gmd web fetch` | Retrieve content for specific, known URLs | Explicit URL list | No — exactly the given URLs | "Get me the content of these 3 pages" |
+| `gmd web crawl` | Discover and retrieve pages starting from a seed URL | Seed URL + discovered links | Yes — bounded by depth/pages/domain | "Starting from this page, grab everything relevant" |
+
+`fetch` is point retrieval: the caller provides the URLs. `crawl` is
+graph traversal: the provider discovers URLs by following links. They share
+the same `GetContent` mechanism under the hood, but the control flow differs:
+fetch iterates a flat list, crawl manages a queue with depth and dedup.
 
 - **Local** = execution on the user's machine (static fetch + HTML→MD, no JS).
 - For `fetch`, local first tries static HTTP and converts to markdown. If the
   result is empty or consists only of an SPA bootstrap `<div>` (e.g.,
   `<div id="root">` with no readable text), and a browser is available, it
   falls back to JS rendering.
-- `--provider` flag overrides the configured role per-call.
+- `--search-provider` and `--browser-provider` flags override individual
+  roles in the active provider group per-call.
+- `--provider-group <name>` overrides the entire active group per-call.
 - `--max-age <duration>` flag on `fetch` controls cache freshness: content
   older than the specified duration triggers a browser fetch instead of
   using cached/indexed results.
@@ -625,37 +806,52 @@ per-provider endpoint customization is premature.
 ## Provider Selection Logic
 
 ```
-gmd web <command> [--provider <name>]
+gmd web <command> [--provider-group <name>] [--search-provider <name>] [--browser-provider <name>]
                     │
                     ▼
-            ┌────────────────┐
-            │ --provider set?│
-            └────┬──────┬────┘
+            ┌──────────────────────┐
+            │ --provider-group set?│
+            └────┬──────┬──────────┘
                  │      │
                 YES     NO
                  │      │
                  ▼      ▼
           Use specified   Look up configured
-          provider        provider role from
-                           CUE config
-                              │
-                              ▼
-                    ┌──────────────────┐
-                    │ Provider found?  │
-                    └────┬──────┬──────┘
-                         │      │
-                        YES     NO
-                         │      │
-                         ▼      ▼
-                    Use it     Error:
-                               "No provider configured
-                                for <role>. Set with
-                                gmd config or use
-                                --provider <name>"
+          provider group   group from WebConfig.group
+          from WebConfig.   (default: "default")
+          groups[<name>]    │
+                 │          ▼
+                 ▼    ┌──────────────────────┐
+                 │    │ --search-provider or │
+                 │    │ --browser-provider?  │
+                 │    └────┬──────┬──────────┘
+                 │         │      │
+                 │        YES     NO
+                 │         │      │
+                 │         ▼      ▼
+                 │    Override   Use group's
+                 │    one role   role selection
+                 │    │          │
+                 └──────────────┘
+                        │
+                        ▼
+              ┌──────────────────┐
+              │ Resolve provider │
+              │ from registry    │
+              └────┬──────┬──────┘
+                   │      │
+                  found  not found
+                   │      │
+                   ▼      ▼
+               Use it    Error:
+                         "No provider <name>
+                          configured for <role>.
+                          Available: <list>"
 ```
 
-No automatic fallback. The user declares which provider handles each role. If
-the configured provider is unavailable at runtime, the command errors rather
+No automatic fallback. The user declares which provider handles each role
+via a named group. CLI flags override individual roles or the entire group.
+If the resolved provider is unavailable at runtime, the command errors rather
 than switching to a different provider.
 
 Supported provider names: `exa`, `tavily`, `searxng`, `cloudflare`, `local`.
@@ -665,44 +861,47 @@ Supported provider names: `exa`, `tavily`, `searxng`, `cloudflare`, `local`.
 ### Phase 1: Interface Refinement & Foundations
 
 Goal: split the single `Provider` interface, build the registry, wire EXA as the
-first adapter, and update CLI commands without breaking existing functionality.
+first adapter for both roles, and update CLI commands without breaking existing
+functionality.
 
-- [ ] Split `Provider` into `SearchProvider` and `BrowserProvider` interfaces
-- [ ] Add `Extra map[string]any` to `SearchOptions`
-- [ ] Define `BrowserCapabilities` struct (Crawl, Scrape, SelfHost, LocalBrowser, LocalHTML, LocalCrawl, Features)
+- [ ] Deprecate `Provider`; define `SearchProvider` (search-only) and `BrowserProvider` (GetContent, Crawl, Scrape, Capabilities)
+- [ ] Add `Extra map[string]any` to `SearchResult` and `SearchOptions`
+- [ ] Define `GetContentOptions` struct (Format, MaxChars, MaxAge, Extra)
+- [ ] Define `BrowserCapabilities` struct (GetContent, Crawl, Scrape, SelfHost, LocalBrowser, LocalHTML, LocalCrawl, Features)
 - [ ] Define `CrawlOptions`, `Page`, `Element` types
 - [ ] Implement provider registry (`pkg/web/registry.go`) — explicit map, no `init()`
 - [ ] Define error taxonomy sentinels (`pkg/web/errors.go`)
-- [ ] Create EXA adapter (`pkg/web/exa/adapter.go`) implementing `SearchProvider` over `*exa.Client`
-- [ ] Update CLI commands (`cmd/gmd/web_*.go`) to use `SearchProvider` interface
-- [ ] Add `Capabilities()` check before dispatching to a browser provider
-- [ ] Update CUE schema with `WebProviderRoles`; add Go-side struct
+- [ ] Create EXA search adapter (`pkg/web/exa/search.go`) implementing `SearchProvider` over `*exa.Client`
+- [ ] Create EXA browser adapter (`pkg/web/exa/browser.go`) implementing `BrowserProvider` over `*exa.Client` (GetContent only; Crawl/Scrape return ErrNotSupported)
+- [ ] Update CLI commands (`cmd/gmd/web_*.go`) to use typed provider interfaces
+- [ ] Wire `gmd web fetch` to use `BrowserProvider.GetContent` instead of direct EXA client
+- [ ] Add `Capabilities()` check before dispatching to Crawl/Scrape
+- [ ] Update CUE schema with `WebProviderGroup` and `WebConfig.groups`; add Go-side struct
+- [ ] Add `--provider-group`, `--search-provider`, `--browser-provider` flags
 - [ ] Keep `pkg/web/agent.go` EXA-specific (option A)
 
 **Testing:**
-- Compile-time interface assertions: `var _ SearchProvider = (*exa.SearchAdapter)(nil)`
-- Registry unit tests: resolution, missing providers, unknown names
-- `httptest.Server` mocks for EXA adapter with recorded API response fixtures
+- Compile-time interface assertions: `var _ SearchProvider = (*exa.SearchAdapter)(nil)`, `var _ BrowserProvider = (*exa.BrowserAdapter)(nil)`
+- Registry unit tests: resolution, missing providers, unknown names, cross-role lookups
+- `httptest.Server` mocks for EXA search and contents adapters with recorded API response fixtures
 - CLI integration: existing `gmd web search/fetch/agent` commands continue to work
 
 ### Phase 2: Cloudflare Provider
 
-Goal: implement Cloudflare Browser Run as both a `BrowserProvider` (GetContent,
-Crawl) and a `SearchProvider` (Fetch via `/content` and `/markdown` endpoints).
-Cloudflare is the first new provider after EXA, proving the multi-provider
-architecture works end-to-end.
+Goal: implement Cloudflare Browser Run as a `BrowserProvider` (GetContent,
+Crawl). Cloudflare is the first new provider after EXA, proving the
+multi-provider architecture works end-to-end.
 
 - [ ] Create `pkg/web/cloudflare/client.go` — thin HTTP wrapper over Quick Actions REST API
 - [ ] Implement `BrowserProvider.GetContent` via `/content` and `/markdown`
-- [ ] Implement `SearchProvider.Fetch` via the same endpoints (Cloudflare as content-only search)
 - [ ] Implement `BrowserProvider.Crawl`
-- [ ] Add `gmd web crawl` command (or wire into existing fetch with `--max-age`)
-- [ ] Register `cloudflare` in both `search` and `browser` roles
+- [ ] Add `gmd web crawl` command
+- [ ] Register `cloudflare` in the `browser` role only
 
 **Testing:**
 - Unit: `httptest.Server` mocks with recorded Cloudflare API response fixtures
 - Integration (`//go:build integration`): live smoke test, skipped if `CLOUDFLARE_API_KEY` unset
-- Contract: `var _ SearchProvider = (*cloudflare.SearchClient)(nil)`, `var _ BrowserProvider = (*cloudflare.BrowserClient)(nil)`
+- Contract: `var _ BrowserProvider = (*cloudflare.BrowserClient)(nil)`
 
 ### Phase 3: Additional Search Providers (Tavily, SearXNG)
 
@@ -721,18 +920,22 @@ introducing new interface shapes.
 
 ### Phase 4: Local Provider — Fetch & Crawl
 
-Goal: deliver the local provider for static HTTP fetch, HTML→MD conversion, and
-respectful crawling. No browser dependency, no JS rendering.
+Goal: deliver the local provider for static HTTP fetch, HTML→MD conversion,
+respectful crawling, and CSS selector scraping. No browser dependency, no JS
+rendering.
 
-#### New Dependencies (candidates)
+#### New Dependencies
 
 ```
-github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.1   (or subprocess approach)
+github.com/JohannesKaufmann/html-to-markdown/v2   (or subprocess approach)
 github.com/temoto/robotstxt
+github.com/PuerkitoBio/goquery
 ```
 
-Both meet the `CGO_ENABLED=0` constraint. The HTML→MD library is not final —
-see Open Questions for the pure-Go vs. subprocess evaluation.
+All three meet the `CGO_ENABLED=0` constraint. The HTML→MD library is not
+final — see Open Questions for the pure-Go vs. subprocess evaluation.
+`goquery` wraps `golang.org/x/net/html` (already an indirect dependency)
+to provide jQuery-style CSS selector support for `BrowserProvider.Scrape()`.
 
 #### Package: `pkg/web/local/`
 
@@ -742,15 +945,16 @@ pkg/web/local/
 ├── fetch.go          # Static HTTP fetch via net/http
 ├── markdown.go       # HTML→MD conversion
 ├── crawl.go          # Crawling (robots.txt, rate limits, queue)
+├── scrape.go         # CSS selector extraction via goquery
 └── client_test.go    # Tests
 ```
 
 #### Checklist
 
 - [ ] Resolve HTML→MD conversion approach (pure Go library or subprocess)
-- [ ] `go get github.com/temoto/robotstxt`
-- [ ] `pkg/web/local/client.go` — `LocalProvider` struct, `NewLocalProvider()`, `Capabilities()` implements both `SearchProvider` and `BrowserProvider`
-- [ ] `pkg/web/local/fetch.go` — `FetchStatic(ctx, url)` via `net/http`, SSRF protection, timeout, max size
+- [ ] `go get github.com/temoto/robotstxt github.com/PuerkitoBio/goquery`
+- [ ] `pkg/web/local/client.go` — `LocalProvider` struct, `NewLocalProvider()`, `Capabilities()` implements `BrowserProvider`
+- [ ] `pkg/web/local/fetch.go` — `GetContent(ctx, url, opts)` via `net/http`, SSRF protection, timeout, max size, HTML→MD conversion
 - [ ] `pkg/web/local/markdown.go` — `HTMLToMarkdown(ctx, html)` using chosen converter
 - [ ] `pkg/web/local/crawl.go` — crawling with:
   - robots.txt parsing and enforcement (`temoto/robotstxt`)
@@ -758,14 +962,16 @@ pkg/web/local/
   - Max depth, same-domain constraint
   - Cycle detection via URL canonicalization
   - Sitemap discovery for seed URLs
-- [ ] Register `local` in the provider registry (both `search` and `browser` roles)
+- [ ] `pkg/web/local/scrape.go` — `Scrape(ctx, url, selector)` using `goquery` for CSS selector matching on static HTML
+- [ ] Register `local` in the provider registry (`browser` role only)
 
 **Testing:**
 - Unit: HTML fixtures → markdown output verification
+- Unit: HTML fixture → CSS selector extraction via goquery
 - Unit: mock HTTP server for fetch tests (timeout, redirect, SSRF block)
 - Integration (`//go:build integration`): crawl a local HTTP test server with
   robots.txt, rate limits, and multi-page link graphs
-- Contract: `var _ SearchProvider = (*local.LocalProvider)(nil)`, `var _ BrowserProvider = (*local.LocalProvider)(nil)`
+- Contract: `var _ BrowserProvider = (*local.LocalProvider)(nil)`
 
 ### Phase 5: Research Agent
 
@@ -779,9 +985,10 @@ the same provider dispatch as other commands.
 
 - [ ] `gmd web research` command — deep research agent loop
   - Sub-question generation, cross-referencing, citation tracking
-  - Works with any `SearchProvider`
-  - Can optionally use `BrowserProvider` for live-fetch sources
+  - Uses `SearchProvider` for discovery and `BrowserProvider` for live-fetch sources
+  - Works with any provider combination in the active group
 - [ ] Refactor `pkg/web/agent.go` to use `SearchProvider` interface (option B from Agent Refactoring)
+  - EXA-specific fields accessed through `SearchResult.Extra`
 
 **Testing:**
 - Unit: mock providers for research agent workflow tests
@@ -801,11 +1008,13 @@ pkg/web/searxng/testdata/   # SearXNG API response recordings
 ### Contract Tests (compile-time)
 
 ```go
+// Search providers
 var _ SearchProvider  = (*exa.SearchAdapter)(nil)
-var _ SearchProvider  = (*cloudflare.SearchClient)(nil)
 var _ SearchProvider  = (*tavily.SearchClient)(nil)
 var _ SearchProvider  = (*searxng.SearchClient)(nil)
-var _ SearchProvider  = (*local.LocalProvider)(nil)
+
+// Browser providers
+var _ BrowserProvider = (*exa.BrowserAdapter)(nil)
 var _ BrowserProvider = (*cloudflare.BrowserClient)(nil)
 var _ BrowserProvider = (*local.LocalProvider)(nil)
 ```

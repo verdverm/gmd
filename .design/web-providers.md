@@ -185,7 +185,7 @@ pkg/web/local/
 | Provider | Search | Fetch Content | Content/Markdown | Find Similar | Cost Model | API Key Needed |
 |---|---|---|---|---|---|---|
 | **EXA** | yes semantic + keyword | yes | no | yes | Pay-per-query | `EXA_API_KEY` |
-| **Cloudflare** | no | yes | yes /content, /markdown | no | Per-browser-hour | `CLOUDFLARE_API_KEY` |
+| **Cloudflare** | no | yes (any URL → rendered) | yes (`/content`, `/markdown`) | no | Per-browser-hour | `CLOUDFLARE_API_KEY` |
 | **Tavily** | yes | yes extract | no | no | Pay-per-query | planned |
 | **SearXNG** | yes self-host | no | no | no | Free (self-host) | none |
 
@@ -194,12 +194,16 @@ returns markdown in its `text` field, Cloudflare's `/markdown` endpoint converts
 rendered pages to markdown, and Tavily offers markdown extraction. This aligns
 with GMD's LLM-oriented consumption patterns.
 
-Cloudflare Browser Run is a **browser** product — its `/content` and
-`/markdown` endpoints function as an on-demand content retrieval service: any
-URL → rendered markdown. It does not index the web or perform semantic search,
-so it registers only in the `browser` role. EXA spans both roles: its `/search`
-endpoint implements `SearchProvider`, and its `/contents` endpoint (cached page
-retrieval) implements `BrowserProvider.GetContent`.
+Cloudflare spans both categories. Its `/content` and `/markdown` endpoints
+retrieve and render any URL on demand — content discovery without web indexing
+(Category 1). Its full browser product provides automation, crawl, and scrape
+(Category 2). It is listed in both the search/discovery and browser/product
+tables above; content retrieval makes it a first-class member of the discovery
+category even though it does not implement `SearchProvider` (web index query).
+
+EXA also spans both roles: its `/search` endpoint implements `SearchProvider`,
+and its `/contents` endpoint (cached page retrieval) implements
+`BrowserProvider.GetContent`.
 
 ### Category 2: Browser Automation (cloud)
 
@@ -264,15 +268,14 @@ interface. Covered in `.design/web-browser-advanced.md`.
 │                            └──────────────────┘              │
 └─────────────────────────────────────────────────────────────┘
 ```
-- **Search providers** query web indexes and return ranked results. EXA also
-  has a `/contents` endpoint (cached page retrieval) which maps to the
-  `BrowserProvider` role — see below.
-- **Browser providers** retrieve and render content on demand. Every provider
-  in this category is a `BrowserProvider`. EXA's cached content retrieval,
-  Cloudflare's live rendering, and Local's static HTTP fetch all implement
-  `GetContent` with different freshness/latency tradeoffs.
-- **AI browser tools** are AI-driven abstractions on top of browser providers.
-  Covered in `.design/web-browser-advanced.md`.
+- **Search providers** (EXA, Tavily, SearXNG): query web indexes, return ranked
+  results. EXA's `/contents` endpoint (cached page retrieval) maps to
+  `BrowserProvider`.
+- **Browser providers** (Local, Cloudflare, EXA): retrieve and render content
+  on demand via `GetContent`, with different freshness/latency tradeoffs.
+- **AI browser tools** (Stagehand, Browser Use, Playwright MCP): AI-driven
+  abstractions on top of browser providers. Covered in
+  `.design/web-browser-advanced.md`.
 
 ## Interface Design
 
@@ -648,9 +651,12 @@ one line to the appropriate role map and writing the provider package.
 | `search` | `exa`, `tavily`, `searxng` |
 | `browser` | `exa`, `cloudflare`, `local` |
 
-A provider can appear in multiple roles (`exa` is both search and browser).
-`Resolve` returns typed `error` values so callers can distinguish
-configuration errors from runtime failures.
+**Cross-category providers:** Cloudflare appears in both discovery and
+browser tables above; it does not implement `SearchProvider` but its content
+retrieval endpoints (`/content`, `/markdown`) make it a full participant in
+the discovery workflow. The registry tracks it under the `browser` role since
+that's the interface it implements. EXA is the only provider registered in
+both `search` and `browser` roles.
 
 ## Required Credentials per Provider
 
@@ -871,6 +877,9 @@ functionality.
 - [ ] Define `CrawlOptions`, `Page`, `Element` types
 - [ ] Implement provider registry (`pkg/web/registry.go`) — explicit map, no `init()`
 - [ ] Define error taxonomy sentinels (`pkg/web/errors.go`)
+- [ ] Implement `ProviderError` wrapping in command dispatch — wrap provider errors before user display so messages always include the provider name
+- [ ] Implement `CostSummary` return from providers (providers return cost alongside results)
+- [ ] Add generic cost display in CLI output (`pkg/output/`) — replaces EXA-specific `printCost`
 - [ ] Create EXA search adapter (`pkg/web/exa/search.go`) implementing `SearchProvider` over `*exa.Client`
 - [ ] Create EXA browser adapter (`pkg/web/exa/browser.go`) implementing `BrowserProvider` over `*exa.Client` (GetContent only; Crawl/Scrape return ErrNotSupported)
 - [ ] Update CLI commands (`cmd/gmd/web_*.go`) to use typed provider interfaces
@@ -939,15 +948,9 @@ to provide jQuery-style CSS selector support for `BrowserProvider.Scrape()`.
 
 #### Package: `pkg/web/local/`
 
-```
-pkg/web/local/
-├── client.go         # LocalProvider struct, constructor, Capabilities()
-├── fetch.go          # Static HTTP fetch via net/http
-├── markdown.go       # HTML→MD conversion
-├── crawl.go          # Crawling (robots.txt, rate limits, queue)
-├── scrape.go         # CSS selector extraction via goquery
-└── client_test.go    # Tests
-```
+Package structure defined in [Category 0 Package Structure](#package-structure)
+above. Phase 4 delivers the files listed there except `rod.go` and
+`browser_*.go` (deferred to the advanced browser doc).
 
 #### Checklist
 
@@ -964,6 +967,7 @@ pkg/web/local/
   - Sitemap discovery for seed URLs
 - [ ] `pkg/web/local/scrape.go` — `Scrape(ctx, url, selector)` using `goquery` for CSS selector matching on static HTML
 - [ ] Register `local` in the provider registry (`browser` role only)
+- [ ] Implement Layer 2 local content cache (`pkg/web/cache/`) — disk-backed, keyed by `(provider, url, format)`, honoring `MaxAge`/`cache_ttl` from `LocalConfig`
 
 **Testing:**
 - Unit: HTML fixtures → markdown output verification

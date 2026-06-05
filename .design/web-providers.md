@@ -452,17 +452,78 @@ browser controller).
 
 ```go
 type AIBrowser interface {
-    // Provider returns the underlying browser provider for raw access
     Provider() BrowserProvider
 
-    // Extracted structured data via natural language
-    ExtractJSON(ctx context.Context, url string, schema any) (any, error)
+    // Page lifecycle
+    Navigate(ctx context.Context, url string) error
+    ToMarkdown(ctx context.Context) (string, error)
+    Screenshot(ctx context.Context) ([]byte, error)
 
-    // Act on a page using natural language (Stagehand-style)
-    Act(ctx context.Context, instruction string) error
+    // Observation — returns page state the LLM can reason about
+    Observe(ctx context.Context) (*PageState, error)
 
-    // Extract markdown from rendered page
-    ToMarkdown(ctx context.Context, url string) (string, error)
+    // Single action on the current page (Stagehand-style)
+    Act(ctx context.Context, instruction string) (*ActionResult, error)
+
+    // Structured data extraction
+    ExtractJSON(ctx context.Context, schema any) (any, error)
+
+    // Multi-step workflow with agent loop
+    // The executor manages the observe→act→observe cycle, calling
+    // the step function for each action. Implementations handle
+    // LLM integration (action selection, error recovery).
+    Execute(ctx context.Context, goal string, opts *ExecuteOptions) (*ExecuteResult, error)
+
+    // Session management
+    NewSession(ctx context.Context, opts *SessionOptions) (AIBrowserSession, error)
+}
+
+// AISession represents an AI-driven browser session.
+type AIBrowserSession interface {
+    AIBrowser
+
+    ID() string
+    LiveURL() string
+    Close(ctx context.Context) error
+}
+
+// PageState captures what the AI sees on the current page.
+type PageState struct {
+    URL         string          // current URL
+    Title       string          // page title
+    Markdown    string          // rendered markdown
+    Elements    []Element       // interactive elements (buttons, inputs, links)
+    Screenshot  []byte          // optional visual snapshot (nil if not requested)
+    ScrollY     int             // current scroll position
+}
+
+// ActionResult describes the outcome of an Act() call.
+type ActionResult struct {
+    Success     bool            // did the action succeed?
+    Description string          // human-readable description of what happened
+    PageState   *PageState      // page state after the action (nil if unchanged)
+}
+
+// ExecuteOptions configures an agent loop.
+type ExecuteOptions struct {
+    MaxSteps        int           // maximum action steps (default: 10)
+    OnStep          func(int, string, *PageState)  // progress callback (step index, action, state)
+    Timeout         time.Duration // per-step timeout
+    ObserveScreenshot bool        // include screenshots in observation
+}
+
+// ExecuteResult summarizes a multi-step execution.
+type ExecuteResult struct {
+    Success     bool
+    Goal        string          // original goal
+    Steps       []ExecutedStep  // each step taken
+    FinalState  *PageState      // page state at completion
+}
+
+type ExecutedStep struct {
+    Index       int
+    Instruction string          // the instruction that was executed
+    Result      *ActionResult
 }
 ```
 
@@ -553,8 +614,8 @@ func NewRegistry() *ProviderRegistry {
     return &ProviderRegistry{
         search: map[string]ProviderConstructor{
             "exa":    func(cfg ProviderConfig) (any, error) { return exa.NewSearchProvider(cfg) },
-            "local":  func(cfg ProviderConfig) (any, error) { return local.NewSearchProvider(cfg) },
             "tavily": func(cfg ProviderConfig) (any, error) { return tavily.NewSearchProvider(cfg) },
+            "searxng": func(cfg ProviderConfig) (any, error) { return searxng.NewSearchProvider(cfg) },
         },
         browser: map[string]ProviderConstructor{
             "local":       func(cfg ProviderConfig) (any, error) { return local.NewBrowserProvider(cfg) },
@@ -589,6 +650,26 @@ A provider can appear in multiple roles (`local` is both search and browser;
 values — `ErrProviderNotFound`, `ErrProviderNotRegistered` — so callers can
 distinguish configuration errors from runtime failures.
 
+## Required Credentials per Provider
+
+| Provider | Account | Env Vars | Notes |
+|---|---|---|---|
+| **EXA** | [exa.ai](https://exa.ai) | `EXA_API_KEY` | Free tier: 1000 queries/mo |
+| **Cloudflare Browser Run** | [dash.cloudflare.com](https://dash.cloudflare.com) | `CLOUDFLARE_API_KEY`, `CLOUDFLARE_ACCOUNT_ID` | Workers Paid $5/mo enables browser rendering; 10 hrs/mo free |
+| **Browserbase** | [browserbase.com](https://browserbase.com) | `BROWSERBASE_API_KEY`, `BROWSERBASE_PROJECT_ID` | Free tier: 1000 min/mo |
+| **Browserless** | [browserless.io](https://browserless.io) | `BROWSERLESS_API_KEY` | Free tier: 1000 units/mo; also self-host via Docker |
+| **Steel.dev** | [steel.dev](https://steel.dev) | `STEEL_API_KEY` | Free tier: 100 hrs/mo; also self-host OSS |
+| **Tavily** | [tavily.com](https://tavily.com) | `TAVILY_API_KEY` | Pay-per-query |
+| **SearXNG** | self-host | none | Bring your own instance; set `searxng.base_url` in config |
+| **Local** | none | none | Optional: install Chromium for browser ops |
+| **Bright Data** | [brightdata.com](https://brightdata.com) | `BRIGHTDATA_API_KEY` | Pay-as-you-go |
+| **Scrapfly** | [scrapfly.io](https://scrapfly.io) | `SCRAPFLY_API_KEY` | Free tier: 1000 credits/mo |
+| **Hyperbrowser** | [hyperbrowser.ai](https://hyperbrowser.ai) | `HYPERBROWSER_API_KEY` | Pay-as-you-go |
+
+Each provider config block in CUE references these env vars as default values.
+Omitting a config block means "don't use this provider" — the tool only initializes
+providers that appear in `providers.<role>`.
+
 ## Config Evolution
 
 Current (`pkg/config/schema/types.cue`):
@@ -603,16 +684,13 @@ Proposed:
 ```cue
 WebConfig: {
     // Active provider(s) with role assignment.
-    // Examples:
-    //   provider: "exa"
-    //   provider: "local"
-    //   provider: "cloudflare"
+    // Each role maps to a provider name.
+    // Example:
     //   providers: {
     //     search:   "exa"
-    //     browser:  "local"          // local browser
+    //     browser:  "local"
     //     aibrowser:"cloudflare"
     //   }
-    provider?:  string | *"exa"
     providers?: WebProviderRoles
 
     local?:       LocalConfig
@@ -677,7 +755,6 @@ The Go-side `WebConfig` struct mirrors this with one struct per provider:
 
 ```go
 type WebConfig struct {
-    Provider    string              `json:"provider"`
     Providers   *WebProviderRoles   `json:"providers,omitempty"`
     Local       LocalConfig         `json:"local,omitempty"`
     EXA         EXAConfig           `json:"exa,omitempty"`
@@ -862,7 +939,8 @@ Explore and implement based on user demand and feature coverage:
 The user controls provider selection via two mechanisms:
 
 1. **`--provider <name>` flag** — per-command override
-2. **Config `providers` roles** — defaults for search, browser, aibrowser
+2. **Config `providers.<role>`** — configured provider per role
+3. **Role defaults** — `search` defaults to `exa`, `browser` defaults to `local`, `aibrowser` defaults to `cloudflare`
 
 ```
 gmd web <command> [--provider <name>]
@@ -950,8 +1028,8 @@ pkg/web/cloudflare/testdata/# Cloudflare API response recordings
    runtime errors.
 
 3. **Provider roles in config.** A user configures `search: exa` and
-   `browser: cloudflare` for different workflows. The `providers` object in CUE
-   supports this; a single `provider` string keeps BC.
+    `browser: cloudflare` for different workflows. The `providers` object in CUE
+    maps each role to a provider name.
 
 4. **User controls provider selection.** No automatic fallback. The user sets
    `providers.browser` / `providers.search` / `providers.aibrowser` in config or

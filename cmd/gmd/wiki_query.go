@@ -10,7 +10,7 @@ import (
 )
 
 var wikiQueryCmd = &cobra.Command{
-	Use:   "query <question> [--name <name>] [--save] [--limit N]",
+	Use:   "query <name> <question> [--save] [--limit N]",
 	Short: "Query the wiki using the built-in agent",
 	Long: `Searches the wiki and synthesizes an answer with citations using the LLM.
 Results are grounded in wiki content with source references.
@@ -19,8 +19,8 @@ Use --save to persist the answer as a new wiki page. Use --limit to
 control how many pages are searched.
 
 Example:
-  gmd wiki query "What are the key findings?" --name mywiki --save`,
-	Args: cobra.MinimumNArgs(1),
+  gmd wiki query mywiki "What are the key findings?" --save`,
+	Args: cobra.MinimumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {
@@ -28,16 +28,14 @@ Example:
 		}
 		cfg := r.Config()
 
-		if wikiName == "" {
-			return fmt.Errorf("wiki name required (--name)")
-		}
+		name := args[0]
 
-		col, ok := cfg.Collections[wikiName]
+		wc, ok := cfg.Wikis[name]
 		if !ok {
-			return fmt.Errorf("wiki collection %q not found", wikiName)
+			return fmt.Errorf("wiki %q not found", name)
 		}
 
-		w, err := wiki.NewWiki(wikiName, col.Path, col)
+		w, err := wiki.NewWiki(name, wc.Path, &wc)
 		if err != nil {
 			return err
 		}
@@ -51,7 +49,7 @@ Example:
 		save, _ := cmd.Flags().GetBool("save")
 
 		ctx := context.Background()
-		result, err := agent.Query(ctx, args[0], wiki.QueryOpts{
+		result, err := agent.Query(ctx, args[1], wiki.QueryOpts{
 			Save:  save,
 			Limit: limit,
 		})

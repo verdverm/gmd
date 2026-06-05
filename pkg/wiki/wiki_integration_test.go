@@ -56,15 +56,7 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "wiki integration: FATAL: LLM config load failed (%v)\n", err)
 	} else {
-		testLLMClient = llm.New(llm.Config{
-			APIKey:         cfg.LLM.APIKey,
-			EmbeddingModel: cfg.LLM.EmbeddingModel,
-			ExpansionModel: cfg.LLM.ExpansionModel,
-			RerankModel:    cfg.LLM.RerankModel,
-			EmbedURL:       cfg.LLM.EmbeddingBaseURL,
-			ExpandURL:      cfg.LLM.ExpansionBaseURL,
-			RerankURL:      cfg.LLM.RerankBaseURL,
-		})
+		testLLMClient = llm.New(llm.ConfigFromProject(cfg))
 		testCfg = cfg
 	}
 
@@ -113,8 +105,15 @@ func TestIntegrationDoctorRealServices(t *testing.T) {
 	requireLLMServices(t)
 
 	tmpDir := t.TempDir()
-	col := config.CollectionConfig{Path: tmpDir}
-	w, err := NewWiki("test-wiki", tmpDir, col)
+	wc := &config.WikiConfig{
+		SourceConfig: config.SourceConfig{Path: tmpDir},
+		WikiDir:      "wiki",
+		RawDir:       "raw",
+		IndexFile:    "_index.md",
+		LogFile:      "_log.md",
+		GraphLinks:   true,
+	}
+	w, err := NewWiki("test-wiki", tmpDir, wc)
 	if err != nil {
 		t.Fatalf("NewWiki error: %v", err)
 	}
@@ -153,8 +152,15 @@ func TestIntegrationDoctorRealTSNilLLM(t *testing.T) {
 	requireTSServices(t)
 
 	tmpDir := t.TempDir()
-	col := config.CollectionConfig{Path: tmpDir}
-	w, _ := NewWiki("test", tmpDir, col)
+	wc := &config.WikiConfig{
+		SourceConfig: config.SourceConfig{Path: tmpDir},
+		WikiDir:      "wiki",
+		RawDir:       "raw",
+		IndexFile:    "_index.md",
+		LogFile:      "_log.md",
+		GraphLinks:   true,
+	}
+	w, _ := NewWiki("test", tmpDir, wc)
 	w.Init()
 
 	result, err := Doctor(context.Background(), w, testCfg, testTSClient, nil)
@@ -445,8 +451,15 @@ func TestIntegrationWikiIndexAndSearch(t *testing.T) {
 	defer cleanupTestData(ctx, t, testCollKey)
 
 	tmpDir := t.TempDir()
-	col := config.CollectionConfig{Path: tmpDir}
-	w, err := NewWiki("test-wiki", tmpDir, col)
+	wc := &config.WikiConfig{
+		SourceConfig: config.SourceConfig{Path: tmpDir},
+		WikiDir:      "wiki",
+		RawDir:       "raw",
+		IndexFile:    "_index.md",
+		LogFile:      "_log.md",
+		GraphLinks:   true,
+	}
+	w, err := NewWiki("test-wiki", tmpDir, wc)
 	if err != nil {
 		t.Fatalf("NewWiki error: %v", err)
 	}
@@ -528,7 +541,14 @@ func TestIntegrationWikiCollectionCounts(t *testing.T) {
 func TestIntegrationInit_ErrorMkdirAll(t *testing.T) {
 	tmpDir := t.TempDir()
 	os.WriteFile(filepath.Join(tmpDir, "raw"), []byte("blocking file"), 0644)
-	w, _ := NewWiki("test", tmpDir, config.CollectionConfig{})
+	w, _ := NewWiki("test", tmpDir, &config.WikiConfig{
+		SourceConfig: config.SourceConfig{Path: tmpDir},
+		WikiDir:      "wiki",
+		RawDir:       "raw",
+		IndexFile:    "_index.md",
+		LogFile:      "_log.md",
+		GraphLinks:   true,
+	})
 	err := w.Init()
 	if err == nil {
 		t.Fatal("expected MkdirAll error")
@@ -549,7 +569,14 @@ func TestIntegrationInit_ErrorWriteIndex(t *testing.T) {
 	}
 	t.Cleanup(func() { os.Chmod(wikiDir, 0755) })
 
-	w, _ := NewWiki("test", tmpDir, config.CollectionConfig{})
+	w, _ := NewWiki("test", tmpDir, &config.WikiConfig{
+		SourceConfig: config.SourceConfig{Path: tmpDir},
+		WikiDir:      "wiki",
+		RawDir:       "raw",
+		IndexFile:    "_index.md",
+		LogFile:      "_log.md",
+		GraphLinks:   true,
+	})
 	err := w.Init()
 	if err == nil {
 		t.Fatal("expected error for index file write failure")
@@ -573,7 +600,14 @@ func TestIntegrationInit_ErrorWriteLog(t *testing.T) {
 	}
 	t.Cleanup(func() { os.Chmod(wikiDir, 0755) })
 
-	w, _ := NewWiki("test", tmpDir, config.CollectionConfig{})
+	w, _ := NewWiki("test", tmpDir, &config.WikiConfig{
+		SourceConfig: config.SourceConfig{Path: tmpDir},
+		WikiDir:      "wiki",
+		RawDir:       "raw",
+		IndexFile:    "_index.md",
+		LogFile:      "_log.md",
+		GraphLinks:   true,
+	})
 	err := w.Init()
 	if err == nil {
 		t.Fatal("expected error for log file write failure")
@@ -601,7 +635,14 @@ func TestIntegrationInit_ErrorWriteSchema(t *testing.T) {
 	}
 	t.Cleanup(func() { os.Chmod(tmpDir, 0755) })
 
-	w, _ := NewWiki("test", tmpDir, config.CollectionConfig{})
+	w, _ := NewWiki("test", tmpDir, &config.WikiConfig{
+		SourceConfig: config.SourceConfig{Path: tmpDir},
+		WikiDir:      "wiki",
+		RawDir:       "raw",
+		IndexFile:    "_index.md",
+		LogFile:      "_log.md",
+		GraphLinks:   true,
+	})
 	err := w.Init()
 	if err == nil {
 		t.Fatal("expected error for schema file write failure")

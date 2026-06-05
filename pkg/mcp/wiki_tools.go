@@ -22,12 +22,12 @@ func NewWikiTools(cfg *config.Config, tsClient *ts.Client, llmClient *llm.Client
 		toolHandlers: make(map[string]func(context.Context, json.RawMessage) (string, error)),
 	}
 
-	col, ok := cfg.Collections[wikiName]
+	wc, ok := cfg.Wikis[wikiName]
 	if !ok {
 		return wt
 	}
 
-	w, err := wiki.NewWiki(wikiName, col.Path, col)
+	w, err := wiki.NewWiki(wikiName, wc.Path, &wc)
 	if err != nil {
 		return wt
 	}

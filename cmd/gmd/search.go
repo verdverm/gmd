@@ -16,6 +16,8 @@ var (
 	searchLimit       int
 	searchFormat      string
 	searchCollections []string
+	searchNoExpansion bool
+	searchPreset      string
 )
 
 func searchRun(args []string, mode search.SearchMode) error {
@@ -29,19 +31,44 @@ func searchRun(args []string, mode search.SearchMode) error {
 	ctx := context.Background()
 
 	collections := searchCollections
+
+	if searchPreset != "" {
+		// Use named search preset
+		preset, ok := cfg.SearchDefaults[searchPreset]
+		if !ok {
+			return fmt.Errorf("search preset %q not found in searchDefaults", searchPreset)
+		}
+		collections = preset
+	}
+
 	if len(collections) == 0 {
+		// Auto-detect from CWD, then collect all searchable sources
 		cwd, err := os.Getwd()
 		if err == nil {
-			collections = config.MatchCollectionsByCWD(cfg, cwd)
+			collections = config.MatchSourcesByCWD(cfg, cwd)
+		}
+		if len(collections) == 0 {
+			collections = cfg.AllSearchableSources()
 		}
 	}
-	for i, c := range collections {
-		collections[i] = cfg.CollectionKey(c)
+
+	// Expand sourceRefs for wikis
+	var expandedCollections []string
+	for _, c := range collections {
+		if searchNoExpansion {
+			expandedCollections = append(expandedCollections, cfg.CollectionKey(c))
+		} else {
+			keys, err := cfg.SourceKeysForSearch(c)
+			if err != nil {
+				return fmt.Errorf("resolving sources: %w", err)
+			}
+			expandedCollections = append(expandedCollections, keys...)
+		}
 	}
 
 	params := search.SearchParams{
 		Query:       args[0],
-		Collections: collections,
+		Collections: expandedCollections,
 		Limit:       searchLimit,
 		Format:      searchFormat,
 	}
@@ -78,4 +105,6 @@ func init() {
 	searchCmd.Flags().IntVarP(&searchLimit, "limit", "n", 5, "max results")
 	searchCmd.Flags().StringVarP(&searchFormat, "format", "f", "cli", "output format")
 	searchCmd.Flags().StringSliceVarP(&searchCollections, "collection", "c", nil, "collection(s) to search (default: auto-detect from CWD)")
+	searchCmd.Flags().BoolVar(&searchNoExpansion, "no-expansion", false, "Do not expand wiki sourceRefs")
+	searchCmd.Flags().StringVarP(&searchPreset, "search", "s", "", "Named search preset from searchDefaults")
 }

@@ -10,7 +10,7 @@ import (
 )
 
 var wikiGraphCmd = &cobra.Command{
-	Use:   "graph [--name <name>] [--format dot|mermaid|json]",
+	Use:   "graph <name> [--format dot|mermaid|json]",
 	Short: "Output the wiki link graph",
 	Long: `Exports the wikilink graph in DOT, Mermaid, or JSON format.
 
@@ -18,8 +18,9 @@ Use this to visualize relationships between wiki pages or to feed the
 graph into external tooling.
 
 Examples:
-  gmd wiki graph --name mywiki --format mermaid
-  gmd wiki graph --name mywiki --format dot | dot -Tpng > graph.png`,
+  gmd wiki graph mywiki --format mermaid
+  gmd wiki graph mywiki --format dot | dot -Tpng > graph.png`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {
@@ -27,16 +28,14 @@ Examples:
 		}
 		cfg := r.Config()
 
-		if wikiName == "" {
-			return fmt.Errorf("wiki name required (--name)")
-		}
+		name := args[0]
 
-		col, ok := cfg.Collections[wikiName]
+		wc, ok := cfg.Wikis[name]
 		if !ok {
-			return fmt.Errorf("wiki collection %q not found", wikiName)
+			return fmt.Errorf("wiki %q not found", name)
 		}
 
-		w, err := wiki.NewWiki(wikiName, col.Path, col)
+		w, err := wiki.NewWiki(name, wc.Path, &wc)
 		if err != nil {
 			return err
 		}

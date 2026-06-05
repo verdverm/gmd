@@ -8,6 +8,8 @@ import (
 	"github.com/openai/openai-go/v3/option"
 	"github.com/openai/openai-go/v3/packages/param"
 	"github.com/openai/openai-go/v3/shared"
+
+	"github.com/verdverm/gmd/pkg/config"
 )
 
 type Client struct {
@@ -83,6 +85,34 @@ func newOpenAIClient(baseURL, apiKey string) openai.Client {
 		opts = append(opts, option.WithAPIKey(apiKey))
 	}
 	return openai.NewClient(opts...)
+}
+
+// ConfigFromProject builds an llm.Config from a project-level gmd Config.
+func ConfigFromProject(cfg *config.Config) Config {
+	return Config{
+		APIKey:              cfg.LLM.APIKey,
+		EmbeddingModel:      cfg.LLM.EmbeddingModel,
+		ExpansionModel:      cfg.LLM.ExpansionModel,
+		RerankModel:         cfg.LLM.RerankModel,
+		EmbedURL:            cfg.LLM.EmbeddingBaseURL,
+		ExpandURL:           cfg.LLM.ExpansionBaseURL,
+		RerankURL:           cfg.LLM.RerankBaseURL,
+		EmbeddingAPIKey:     cfg.LLM.EmbeddingAPIKey,
+		ExpansionAPIKey:     cfg.LLM.ExpansionAPIKey,
+		RerankAPIKey:        cfg.LLM.RerankAPIKey,
+		SummarizingModel:    cfg.LLM.SummarizingModel,
+		SummarizingBaseURL:  cfg.LLM.SummarizingBaseURL,
+		SummarizingAPIKey:   cfg.LLM.SummarizingAPIKey,
+		GeneralBigModel:     cfg.LLM.GeneralBigModel,
+		GeneralBigBaseURL:   cfg.LLM.GeneralBigBaseURL,
+		GeneralBigAPIKey:    cfg.LLM.GeneralBigAPIKey,
+		GeneralMidModel:     cfg.LLM.GeneralMidModel,
+		GeneralMidBaseURL:   cfg.LLM.GeneralMidBaseURL,
+		GeneralMidAPIKey:    cfg.LLM.GeneralMidAPIKey,
+		GeneralSmallModel:   cfg.LLM.GeneralSmallModel,
+		GeneralSmallBaseURL: cfg.LLM.GeneralSmallBaseURL,
+		GeneralSmallAPIKey:  cfg.LLM.GeneralSmallAPIKey,
+	}
 }
 
 func New(cfg Config) *Client {

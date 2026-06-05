@@ -15,7 +15,14 @@ import (
 func newTestWikiAgent(t *testing.T) (*Wiki, *Agent) {
 	t.Helper()
 	tmpDir := t.TempDir()
-	w, err := NewWiki("test-wiki", tmpDir, config.CollectionConfig{})
+	w, err := NewWiki("test-wiki", tmpDir, &config.WikiConfig{
+		SourceConfig: config.SourceConfig{Path: tmpDir},
+		WikiDir:      "wiki",
+		RawDir:       "raw",
+		IndexFile:    "_index.md",
+		LogFile:      "_log.md",
+		GraphLinks:   true,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -418,8 +425,15 @@ func TestIntegrationSearchOverlap_WithResults(t *testing.T) {
 	defer cleanupTestData(ctx, t, testCollKey)
 
 	tmpDir := t.TempDir()
-	col := config.CollectionConfig{Path: tmpDir}
-	w, err := NewWiki("test-wiki", tmpDir, col)
+	wc := &config.WikiConfig{
+		SourceConfig: config.SourceConfig{Path: tmpDir},
+		WikiDir:      "wiki",
+		RawDir:       "raw",
+		IndexFile:    "_index.md",
+		LogFile:      "_log.md",
+		GraphLinks:   true,
+	}
+	w, err := NewWiki("test-wiki", tmpDir, wc)
 	if err != nil {
 		t.Fatalf("NewWiki error: %v", err)
 	}
@@ -460,8 +474,15 @@ func TestIntegrationQuery_Basic(t *testing.T) {
 	defer cleanupTestData(ctx, t, testCollKey)
 
 	tmpDir := t.TempDir()
-	col := config.CollectionConfig{Path: tmpDir}
-	w, err := NewWiki("test-wiki", tmpDir, col)
+	wc := &config.WikiConfig{
+		SourceConfig: config.SourceConfig{Path: tmpDir},
+		WikiDir:      "wiki",
+		RawDir:       "raw",
+		IndexFile:    "_index.md",
+		LogFile:      "_log.md",
+		GraphLinks:   true,
+	}
+	w, err := NewWiki("test-wiki", tmpDir, wc)
 	if err != nil {
 		t.Fatalf("NewWiki error: %v", err)
 	}
@@ -501,8 +522,15 @@ func TestIntegrationQuery_DefaultLimit(t *testing.T) {
 	defer cleanupTestData(ctx, t, testCollKey)
 
 	tmpDir := t.TempDir()
-	col := config.CollectionConfig{Path: tmpDir}
-	w, err := NewWiki("test-wiki", tmpDir, col)
+	wc := &config.WikiConfig{
+		SourceConfig: config.SourceConfig{Path: tmpDir},
+		WikiDir:      "wiki",
+		RawDir:       "raw",
+		IndexFile:    "_index.md",
+		LogFile:      "_log.md",
+		GraphLinks:   true,
+	}
+	w, err := NewWiki("test-wiki", tmpDir, wc)
 	if err != nil {
 		t.Fatalf("NewWiki error: %v", err)
 	}
@@ -539,8 +567,15 @@ func TestIntegrationQuery_WithSave(t *testing.T) {
 	defer cleanupTestData(ctx, t, testCollKey)
 
 	tmpDir := t.TempDir()
-	col := config.CollectionConfig{Path: tmpDir}
-	w, err := NewWiki("test-wiki", tmpDir, col)
+	wc := &config.WikiConfig{
+		SourceConfig: config.SourceConfig{Path: tmpDir},
+		WikiDir:      "wiki",
+		RawDir:       "raw",
+		IndexFile:    "_index.md",
+		LogFile:      "_log.md",
+		GraphLinks:   true,
+	}
+	w, err := NewWiki("test-wiki", tmpDir, wc)
 	if err != nil {
 		t.Fatalf("NewWiki error: %v", err)
 	}
@@ -576,8 +611,15 @@ func TestIntegrationIngest_CreatesPagesAndUpdatesIndex(t *testing.T) {
 	defer cleanupTestData(ctx, t, testCollKey)
 
 	tmpDir := t.TempDir()
-	col := config.CollectionConfig{Path: tmpDir}
-	w, err := NewWiki("test-wiki", tmpDir, col)
+	wc := &config.WikiConfig{
+		SourceConfig: config.SourceConfig{Path: tmpDir},
+		WikiDir:      "wiki",
+		RawDir:       "raw",
+		IndexFile:    "_index.md",
+		LogFile:      "_log.md",
+		GraphLinks:   true,
+	}
+	w, err := NewWiki("test-wiki", tmpDir, wc)
 	if err != nil {
 		t.Fatalf("NewWiki error: %v", err)
 	}

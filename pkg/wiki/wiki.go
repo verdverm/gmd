@@ -22,33 +22,23 @@ type Wiki struct {
 	Path       string
 	WikiPath   string
 	RawPath    string
-	Config     *config.CollectionConfig
+	Config     *config.WikiConfig
 	WikiConfig *config.WikiConfig
 }
 
-func NewWiki(name string, indexPath string, col config.CollectionConfig) (*Wiki, error) {
-	wcfg := col.Wiki
-	if wcfg == nil {
-		wcfg = &config.WikiConfig{
-			Enabled:    true,
-			IndexFile:  "_index.md",
-			LogFile:    "_log.md",
-			GraphLinks: true,
-		}
-	}
-
+func NewWiki(name string, indexPath string, cfg *config.WikiConfig) (*Wiki, error) {
 	return &Wiki{
 		Name:       name,
 		Path:       indexPath,
-		WikiPath:   filepath.Join(indexPath, "wiki"),
-		RawPath:    filepath.Join(indexPath, "raw"),
-		Config:     &col,
-		WikiConfig: wcfg,
+		WikiPath:   filepath.Join(indexPath, cfg.WikiDir),
+		RawPath:    filepath.Join(indexPath, cfg.RawDir),
+		Config:     cfg,
+		WikiConfig: cfg,
 	}, nil
 }
 
-func InitWiki(name, wikiPath string, col config.CollectionConfig) error {
-	w, err := NewWiki(name, wikiPath, col)
+func InitWiki(name, wikiPath string, cfg *config.WikiConfig) error {
+	w, err := NewWiki(name, wikiPath, cfg)
 	if err != nil {
 		return err
 	}

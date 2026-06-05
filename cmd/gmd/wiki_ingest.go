@@ -10,7 +10,7 @@ import (
 )
 
 var wikiIngestCmd = &cobra.Command{
-	Use:   "ingest <source> [--name <name>] [--batch]",
+	Use:   "ingest <name> <source> [--batch]",
 	Short: "Ingest a source into the wiki using the built-in agent",
 	Long: `Feeds a source file (PDF, text, markdown, docx) to the wiki agent which
 reads, analyzes, and writes structured wiki pages with wikilinks.
@@ -19,8 +19,8 @@ The agent automatically creates or updates pages, flags contradictions,
 and appends to the wiki log.
 
 Example:
-  gmd wiki ingest paper.pdf --name mywiki`,
-	Args: cobra.MinimumNArgs(1),
+  gmd wiki ingest mywiki paper.pdf`,
+	Args: cobra.MinimumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {
@@ -28,16 +28,14 @@ Example:
 		}
 		cfg := r.Config()
 
-		if wikiName == "" {
-			return fmt.Errorf("wiki name required (--name)")
-		}
+		name := args[0]
 
-		col, ok := cfg.Collections[wikiName]
+		wc, ok := cfg.Wikis[name]
 		if !ok {
-			return fmt.Errorf("wiki collection %q not found", wikiName)
+			return fmt.Errorf("wiki %q not found", name)
 		}
 
-		w, err := wiki.NewWiki(wikiName, col.Path, col)
+		w, err := wiki.NewWiki(name, wc.Path, &wc)
 		if err != nil {
 			return err
 		}
@@ -47,7 +45,7 @@ Example:
 
 		agent := wiki.NewAgent(w, cfg, tsClient, llmClient)
 
-		sourcePath := args[0]
+		sourcePath := args[1]
 		batchMode, _ := cmd.Flags().GetBool("batch")
 
 		ctx := context.Background()

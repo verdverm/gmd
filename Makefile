@@ -22,8 +22,8 @@ lint:
 test:
 	CGO_ENABLED=$(CGO_ENABLED) $(GO) test ./... -v -count=1
 
-test.integration:
-	CGO_ENABLED=$(CGO_ENABLED) $(GO) test ./... -v -count=1 -tags=integration
+test.integration: clean-ts
+	CGO_ENABLED=$(CGO_ENABLED) $(GO) test -p 1 ./... -v -count=1 -tags=integration
 
 cover:
 	CGO_ENABLED=$(CGO_ENABLED) $(GO) test ./... -cover -count=1
@@ -43,3 +43,6 @@ cover.detailed.integration:
 
 clean:
 	rm -rf $(BINDIR) coverage.out coverage.html
+
+clean-ts:
+	-docker rm -f gmd-ts-integration

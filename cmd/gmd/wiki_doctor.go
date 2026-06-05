@@ -10,7 +10,7 @@ import (
 )
 
 var wikiDoctorCmd = &cobra.Command{
-	Use:   "doctor [--name <name>] [--fix]",
+	Use:   "doctor <name> [--fix]",
 	Short: "Run wiki diagnostics and auto-configure agents",
 	Long: `Checks wiki configuration, file system structure, Typesense sync state,
 and agent compatibility. Reports issues and suggests fixes.
@@ -18,7 +18,8 @@ and agent compatibility. Reports issues and suggests fixes.
 Use --fix to automatically apply safe fixes (fixable issues only).
 
 Example:
-  gmd wiki doctor --name mywiki --fix`,
+  gmd wiki doctor mywiki --fix`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
 		if err != nil {
@@ -26,16 +27,14 @@ Example:
 		}
 		cfg := r.Config()
 
-		if wikiName == "" {
-			return fmt.Errorf("wiki name required (--name)")
-		}
+		name := args[0]
 
-		col, ok := cfg.Collections[wikiName]
+		wc, ok := cfg.Wikis[name]
 		if !ok {
-			return fmt.Errorf("wiki collection %q not found", wikiName)
+			return fmt.Errorf("wiki %q not found", name)
 		}
 
-		w, err := wiki.NewWiki(wikiName, col.Path, col)
+		w, err := wiki.NewWiki(name, wc.Path, &wc)
 		if err != nil {
 			return err
 		}

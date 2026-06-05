@@ -10,15 +10,26 @@ import (
 	"strings"
 )
 
+// SourceConfig holds file-indexing fields shared by collections and wikis.
+type SourceConfig struct {
+	Path     string                      `json:"path"`
+	Patterns []string                    `json:"patterns"`
+	Ignore   []string                    `json:"ignore,omitempty"`
+	Context  string                      `json:"context,omitempty"`
+	Fields   map[string]FrontmatterField `json:"fields,omitempty"`
+}
+
 // Config is the validated Go representation of the unified CUE configuration.
 type Config struct {
-	LLM         LLMConfig                   `json:"llm"`
-	Typesense   TypesenseConfig             `json:"typesense"`
-	Web         WebConfig                   `json:"web,omitempty"`
-	Pipeline    PipelineConfig              `json:"pipeline"`
-	Collections map[string]CollectionConfig `json:"collections"`
-	ProjectRoot string                      `json:"-"`
-	Project     string                      `json:"project,omitempty"`
+	LLM            LLMConfig                   `json:"llm"`
+	Typesense      TypesenseConfig             `json:"typesense"`
+	Web            WebConfig                   `json:"web,omitempty"`
+	Pipeline       PipelineConfig              `json:"pipeline"`
+	Collections    map[string]CollectionConfig `json:"collections"`
+	Wikis          map[string]WikiConfig       `json:"wikis"`
+	SearchDefaults map[string][]string         `json:"searchDefaults,omitempty"`
+	ProjectRoot    string                      `json:"-"`
+	Project        string                      `json:"project,omitempty"`
 }
 
 // WebConfig groups all web search provider configurations.
@@ -39,6 +50,234 @@ func (c *Config) CollectionKey(name string) string {
 		return name
 	}
 	return c.Project + "-" + name
+}
+
+// IsWiki reports whether name is a wiki (not a collection).
+func (c *Config) IsWiki(name string) bool {
+	_, ok := c.Wikis[name]
+	return ok
+}
+
+// IsCollection reports whether name is a collection (not a wiki).
+func (c *Config) IsCollection(name string) bool {
+	_, ok := c.Collections[name]
+	return ok
+}
+
+// SourceKeysForSearch returns the set of Typesense collection keys to query
+// when searching a named source. If the source is a wiki with sourceRefs,
+// the result includes the wiki's own key plus keys for all referenced sources.
+// Returns an error if any referenced source does not exist in collections or wikis.
+func (c *Config) SourceKeysForSearch(name string) ([]string, error) {
+	keys := []string{c.CollectionKey(name)}
+	wc, ok := c.Wikis[name]
+	if !ok {
+		return keys, nil
+	}
+	for _, ref := range wc.SourceRefs {
+		if _, ok := c.Collections[ref]; ok {
+			keys = append(keys, c.CollectionKey(ref))
+		} else if _, ok := c.Wikis[ref]; ok {
+			keys = append(keys, c.CollectionKey(ref))
+		} else {
+			return nil, fmt.Errorf("wiki %q references source %q which does not exist in collections or wikis", name, ref)
+		}
+	}
+	return keys, nil
+}
+
+// HasSourceRefsCycle performs a global DFS from every wiki to detect any cycle.
+// Returns the first cycle path found, or nil if the graph is acyclic.
+func (c *Config) HasSourceRefsCycle() ([]string, bool) {
+	for name := range c.Wikis {
+		visited := make(map[string]bool)
+		path := make([]string, 0)
+		if cycle, found := c.dfsSourceRefs(name, visited, path); found {
+			return cycle, true
+		}
+	}
+	return nil, false
+}
+
+func (c *Config) dfsSourceRefs(current string, visited map[string]bool, path []string) ([]string, bool) {
+	if visited[current] {
+		cycle := make([]string, 0)
+		inCycle := false
+		for _, p := range path {
+			if p == current {
+				inCycle = true
+			}
+			if inCycle {
+				cycle = append(cycle, p)
+			}
+		}
+		cycle = append(cycle, current)
+		return cycle, true
+	}
+
+	wc, ok := c.Wikis[current]
+	if !ok {
+		return nil, false
+	}
+
+	visited[current] = true
+	path = append(path, current)
+
+	for _, ref := range wc.SourceRefs {
+		if _, ok := c.Wikis[ref]; ok {
+			if cycle, found := c.dfsSourceRefs(ref, visited, path); found {
+				return cycle, true
+			}
+		}
+	}
+
+	visited[current] = false
+	return nil, false
+}
+
+// WouldCreateSourceRefsCycle checks whether adding edge src -> target would create a
+// cycle. DFS from target to see if src is reachable.
+func (c *Config) WouldCreateSourceRefsCycle(src, target string) bool {
+	visited := make(map[string]bool)
+	return c.isReachable(target, src, visited)
+}
+
+func (c *Config) isReachable(from, target string, visited map[string]bool) bool {
+	if from == target {
+		return true
+	}
+	if visited[from] {
+		return false
+	}
+	wc, ok := c.Wikis[from]
+	if !ok {
+		return false
+	}
+	visited[from] = true
+	for _, ref := range wc.SourceRefs {
+		if _, ok := c.Wikis[ref]; ok {
+			if c.isReachable(ref, target, visited) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// AllSearchableSources returns the names of all collections and wikis
+// where excludeFromDefault is false.
+func (c *Config) AllSearchableSources() []string {
+	var sources []string
+	for name, col := range c.Collections {
+		if !col.ExcludeFromDefault {
+			sources = append(sources, name)
+		}
+	}
+	for name, wc := range c.Wikis {
+		if !wc.ExcludeFromDefault {
+			sources = append(sources, name)
+		}
+	}
+	return sources
+}
+
+// ResolvedWikiDir returns the absolute path for a wiki's wikiDir.
+func (c *Config) ResolvedWikiDir(name string) string {
+	wc, ok := c.Wikis[name]
+	if !ok {
+		return ""
+	}
+	return c.resolveSubDir(wc, wc.WikiDir)
+}
+
+// ResolvedRawDir returns the absolute path for a wiki's rawDir.
+func (c *Config) ResolvedRawDir(name string) string {
+	wc, ok := c.Wikis[name]
+	if !ok {
+		return ""
+	}
+	return c.resolveSubDir(wc, wc.RawDir)
+}
+
+// ResolvedCollectionPath returns the absolute path for a collection.
+func (c *Config) ResolvedCollectionPath(name string) string {
+	col, ok := c.Collections[name]
+	if !ok {
+		return ""
+	}
+	colPath := col.Path
+	if !filepath.IsAbs(colPath) {
+		colPath = filepath.Join(c.ProjectRoot, colPath)
+	}
+	return filepath.Clean(colPath)
+}
+
+func (c *Config) resolveSubDir(wc WikiConfig, subDir string) string {
+	basePath := wc.Path
+	if !filepath.IsAbs(basePath) {
+		basePath = filepath.Join(c.ProjectRoot, basePath)
+	}
+	return filepath.Clean(filepath.Join(basePath, subDir))
+}
+
+// HasWikiDirRawDirCollision checks whether a wiki's wikiDir and rawDir are the same.
+func (c *Config) HasWikiDirRawDirCollision(name string) bool {
+	wc, ok := c.Wikis[name]
+	if !ok {
+		return false
+	}
+	return wc.WikiDir == wc.RawDir
+}
+
+// FindPathConflicts checks whether a wiki's wikiDir and rawDir overlap with
+// any existing collection or other wiki. Returns a list of conflict descriptions.
+func (c *Config) FindPathConflicts(name string) []string {
+	wc, ok := c.Wikis[name]
+	if !ok {
+		return nil
+	}
+	wikiDirAbs := c.resolveSubDir(wc, wc.WikiDir)
+	rawDirAbs := c.resolveSubDir(wc, wc.RawDir)
+
+	var conflicts []string
+
+	// Check against other wikis
+	for otherName, otherWC := range c.Wikis {
+		if otherName == name {
+			continue
+		}
+		otherWikiDir := c.resolveSubDir(otherWC, otherWC.WikiDir)
+		otherRawDir := c.resolveSubDir(otherWC, otherWC.RawDir)
+		if pathsOverlap(wikiDirAbs, otherWikiDir) || pathsOverlap(wikiDirAbs, otherRawDir) {
+			conflicts = append(conflicts, fmt.Sprintf("%s wikiDir overlaps with wiki %q", name, otherName))
+		}
+		if pathsOverlap(rawDirAbs, otherWikiDir) || pathsOverlap(rawDirAbs, otherRawDir) {
+			conflicts = append(conflicts, fmt.Sprintf("%s rawDir overlaps with wiki %q", name, otherName))
+		}
+	}
+
+	// Check against collections
+	for colName := range c.Collections {
+		colPath := c.ResolvedCollectionPath(colName)
+		if pathsOverlap(wikiDirAbs, colPath) || pathsOverlap(rawDirAbs, colPath) {
+			conflicts = append(conflicts, fmt.Sprintf("wiki %q directory overlaps with collection %q", name, colName))
+		}
+	}
+
+	return conflicts
+}
+
+func pathsOverlap(a, b string) bool {
+	a = filepath.Clean(a) + string(filepath.Separator)
+	b = filepath.Clean(b) + string(filepath.Separator)
+	return strings.HasPrefix(a, b) || strings.HasPrefix(b, a)
+}
+
+// SourceExists returns true if a name exists in either collections or wikis.
+func (c *Config) SourceExists(name string) bool {
+	_, inCol := c.Collections[name]
+	_, inWiki := c.Wikis[name]
+	return inCol || inWiki
 }
 
 // LLMConfig maps from the CUE LLMConfig schema.
@@ -153,11 +392,15 @@ type PipelineConfig struct {
 
 // WikiConfig maps from the CUE WikiConfig schema.
 type WikiConfig struct {
-	Enabled     bool               `json:"enabled"`
-	IndexFile   string             `json:"indexFile"`
-	LogFile     string             `json:"logFile"`
-	GraphLinks  bool               `json:"graphLinks"`
-	Frontmatter *FrontmatterConfig `json:"frontmatter,omitempty"`
+	SourceConfig
+	WikiDir            string             `json:"wikiDir"`
+	RawDir             string             `json:"rawDir"`
+	IndexFile          string             `json:"indexFile"`
+	LogFile            string             `json:"logFile"`
+	GraphLinks         bool               `json:"graphLinks"`
+	ExcludeFromDefault bool               `json:"excludeFromDefault"`
+	SourceRefs         []string           `json:"sourceRefs,omitempty"`
+	Frontmatter        *FrontmatterConfig `json:"frontmatter,omitempty"`
 }
 
 // FrontmatterConfig maps from the CUE frontmatter field config.
@@ -176,13 +419,8 @@ type FrontmatterField struct {
 // CollectionConfig maps from the CUE CollectionConfig schema.
 // The collection name is the map key in Config.Collections, not a field in this struct.
 type CollectionConfig struct {
-	Path             string                      `json:"path"`
-	Patterns         []string                    `json:"patterns"`
-	Ignore           []string                    `json:"ignore,omitempty"`
-	Context          string                      `json:"context,omitempty"`
-	IncludeByDefault bool                        `json:"includeByDefault"`
-	Wiki             *WikiConfig                 `json:"wiki,omitempty"`
-	Fields           map[string]FrontmatterField `json:"fields,omitempty"`
+	SourceConfig
+	ExcludeFromDefault bool `json:"excludeFromDefault"`
 }
 
 //go:embed schema/*.cue
@@ -253,6 +491,23 @@ func Load(cwd string) (*Config, error) {
 	var cfg Config
 	if err := configVal.Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("decoding config: %w", err)
+	}
+
+	// Apply defaults for wikiDir/rawDir if CUE defaults didn't survive decode
+	for name, wc := range cfg.Wikis {
+		if wc.WikiDir == "" {
+			wc.WikiDir = "wiki"
+		}
+		if wc.RawDir == "" {
+			wc.RawDir = "raw"
+		}
+		if wc.IndexFile == "" {
+			wc.IndexFile = "_index.md"
+		}
+		if wc.LogFile == "" {
+			wc.LogFile = "_log.md"
+		}
+		cfg.Wikis[name] = wc
 	}
 
 	cfg.LLM.APIKey = os.Getenv("OPENAI_API_KEY")

@@ -85,7 +85,34 @@ func (idx *Indexer) UpdateAll(ctx context.Context, progress ProgressFn) (*IndexR
 	root := idx.cfg.ProjectRoot
 
 	for name, col := range idx.cfg.Collections {
-		colResult := idx.updateCollection(ctx, name, col, root, progress)
+		colResult := idx.updateCollection(ctx, name, col.SourceConfig, root, progress)
+		result.TotalFiles += colResult.TotalFiles
+		result.Indexed += colResult.Indexed
+		result.Skipped += colResult.Skipped
+		result.ChunkCount += colResult.ChunkCount
+		result.Errors = append(result.Errors, colResult.Errors...)
+	}
+
+	for name, wc := range idx.cfg.Wikis {
+		// Build scanner ignore list: exclude meta files but keep the original wc.Ignore
+		scannerCfg := wc.SourceConfig
+		scannerIgnore := make([]string, 0, len(wc.Ignore)+2)
+		scannerIgnore = append(scannerIgnore, wc.Ignore...)
+		scannerIgnore = append(scannerIgnore,
+			filepath.Join(wc.WikiDir, wc.IndexFile),
+			filepath.Join(wc.WikiDir, wc.LogFile),
+		)
+		scannerCfg.Ignore = scannerIgnore
+
+		// Use default patterns for wikis if not explicitly configured
+		if len(wc.Patterns) == 0 {
+			scannerCfg.Patterns = []string{
+				wc.WikiDir + "/**/*.md",
+				wc.RawDir + "/**/*.md",
+			}
+		}
+
+		colResult := idx.updateCollection(ctx, name, scannerCfg, root, progress)
 		result.TotalFiles += colResult.TotalFiles
 		result.Indexed += colResult.Indexed
 		result.Skipped += colResult.Skipped
@@ -96,7 +123,7 @@ func (idx *Indexer) UpdateAll(ctx context.Context, progress ProgressFn) (*IndexR
 	return result, nil
 }
 
-func (idx *Indexer) updateCollection(ctx context.Context, name string, col config.CollectionConfig, root string, progress ProgressFn) *IndexResult {
+func (idx *Indexer) updateCollection(ctx context.Context, name string, col config.SourceConfig, root string, progress ProgressFn) *IndexResult {
 	result := &IndexResult{Collection: name}
 
 	colPath := col.Path
@@ -225,7 +252,7 @@ func (idx *Indexer) updateCollection(ctx context.Context, name string, col confi
 	return result
 }
 
-func (idx *Indexer) processFile(ctx context.Context, fsys fs.FS, fsPath, relPath, collection, hash string, colCfg config.CollectionConfig) ([]ts.ChunkDocument, *ts.DocDocument, error) {
+func (idx *Indexer) processFile(ctx context.Context, fsys fs.FS, fsPath, relPath, collection, hash string, colCfg config.SourceConfig) ([]ts.ChunkDocument, *ts.DocDocument, error) {
 	data, err := fs.ReadFile(fsys, fsPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("reading file: %w", err)
@@ -389,32 +416,42 @@ func fileHash(path string) (string, error) {
 }
 
 // StalePaths finds paths indexed in Typesense that no longer exist on disk.
-func (idx *Indexer) StalePaths(ctx context.Context, collection string) ([]string, error) {
-	col, ok := idx.cfg.Collections[collection]
-	if !ok {
-		return nil, fmt.Errorf("collection %q not found", collection)
+func (idx *Indexer) StalePaths(ctx context.Context, source string) ([]string, error) {
+	col, isCol := idx.cfg.Collections[source]
+	wc, isWiki := idx.cfg.Wikis[source]
+	if !isCol && !isWiki {
+		return nil, fmt.Errorf("source %q not found", source)
 	}
 
-	filter := fmt.Sprintf("collection:=%s", idx.cfg.CollectionKey(collection))
+	filter := fmt.Sprintf("collection:=%s", idx.cfg.CollectionKey(source))
 	indexedPaths, err := idx.ts.SearchDistinctPaths(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("searching indexed paths: %w", err)
 	}
 
-	colPath := col.Path
-	if !filepath.IsAbs(colPath) {
-		colPath = filepath.Join(idx.cfg.ProjectRoot, colPath)
+	var srcPath string
+	var ignore []string
+	if isCol {
+		srcPath = col.Path
+		ignore = col.Ignore
+	} else {
+		srcPath = wc.Path
+		ignore = wc.Ignore
 	}
-	colPath = filepath.Clean(colPath)
+
+	if !filepath.IsAbs(srcPath) {
+		srcPath = filepath.Join(idx.cfg.ProjectRoot, srcPath)
+	}
+	srcPath = filepath.Clean(srcPath)
 
 	var stale []string
 	for _, p := range indexedPaths {
-		fullPath := filepath.Join(colPath, p)
+		fullPath := filepath.Join(srcPath, p)
 		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
 			stale = append(stale, p)
 			continue
 		}
-		for _, ig := range col.Ignore {
+		for _, ig := range ignore {
 			if matched, _ := doublestar.Match(ig, p); matched {
 				stale = append(stale, p)
 				break
@@ -448,10 +485,20 @@ func (idx *Indexer) CleanupDeleted(ctx context.Context, collection string) (int,
 	return deleted, nil
 }
 
-// CleanupAllCollections runs cleanup for all configured collections.
+// CleanupAllCollections runs cleanup for all configured sources (collections and wikis).
 func (idx *Indexer) CleanupAllCollections(ctx context.Context, progress ProgressFn) map[string]int {
 	results := make(map[string]int)
 	for name := range idx.cfg.Collections {
+		if progress != nil {
+			progress(fmt.Sprintf("[%s] Cleaning up stale chunks...", name))
+		}
+		deleted, err := idx.CleanupDeleted(ctx, name)
+		if err != nil && progress != nil {
+			progress(fmt.Sprintf("[%s] Error: %v", name, err))
+		}
+		results[name] = deleted
+	}
+	for name := range idx.cfg.Wikis {
 		if progress != nil {
 			progress(fmt.Sprintf("[%s] Cleaning up stale chunks...", name))
 		}

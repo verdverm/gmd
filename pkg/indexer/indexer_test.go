@@ -267,7 +267,7 @@ func TestUpdateCollectionErrors(t *testing.T) {
 		col.Path = "/nonexistent"
 		cfg.Collections["test"] = col
 		idx := New(cfg, nil, nil).WithFS(fsys)
-		result := idx.updateCollection(context.Background(), "test", col, "/", nil)
+		result := idx.updateCollection(context.Background(), "test", col.SourceConfig, "/", nil)
 		if len(result.Errors) == 0 {
 			t.Error("expected errors for nonexistent directory")
 		}
@@ -282,7 +282,7 @@ func TestUpdateCollectionErrors(t *testing.T) {
 		cancel()
 		cfg := testConfig(t)
 		idx := New(cfg, nil, nil).WithFS(fsys)
-		result := idx.updateCollection(ctx, "test", cfg.Collections["test"], "/", nil)
+		result := idx.updateCollection(ctx, "test", cfg.Collections["test"].SourceConfig, "/", nil)
 		if result.Errors == nil {
 			t.Log("cancelled context handled (expected at least scan error)")
 		}
@@ -401,8 +401,10 @@ func testConfig(t *testing.T) *config.Config {
 	t.Helper()
 	return testConfigWithCollections(t, map[string]config.CollectionConfig{
 		"test": {
-			Path:     "/docs",
-			Patterns: []string{"**/*.md"},
+			SourceConfig: config.SourceConfig{
+				Path:     "/docs",
+				Patterns: []string{"**/*.md"},
+			},
 		},
 	})
 }
@@ -412,12 +414,16 @@ func testMultiConfig(t *testing.T) *config.Config {
 	t.Helper()
 	return testConfigWithCollections(t, map[string]config.CollectionConfig{
 		"docs": {
-			Path:     "/docs",
-			Patterns: []string{"**/*.md"},
+			SourceConfig: config.SourceConfig{
+				Path:     "/docs",
+				Patterns: []string{"**/*.md"},
+			},
 		},
 		"notes": {
-			Path:     "/notes",
-			Patterns: []string{"**/*.md"},
+			SourceConfig: config.SourceConfig{
+				Path:     "/notes",
+				Patterns: []string{"**/*.md"},
+			},
 		},
 	})
 }
@@ -488,8 +494,10 @@ func TestStalePaths(t *testing.T) {
 		ProjectRoot: "/",
 		Collections: map[string]config.CollectionConfig{
 			"test": {
-				Path:     dir,
-				Patterns: []string{"*.md"},
+				SourceConfig: config.SourceConfig{
+					Path:     dir,
+					Patterns: []string{"*.md"},
+				},
 			},
 		},
 	}
@@ -534,8 +542,10 @@ func TestCleanupDeleted(t *testing.T) {
 		ProjectRoot: "/",
 		Collections: map[string]config.CollectionConfig{
 			"test": {
-				Path:     dir,
-				Patterns: []string{"*.md"},
+				SourceConfig: config.SourceConfig{
+					Path:     dir,
+					Patterns: []string{"*.md"},
+				},
 			},
 		},
 	}
@@ -568,8 +578,8 @@ func TestCleanupAllCollections(t *testing.T) {
 	cfg := &config.Config{
 		ProjectRoot: "/",
 		Collections: map[string]config.CollectionConfig{
-			"docs":  {Path: dir, Patterns: []string{"*.md"}},
-			"notes": {Path: dir, Patterns: []string{"*.md"}},
+			"docs":  {SourceConfig: config.SourceConfig{Path: dir, Patterns: []string{"*.md"}}},
+			"notes": {SourceConfig: config.SourceConfig{Path: dir, Patterns: []string{"*.md"}}},
 		},
 	}
 

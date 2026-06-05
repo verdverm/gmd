@@ -30,28 +30,40 @@ gmd vsearch <query>                    # Vector similarity search
 gmd query <query>                      # Full pipeline: expansion → hybrid → RRF → rerank → blend
 gmd get <path>                         # Get document content by path
 gmd multi-get <pattern>                # Batch fetch documents
-gmd ls [collection]                    # List indexed documents
-gmd collection list                    # List collections
+gmd ls [source]                        # List indexed documents
+gmd collection list                    # List collections + wikis with "referenced by"
 gmd collection create <name> --path --pattern
-gmd collection show <name>             # Collection details + chunk count
-gmd collection remove <name>
-gmd collection rename <old> <new>
+gmd collection show <name>             # Shows collections or wikis + chunk count
+gmd collection remove <name>           # Remove collection or wiki
+gmd collection rename <old> <new>      # Rename collection or wiki
 gmd collection include <name> <patterns...>
 gmd collection exclude <name> <patterns...>
-gmd context add <collection> "text"
+gmd context add <source> "text"
 gmd context list
-gmd context rm <collection>
-gmd doctor                             # Diagnostics
+gmd context rm <source>
+gmd doctor                             # Diagnostics (collections + wikis)
 gmd cleanup                            # Remove stale chunks for deleted files
 gmd serve [--port] [--host]            # REST API server (stub, Phase 5)
 gmd mcp [--http]                       # MCP server (stub, Phase 6)
 gmd agentsmd [oneline|summary|detailed|full]  # Output AGENTS.md content for users
-gmd wiki init [--name] [--path]        # Create wiki scaffold + CUE config entry
-gmd wiki ingest <src> [--name]         # LLM agent reads source → writes wiki pages
-gmd wiki query "..." [--name] [--save] # Search wiki → LLM synthesis with citations
-gmd wiki graph [--name] [--format]     # Export wikilink graph (dot/mermaid/json)
-gmd wiki lint [--name]                 # Structure + content health checks
-gmd wiki doctor [--name] [--fix]       # Diagnostics + auto-configure agents
+gmd wiki create <name> [--path] [--wiki-dir] [--raw-dir] [--skills]
+gmd wiki list                          # List all wikis
+gmd wiki show <name>                   # Wiki config details + chunk count
+gmd wiki remove <name>                 # Remove wiki + Typesense chunks
+gmd wiki rename <old> <new>            # Rename wiki in config
+gmd wiki include <name> <patterns...>   # Add file patterns (proxy)
+gmd wiki exclude <name> <patterns...>   # Add ignore patterns (proxy)
+gmd wiki context add <name> "text"     # Set wiki context (proxy)
+gmd wiki context list                  # List wiki contexts (proxy)
+gmd wiki context rm <name>             # Remove wiki context (proxy)
+gmd wiki ref add <name> <source>       # Add source reference (validated)
+gmd wiki ref rm <name> <source>        # Remove source reference
+gmd wiki ref list <name>               # List source references
+gmd wiki ingest <name> <src> [--batch] # LLM agent reads source → writes wiki pages
+gmd wiki query <name> "..." [--save]   # Search wiki → LLM synthesis with citations
+gmd wiki graph <name> [--format]       # Export wikilink graph (dot/mermaid/json)
+gmd wiki lint <name>                   # Structure + content health checks
+gmd wiki doctor <name> [--fix]         # Diagnostics + auto-configure agents
 gmd wiki skills [list|show|write]      # Manage embedded agent skill templates
 ```
 
@@ -60,6 +72,7 @@ gmd wiki skills [list|show|write]      # Manage embedded agent skill templates
 ```
 cmd/gmd/          CLI entry point (cobra commands)
 pkg/config/       CUE config loading, validation, project detection, CUE AST editing
+                  Schema in schema/: #Source, CollectionConfig, WikiConfig, ProjectConfig
 pkg/chunking/     Markdown chunker (heading-aware breakpoints)
 pkg/indexer/      File scanning + SHA-256 dedup + chunk → embed → upsert pipeline
 pkg/search/       Search pipeline: signal detection, expansion, RRF fusion, rerank, blend
@@ -86,6 +99,10 @@ api/              Reserved for REST API (empty)
 - **CUE config only.** No YAML. Global + project-local CUE files unified at load time.
 - **OpenAI-compatible, not OpenAI-specific.** Any provider via `base_url`. API keys via env vars.
 - **Chunks as Typesense documents.** `group_by=collection,path` collapses to document level.
+- **Wikis are first-class entities** parallel to collections, with a shared `#Source` indexing
+  model and `SourceConfig` Go struct. Both use the same Typesense `chunks` collection.
+- **Wikis aggregate via sourceRefs.** A wiki can reference collections or other wikis to
+  aggregate their searchable content. Collections and wikis share a namespace (name uniqueness).
 
 ## Config
 
@@ -106,8 +123,8 @@ Project root detected by walking up from CWD looking for `.gmd/` sentinel.
 
 ## Rules
 
-- Never run `gmd update`, `gmd embed`, or `gmd collection create` automatically. Write the command
-  for the user to run.
+- Never run `gmd update`, `gmd embed`, `gmd collection create`, or `gmd wiki create` automatically.
+  Write the command for the user to run.
 - Never modify CUE config files or the Typesense index directly without being asked.
 - Always run `make lint` after code changes.
 - Integration tests can take ~2-3min depending on external service availability (the wiki package

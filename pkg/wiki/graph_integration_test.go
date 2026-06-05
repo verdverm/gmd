@@ -123,8 +123,15 @@ func TestIntegrationNeighborsFromTS(t *testing.T) {
 	defer cleanupTestData(ctx, t, testCollKey)
 
 	tmpDir := t.TempDir()
-	col := config.CollectionConfig{Path: tmpDir}
-	w, err := NewWiki("test-wiki", tmpDir, col)
+	wc := &config.WikiConfig{
+		SourceConfig: config.SourceConfig{Path: tmpDir},
+		WikiDir:      "wiki",
+		RawDir:       "raw",
+		IndexFile:    "_index.md",
+		LogFile:      "_log.md",
+		GraphLinks:   true,
+	}
+	w, err := NewWiki("test-wiki", tmpDir, wc)
 	if err != nil {
 		t.Fatalf("NewWiki error: %v", err)
 	}

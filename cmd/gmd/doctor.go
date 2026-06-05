@@ -43,8 +43,9 @@ when search returns no results or indexing fails.`,
 		}
 		fmt.Printf("OK     typesense connected (%s), %d total chunks\n", cfg.Typesense.Host, count)
 
-		if len(cfg.Collections) > 0 {
-			fmt.Printf("OK     %d collection(s) configured\n", len(cfg.Collections))
+		if len(cfg.Collections) > 0 || len(cfg.Wikis) > 0 {
+			sourceCount := len(cfg.Collections) + len(cfg.Wikis)
+			fmt.Printf("OK     %d source(s) configured\n", sourceCount)
 			for name := range cfg.Collections {
 				key := cfg.CollectionKey(name)
 				cnt, err := r.TSClient().CountByCollection(context.Background(), []string{key})
@@ -54,8 +55,17 @@ when search returns no results or indexing fails.`,
 					fmt.Printf("  %s: %d chunks\n", name, cnt[key])
 				}
 			}
+			for name := range cfg.Wikis {
+				key := cfg.CollectionKey(name)
+				cnt, err := r.TSClient().CountByCollection(context.Background(), []string{key})
+				if err != nil {
+					fmt.Printf("  %s (wiki): (error: %v)\n", name, err)
+				} else {
+					fmt.Printf("  %s (wiki): %d chunks\n", name, cnt[key])
+				}
+			}
 		} else {
-			fmt.Println("WARN   no collections configured")
+			fmt.Println("WARN   no collections or wikis configured")
 		}
 
 		// Schema validation: compare configured fields against Typesense
@@ -85,10 +95,27 @@ when search returns no results or indexing fails.`,
 					}
 				}
 			}
+			for _, wc := range cfg.Wikis {
+				for fname, f := range wc.Fields {
+					tsType, inTS := tsFieldSet[fname]
+					if !inTS {
+						fmt.Printf("PENDING %-20s %-8s  (not yet in Typesense, run update)\n", fname, f.Type)
+						hasIssues = true
+					} else if tsType != f.Type {
+						fmt.Printf("WARN   %-20s config says %q but Typesense has %q\n", fname, f.Type, tsType)
+						hasIssues = true
+					}
+				}
+			}
 			// Check for orphaned fields (in TS but not in any config or base)
 			allConfigFields := make(map[string]bool)
 			for _, col := range cfg.Collections {
 				for fname := range col.Fields {
+					allConfigFields[fname] = true
+				}
+			}
+			for _, wc := range cfg.Wikis {
+				for fname := range wc.Fields {
 					allConfigFields[fname] = true
 				}
 			}

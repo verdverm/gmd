@@ -25,9 +25,9 @@ func TestMain(m *testing.M) {
 		fmt.Fprintf(os.Stderr, "Typesense container start failed: %v\n", err)
 		os.Exit(1)
 	}
-	defer srv.Stop(ctx)
 
 	if err := srv.WaitForHealth(ctx, 30*time.Second); err != nil {
+		srv.Stop(ctx)
 		fmt.Fprintf(os.Stderr, "Typesense health check failed: %v\n", err)
 		os.Exit(1)
 	}
@@ -38,11 +38,14 @@ func TestMain(m *testing.M) {
 	})
 
 	if err := testTSClient.EnsureAllSchemas(ctx, 4, nil); err != nil {
+		srv.Stop(ctx)
 		fmt.Fprintf(os.Stderr, "Schema creation failed: %v\n", err)
 		os.Exit(1)
 	}
 
-	os.Exit(m.Run())
+	code := m.Run()
+	srv.Stop(ctx)
+	os.Exit(code)
 }
 
 func requireTS(t *testing.T) {

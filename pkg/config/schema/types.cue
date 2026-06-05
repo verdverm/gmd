@@ -115,27 +115,46 @@ FrontmatterField: {
 	sort?:  bool | *false
 }
 
-// WikiConfig activates wiki-aware behavior for a collection.
-WikiConfig: {
-	enabled:        bool | *true
-	indexFile:      string | *"_index.md"
-	logFile:        string | *"_log.md"
-	graphLinks:     bool | *true
-	frontmatter?: {                         // optional per-wiki frontmatter config
+// Source defines shared file-indexing configuration used by both
+// collections and wikis. Both entity types are indexed into the same
+// Typesense chunks collection.
+Source: {
+	path:     string
+	patterns: [...string]
+	ignore?:  [...string]
+	context?: string
+	fields?:  [string]: FrontmatterField
+}
+
+// WikiConfig defines an LLM wiki — a compounding knowledge base with
+// agent-driven content generation, wikilinks, and optional collection aggregation.
+// Collection commands (show, include, exclude, context) accept wiki names
+// identically. Wiki CLI commands delegate to the same collection CRUD internals.
+WikiConfig: Source & {
+	wikiDir:     string | *"wiki"        // subdirectory for wiki content pages
+	rawDir:      string | *"raw"         // subdirectory for raw source material
+	indexFile:   string | *"_index.md"
+	logFile:     string | *"_log.md"
+	graphLinks:  bool | *true
+	excludeFromDefault?: bool | *false    // opt-out of default (unscoped) searches
+
+	// Aggregation: when searching this wiki, also search these named sources
+	// (collections or other wikis). Each entry must be a key in the top-level
+	// collections or wikis map — validation at create/add time rejects
+	// unknown names and circular references.
+	sourceRefs?: [...string]
+
+	// Wiki-specific frontmatter configuration. Separate from #Source.fields
+	// (which controls Typesense field indexing) so wiki frontmatter keys never
+	// collide with gmd's own indexing field names.
+	frontmatter?: {
 		fields: [string]: FrontmatterField
 	}
 }
 
 // CollectionConfig defines a document collection to index.
-// The collection name is the map key, not a field inside the struct.
-CollectionConfig: {
-	path:              string
-	patterns:          [...string]
-	ignore?: [...string]
-	context?:          string
-	includeByDefault?: bool | *true
-	wiki?:             WikiConfig | *null   // optional, activates wiki mode
-	fields?:           [string]: FrontmatterField  // optional frontmatter fields to index in Typesense
+CollectionConfig: Source & {
+	excludeFromDefault?: bool | *false
 }
 
 // EXAConfig defines the EXA web search API settings.
@@ -157,4 +176,15 @@ ProjectConfig: {
 	web?:        WebConfig
 	pipeline?:   PipelineConfig
 	collections: [string]: CollectionConfig
+	wikis:       [string]: WikiConfig
+
+	// searchDefaults defines named search presets. Each key is a preset name
+	// used with --search, and the value is the list of source names
+	// (collections and/or wikis) to search in that preset. When a search uses
+	// --search <preset>, only the listed sources are included, overriding
+	// the default behavior. When --search is not used, unscoped search
+	// includes all sources where excludeFromDefault is false. searchDefaults
+	// does NOT intersect with or override excludeFromDefault for unscoped
+	// searches — it only takes effect when explicitly invoked via --search.
+	searchDefaults?: [string]: [...string]
 }

@@ -24,4 +24,6 @@ func init() {
 	vsearchCmd.Flags().IntVarP(&searchLimit, "limit", "n", 5, "max results")
 	vsearchCmd.Flags().StringVarP(&searchFormat, "format", "f", "cli", "output format")
 	vsearchCmd.Flags().StringSliceVarP(&searchCollections, "collection", "c", nil, "collection(s) to search (default: auto-detect from CWD)")
+	vsearchCmd.Flags().BoolVar(&searchNoExpansion, "no-expansion", false, "Do not expand wiki sourceRefs")
+	vsearchCmd.Flags().StringVarP(&searchPreset, "search", "s", "", "Named search preset from searchDefaults")
 }

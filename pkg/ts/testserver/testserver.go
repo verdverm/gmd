@@ -86,7 +86,7 @@ func Start(ctx context.Context, opts Options) (*Server, error) {
 		"--data-dir", "/data",
 		"--api-key", apiKey,
 	)
-	out, err := cmd.Output()
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("docker run: %w\n%s", err, string(out))
 	}

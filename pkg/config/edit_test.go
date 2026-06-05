@@ -31,7 +31,7 @@ Config: {
 	cfg := &Config{
 		ProjectRoot: root,
 		Collections: map[string]CollectionConfig{
-			"docs": {Path: ".", Patterns: []string{"**/*.md"}},
+			"docs": {SourceConfig: SourceConfig{Path: ".", Patterns: []string{"**/*.md"}}},
 		},
 	}
 
@@ -101,7 +101,7 @@ Config: {
 	cfg := &Config{
 		ProjectRoot: root,
 		Collections: map[string]CollectionConfig{
-			"docs": {Path: ".", Patterns: []string{"*.md"}},
+			"docs": {SourceConfig: SourceConfig{Path: ".", Patterns: []string{"*.md"}}},
 		},
 	}
 
@@ -160,7 +160,7 @@ Config: {
 	cfg := &Config{
 		ProjectRoot: root,
 		Collections: map[string]CollectionConfig{
-			"docs": {Path: ".", Patterns: []string{"*.md"}},
+			"docs": {SourceConfig: SourceConfig{Path: ".", Patterns: []string{"*.md"}}},
 		},
 	}
 
@@ -213,7 +213,7 @@ Config: {
 	cfg := &Config{
 		ProjectRoot: root,
 		Collections: map[string]CollectionConfig{
-			"docs": {Path: ".", Patterns: []string{"*.md"}},
+			"docs": {SourceConfig: SourceConfig{Path: ".", Patterns: []string{"*.md"}}},
 		},
 	}
 
@@ -288,7 +288,7 @@ Config: {
 	cfg := &Config{
 		ProjectRoot: root,
 		Collections: map[string]CollectionConfig{
-			"docs": {Path: ".", Patterns: []string{"*.md"}},
+			"docs": {SourceConfig: SourceConfig{Path: ".", Patterns: []string{"*.md"}}},
 		},
 	}
 
@@ -378,7 +378,7 @@ Config: {
 	cfg := &Config{
 		ProjectRoot: root,
 		Collections: map[string]CollectionConfig{
-			"docs": {Path: ".", Patterns: []string{"*.md"}},
+			"docs": {SourceConfig: SourceConfig{Path: ".", Patterns: []string{"*.md"}}},
 		},
 	}
 

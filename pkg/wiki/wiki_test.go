@@ -903,16 +903,17 @@ func TestGetSkillTemplate(t *testing.T) {
 
 func TestNewWiki(t *testing.T) {
 	t.Run("with WikiConfig", func(t *testing.T) {
-		col := config.CollectionConfig{
-			Path: "/tmp/test-wiki",
-			Wiki: &config.WikiConfig{
-				Enabled:    true,
-				IndexFile:  "_index.md",
-				LogFile:    "_log.md",
-				GraphLinks: true,
+		wc := &config.WikiConfig{
+			SourceConfig: config.SourceConfig{
+				Path: "/tmp/test-wiki",
 			},
+			IndexFile:  "_index.md",
+			LogFile:    "_log.md",
+			GraphLinks: true,
+			WikiDir:    "wiki",
+			RawDir:     "raw",
 		}
-		w, err := NewWiki("test", "/tmp/test-wiki", col)
+		w, err := NewWiki("test", "/tmp/test-wiki", wc)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -928,43 +929,38 @@ func TestNewWiki(t *testing.T) {
 		if w.RawPath != "/tmp/test-wiki/raw" {
 			t.Errorf("RawPath = %q, want %q", w.RawPath, "/tmp/test-wiki/raw")
 		}
-		if w.Config.Wiki.Enabled != true {
-			t.Errorf("Config.Wiki.Enabled should be true")
+		if w.Config.IndexFile != "_index.md" {
+			t.Errorf("IndexFile = %q", w.Config.IndexFile)
 		}
 		if w.WikiConfig.IndexFile != "_index.md" {
 			t.Errorf("IndexFile = %q", w.WikiConfig.IndexFile)
 		}
 	})
 
-	t.Run("without WikiConfig (nil)", func(t *testing.T) {
-		col := config.CollectionConfig{
-			Path: "/tmp/test-wiki",
+	t.Run("with custom wikiDir/rawDir", func(t *testing.T) {
+		wc := &config.WikiConfig{
+			SourceConfig: config.SourceConfig{
+				Path: "/tmp/test-wiki",
+			},
+			WikiDir: "pages",
+			RawDir:  "inputs",
 		}
-		w, err := NewWiki("test", "/tmp/test-wiki", col)
+		w, err := NewWiki("test", "/tmp/test-wiki", wc)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if w.WikiConfig == nil {
-			t.Fatal("WikiConfig should not be nil")
+		if w.WikiPath != "/tmp/test-wiki/pages" {
+			t.Errorf("WikiPath = %q, want %q", w.WikiPath, "/tmp/test-wiki/pages")
 		}
-		if !w.WikiConfig.Enabled {
-			t.Error("Enabled should default to true")
-		}
-		if w.WikiConfig.IndexFile != "_index.md" {
-			t.Errorf("IndexFile = %q, want _index.md", w.WikiConfig.IndexFile)
-		}
-		if w.WikiConfig.LogFile != "_log.md" {
-			t.Errorf("LogFile = %q, want _log.md", w.WikiConfig.LogFile)
-		}
-		if !w.WikiConfig.GraphLinks {
-			t.Error("GraphLinks should default to true")
+		if w.RawPath != "/tmp/test-wiki/inputs" {
+			t.Errorf("RawPath = %q, want %q", w.RawPath, "/tmp/test-wiki/inputs")
 		}
 	})
 }
 
 func TestWikiIndexFilePath(t *testing.T) {
-	col := config.CollectionConfig{Path: "/tmp/test-wiki"}
-	w, _ := NewWiki("test", "/tmp/test-wiki", col)
+	wc := &config.WikiConfig{SourceConfig: config.SourceConfig{Path: "/tmp/test-wiki"}, WikiDir: "wiki", RawDir: "raw", IndexFile: "_index.md", LogFile: "_log.md"}
+	w, _ := NewWiki("test", "/tmp/test-wiki", wc)
 	got := w.IndexFilePath()
 	want := "/tmp/test-wiki/wiki/_index.md"
 	if got != want {
@@ -973,8 +969,8 @@ func TestWikiIndexFilePath(t *testing.T) {
 }
 
 func TestWikiLogFilePath(t *testing.T) {
-	col := config.CollectionConfig{Path: "/tmp/test-wiki"}
-	w, _ := NewWiki("test", "/tmp/test-wiki", col)
+	wc := &config.WikiConfig{SourceConfig: config.SourceConfig{Path: "/tmp/test-wiki"}, WikiDir: "wiki", RawDir: "raw", IndexFile: "_index.md", LogFile: "_log.md"}
+	w, _ := NewWiki("test", "/tmp/test-wiki", wc)
 	got := w.LogFilePath()
 	want := "/tmp/test-wiki/wiki/_log.md"
 	if got != want {
@@ -984,8 +980,8 @@ func TestWikiLogFilePath(t *testing.T) {
 
 func TestWikiInit(t *testing.T) {
 	tmpDir := t.TempDir()
-	col := config.CollectionConfig{Path: tmpDir}
-	w, err := NewWiki("test", tmpDir, col)
+	wc := &config.WikiConfig{SourceConfig: config.SourceConfig{Path: tmpDir}, WikiDir: "wiki", RawDir: "raw", IndexFile: "_index.md", LogFile: "_log.md"}
+	w, err := NewWiki("test", tmpDir, wc)
 	if err != nil {
 		t.Fatalf("NewWiki error: %v", err)
 	}
@@ -1028,9 +1024,9 @@ func TestWikiInit(t *testing.T) {
 
 func TestInitWiki(t *testing.T) {
 	tmpDir := t.TempDir()
-	col := config.CollectionConfig{Path: tmpDir}
+	wc := &config.WikiConfig{SourceConfig: config.SourceConfig{Path: tmpDir}, WikiDir: "wiki", RawDir: "raw", IndexFile: "_index.md", LogFile: "_log.md"}
 
-	err := InitWiki("test", tmpDir, col)
+	err := InitWiki("test", tmpDir, wc)
 	if err != nil {
 		t.Fatalf("InitWiki error: %v", err)
 	}
@@ -1045,8 +1041,8 @@ func TestInitWiki(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestNewAgent(t *testing.T) {
-	col := config.CollectionConfig{Path: "/tmp/test-wiki"}
-	w, _ := NewWiki("test", "/tmp/test-wiki", col)
+	wc := &config.WikiConfig{SourceConfig: config.SourceConfig{Path: "/tmp/test-wiki"}, WikiDir: "wiki", RawDir: "raw", IndexFile: "_index.md", LogFile: "_log.md"}
+	w, _ := NewWiki("test", "/tmp/test-wiki", wc)
 
 	a := NewAgent(w, &config.Config{}, nil, nil)
 	if a == nil {

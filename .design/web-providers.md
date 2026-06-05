@@ -1,6 +1,6 @@
 # Web Providers — Multi-Provider Architecture for `gmd web`
 
-**Status: Design**
+**Status: Proposal** — 2025-06-05
 
 GMD is expanding from a single EXA-backed web search tool into a multi-provider
 system spanning search/discovery and browser automation. Providers do not share
@@ -136,7 +136,7 @@ pkg/web/local/
 ### Category 2: Browser Automation (cloud)
 
 | Provider | Crawl | Scrape | JS Render | Structured Data | CDP | Stealth | Self-Host | API / SDK Docs |
-|---|---|---|---|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|---|---|
 | **Cloudflare Browser Run** | yes | yes | yes | yes /json | yes | no (docs say no) | no | [REST API](https://developers.cloudflare.com/browser-rendering/) |
 | **Browserbase** | yes | yes | yes | yes Stagehand | yes | yes | no | [API docs](https://docs.browserbase.com/), [Go SDK](https://pkg.go.dev/github.com/browserbase/browserbase-go) |
 | **Browserless** | yes | yes | yes | no | yes WebSocket | yes stealth flag | yes Docker | [REST API](https://docs.browserless.io/) |
@@ -146,6 +146,10 @@ pkg/web/local/
 | **Hyperbrowser** | yes | yes | yes | yes | yes | yes | no | [API docs](https://docs.hyperbrowser.ai/) |
 
 ### Category 3: LLM-Centric Agent Frameworks (not raw browser APIs)
+
+These tools sit on top of browser providers (CDP / Playwright) and add
+AI-driven page understanding and control. They map to the `AIBrowser`
+interface (see Interface Design below).
 
 | Tool | Description | Relation |
 |---|---|---|
@@ -188,7 +192,8 @@ pkg/web/local/
 │  └────────────────────┘              │                       │
 │                                      │                       │
 │                            ┌─────────▼────────┐              │
-│                            │ AI AGENT TOOLS    │              │
+│                            │ AI BROWSER TOOLS  │              │
+│                            │ (AIBrowser)       │              │
 │                            │ Stagehand         │              │
 │                            │ Browser Use       │              │
 │                            │ Playwright MCP    │              │
@@ -198,7 +203,8 @@ pkg/web/local/
 ```
 - **Search providers** do not do browser rendering. They index the web and retrieve pre-computed content.
 - **Browser providers** do real-time rendering. Some overlap on fetch/crawl, but implementations differ.
-- **Agent tools** (Stagehand, MCP) are abstractions on top of browser providers.
+- **AI browser tools** (Stagehand, MCP) are AI-driven abstractions on top of browser providers, modeled as
+  the `AIBrowser` interface (Category 3).
 - No single provider covers all three circles.
 
 ## Interface Design
@@ -217,11 +223,16 @@ interface would require all providers to implement all methods.
 
 ### LocalProvider (Category 0)
 
+`LocalProvider` implements **both** `SearchProvider` and `BrowserProvider`:
+
+- `SearchProvider.Fetch` is served by static HTTP fetch + HTML→MD conversion
+  (always available).
+- `BrowserProvider` methods (Crawl, Scrape, FetchContent, NewSession) are served
+  by Rod when Chromium is available. When Chromium is absent, `Capabilities()`
+  reports `LocalBrowser: false` and callers can check before dispatching.
+
 ```go
 type LocalProvider struct {
-    // Embed BrowserProvider — backed by go-rod/rod when Chromium is available
-    BrowserProvider
-
     // rodClient is the go-rod browser controller (nil if Chromium not found)
     rodClient *rodBrowser
 
@@ -234,20 +245,12 @@ type LocalProvider struct {
 type rodBrowser struct {
     browser *rod.Browser
 }
-
-// Static fetch + HTML→markdown (no browser needed)
-func (p *LocalProvider) FetchStatic(ctx context.Context, url string) (*SearchResult, error)
-func (p *LocalProvider) HTMLToMarkdown(ctx context.Context, html string) (string, error)
 ```
-
-This provider uses **`go-rod/rod`** for browser operations (if the user has
-Chromium installed) and **`JohannesKaufmann/html-to-markdown/v2`** for
-HTML→markdown conversion.
 
 | Runtime State | Rod Available? | Capabilities |
 |---|---|---|
-| User has Chromium installed; path configured | yes | Full browser: crawl, scrape, JS eval |
-| No Chromium installed | no | Static fetch + HTML→MD only |
+| User has Chromium installed; path configured | yes | Full browser: crawl, scrape, JS eval, plus static fetch + HTML→MD |
+| No Chromium installed | no | Static fetch + HTML→MD only (`SearchProvider.Fetch`) |
 | `GMD_NO_BROWSER=1` or `--no-browser` flag | no (disabled) | Static fetch + HTML→MD only |
 
 Rod's `launcher.NewBrowser()` can auto-download Chromium (~170MB). This
@@ -298,30 +301,85 @@ type BrowserSession interface {
 
     Close(ctx context.Context) error
 }
+```
 
-type BrowserCapabilities struct {
-    Crawl         bool
-    Scrape        bool
-    CDPEndpoint   bool
-    Playwright    bool
-    Puppeteer     bool
-    Stagehand     bool
-    MCPServer     bool
-    SessionRecord bool
-    LiveView      bool
-    Stealth       bool
-    SelfHost      bool
-    // Local execution flags
-    LocalBrowser   bool  // headless browser available on this machine
-    LocalHTML      bool  // can do static HTML→MD via html-to-markdown/v2
-    LocalCrawl     bool  // can do respectful local crawling (robots.txt, rate limits)
+**Supporting types:**
+
+```go
+// CrawlOptions configures a crawl job.
+type CrawlOptions struct {
+    MaxDepth       int           // maximum link depth from start URL (default: 3)
+    MaxPages       int           // maximum total pages to crawl (default: 50)
+    SameDomain     bool          // stay within same domain (default: true)
+    IncludePattern string        // URL path glob to include
+    ExcludePattern string        // URL path glob to exclude
+    Stealth        bool          // use stealth / evasion techniques
+    Timeout        time.Duration // per-page timeout
+}
+
+// SessionOptions configures a browser session.
+type SessionOptions struct {
+    Timeout  time.Duration // session idle timeout
+    Stealth  bool          // use stealth / evasion techniques
+    Proxy    string        // proxy URL for the session
+    Record   bool          // record session for replay
+    LiveView bool          // enable live view URL
+}
+
+// Element represents a scraped DOM element.
+type Element struct {
+    Tag   string            // e.g. "div", "a", "span"
+    Text  string            // visible text content
+    HTML  string            // inner HTML
+    Attrs map[string]string // element attributes
+}
+
+// Page represents a crawled or rendered page.
+type Page struct {
+    URL     string   // final URL after redirects
+    Title   string   // page title
+    Content string   // rendered HTML or markdown (provider-dependent)
+    Status  int      // HTTP status code
+    Depth   int      // crawl depth from root
+    Links   []string // outbound links discovered on the page
+    Error   string   // non-empty if page failed
 }
 ```
 
-### AgentProvider (Category 3)
+**BrowserCapabilities:**
 
 ```go
-type AgentProvider interface {
+// BrowserCapabilities describes what a browser provider can do.
+// Stable fields are defined as booleans. Optional or provider-specific
+// features (third-party frameworks, experimental capabilities) go in
+// the Features set to avoid constantly expanding the struct.
+type BrowserCapabilities struct {
+    Crawl         bool // supports Crawl()
+    Scrape        bool // supports Scrape()
+    CDPEndpoint   bool // supports CDP WebSocket sessions
+    SessionRecord bool // supports session recording
+    LiveView      bool // supports live view
+    Stealth       bool // supports stealth / evasion
+    SelfHost      bool // can be self-hosted
+    LocalBrowser  bool // headless browser available on this machine
+    LocalHTML     bool // can do static HTML→MD via html-to-markdown/v2
+    LocalCrawl    bool // can do respectful local crawling (robots.txt, rate limits)
+
+    // Optional features provided by the provider.
+    // Examples: "playwright", "puppeteer", "stagehand", "mcp-server"
+    Features []string
+}
+```
+
+### AIBrowser (Category 3)
+
+AI-native browser control tools (Stagehand, Browser Use, Playwright MCP).
+Implements the `AIBrowser` interface, distinct from the existing `Agent` struct
+in `pkg/web/agent.go` (which is a research agent composing Search + LLM, not a
+browser controller).
+
+```go
+type AIBrowser interface {
     // Provider returns the underlying browser provider for raw access
     Provider() BrowserProvider
 
@@ -349,6 +407,65 @@ With a single interface:
 Commands declare which interface they need, and config selects both a
 provider **and a capability mode** (e.g., `--provider cloudflare --action crawl`).
 
+## Provider Registry
+
+Provider names map to constructors via a registry. Each provider package
+registers itself at init time, keeping the mapping alongside the
+implementation and avoiding a central switch statement.
+
+```go
+// pkg/web/registry.go
+
+var Registry = &ProviderRegistry{
+    search:    map[string]func(ProviderConfig) (SearchProvider, error){},
+    browser:   map[string]func(ProviderConfig) (BrowserProvider, error){},
+    aibrowser: map[string]func(ProviderConfig) (AIBrowser, error){},
+}
+
+func (r *ProviderRegistry) RegisterSearch(name string, ctor func(ProviderConfig) (SearchProvider, error))
+func (r *ProviderRegistry) RegisterBrowser(name string, ctor func(ProviderConfig) (BrowserProvider, error))
+func (r *ProviderRegistry) RegisterAIBrowser(name string, ctor func(ProviderConfig) (AIBrowser, error))
+func (r *ProviderRegistry) Resolve(role, name string, cfg ProviderConfig) (any, error)
+func (r *ProviderRegistry) ValidateName(role, name string) error
+```
+
+Each provider package calls the appropriate `RegisterX` in its `init()`:
+
+```go
+// pkg/web/exa/registry.go
+func init() {
+    web.Registry.RegisterSearch("exa", newEXASearchProvider)
+}
+
+// pkg/web/local/registry.go
+func init() {
+    web.Registry.RegisterSearch("local", newLocalSearchProvider)
+    web.Registry.RegisterBrowser("local", newLocalBrowserProvider)
+}
+
+// pkg/web/cloudflare/registry.go
+func init() {
+    web.Registry.RegisterBrowser("cloudflare", newCloudflareBrowserProvider)
+    web.Registry.RegisterAIBrowser("cloudflare", newCloudflareAIBrowserProvider)
+}
+```
+
+**Supported provider names per role:**
+
+| Role | Valid Names |
+|---|---|
+| `search` | `exa`, `tavily`, `searxng` |
+| `browser` | `local`, `cloudflare`, `browserbase`, `browserless`, `steel` |
+| `aibrowser` | `cloudflare`, `browserbase` |
+
+A provider can register for multiple roles. For example, `local` registers
+as a search provider (static fetch) and a browser provider (Rod); `cloudflare`
+registers as both browser and aibrowser.
+
+`Resolve` returns typed `error` values — `ErrProviderNotFound`,
+`ErrProviderNotRegistered` — so callers can distinguish configuration errors
+from runtime failures.
+
 ## Config Evolution
 
 Current (`pkg/config/schema/types.cue`):
@@ -368,24 +485,24 @@ WebConfig: {
     //   provider: "local"
     //   provider: "cloudflare"
     //   providers: {
-    //     search:  "exa"
-    //     browser: "local"          // local browser
-    //     agent:   "cloudflare"
+    //     search:   "exa"
+    //     browser:  "local"          // local browser
+    //     aibrowser:"cloudflare"
     //   }
     provider?:  string | *"exa"
     providers?: WebProviderRoles
 
-    local?:      LocalConfig
-    exa?:        EXAConfig
-    cloudflare?: CloudflareConfig
+    local?:       LocalConfig
+    exa?:         EXAConfig
+    cloudflare?:  CloudflareConfig
     browserbase?: BrowserbaseConfig
     browserless?: BrowserlessConfig
 }
 
 WebProviderRoles: {
-    search?:  string // which provider handles SearchProvider
-    browser?: string // which provider handles BrowserProvider
-    agent?:   string // which provider handles AgentProvider
+    search?:    string // which provider handles SearchProvider
+    browser?:   string // which provider handles BrowserProvider
+    aibrowser?: string // which provider handles AIBrowser
 }
 
 LocalConfig: {
@@ -414,16 +531,40 @@ BrowserbaseConfig: {
 }
 ```
 
+The Go-side `WebConfig` struct mirrors this with one struct per provider:
+
+```go
+type WebConfig struct {
+    Provider    string              `json:"provider"`
+    Providers   *WebProviderRoles   `json:"providers,omitempty"`
+    Local       LocalConfig         `json:"local,omitempty"`
+    EXA         EXAConfig           `json:"exa,omitempty"`
+    Cloudflare  CloudflareConfig    `json:"cloudflare,omitempty"`
+    Browserbase BrowserbaseConfig   `json:"browserbase,omitempty"`
+}
+
+type WebProviderRoles struct {
+    Search    string `json:"search"`
+    Browser   string `json:"browser"`
+    AIBrowser string `json:"aibrowser"`
+}
+```
+
+API keys are loaded from environment variables (e.g., `CLOUDFLARE_API_KEY`,
+`BROWSERBASE_API_KEY`) in the config loading path, matching the existing
+pattern for `EXA_API_KEY`.
+
 ## CLI Command Mapping
 
 The `gmd web` subcommands focus on four workflows:
 
-| `gmd web` Subcommand | Interface Needed | Local | EXA | Cloudflare | Browserbase |
-|---|---|---|---|---|---|
-| `gmd web fetch` | `SearchProvider` + `BrowserProvider` | yes static/rod | yes cached | yes /content | yes |
-| `gmd web crawl` | `BrowserProvider` | yes rod | no | yes /crawl | yes |
-| `gmd web agent` | `BrowserProvider.Session` + LLM | yes rod CDP | no | yes CDP | yes |
-| `gmd web research` | `SearchProvider` + LLM | no | yes | planned | planned |
+| `gmd web` Subcommand | Interface Needed | Local | EXA | Cloudflare | Browserbase | Status |
+|---|---|---|---|---|---|---|
+| `gmd web search` | `SearchProvider` | no | yes | no | no | **existing** |
+| `gmd web fetch` | `SearchProvider` + `BrowserProvider` | yes static/rod | yes cached | yes /content | yes | **existing** (EXA only) |
+| `gmd web agent` | `SearchProvider` + LLM | no | yes | no | no | **existing** |
+| `gmd web crawl` | `BrowserProvider` | yes rod | no | yes /crawl | yes | **new** |
+| `gmd web research` | `SearchProvider` + LLM | no | yes | planned | planned | **new** |
 
 - **Local** = execution on the user's machine (requires
   user-installed Chromium for browser ops).
@@ -437,13 +578,16 @@ The `gmd web` subcommands focus on four workflows:
 
 ### Phase W7: Interface Refinement (this sprint)
 
-- [ ] Split `Provider` into `SearchProvider` / `BrowserProvider` / `AgentProvider`
+- [ ] Split `Provider` into `SearchProvider` / `BrowserProvider` / `AIBrowser`
 - [ ] Define `BrowserCapabilities` struct for runtime introspection
 - [ ] Define `CrawlOptions`, `SessionOptions`, `Element`, `Page` types
-- [ ] Update existing `exa` package to implement `SearchProvider`
+- [ ] Implement provider registry (`pkg/web/registry.go`)
+- [ ] Update existing `exa` package to implement `SearchProvider` (with adapter)
+- [ ] Refactor `pkg/web/agent.go` to use `SearchProvider` instead of `*exa.Client` directly
 - [ ] Update CLI commands to use the new interfaces (not hardcoded `*exa.Client`)
 - [ ] Add `Capabilities()` check before dispatching to a browser provider
-- [ ] Update CUE schema with `WebProviderRoles`
+- [ ] Update CUE schema with `WebProviderRoles`; add Go-side `WebProviderRoles` struct
+- [ ] Add compile-time interface satisfaction checks per provider
 
 ### Phase W8: Local Provider (basic)
 
@@ -468,6 +612,7 @@ pkg/web/local/
 ├── fetch.go          # Static HTTP fetch via net/http
 ├── markdown.go       # HTML→MD conversion via html-to-markdown/v2
 ├── crawl.go          # Crawling (robots.txt, rate limits, queue)
+├── registry.go       # init() — registers "local" for search + browser roles
 ├── browser.go        # Chromium path detection + Rod wrapper (future)
 └── client_test.go    # Tests (unit + integration-tagged)
 ```
@@ -485,6 +630,7 @@ pkg/web/local/
   - Max depth, same-domain constraint
   - Cycle detection via URL canonicalization
   - Sitemap discovery for seed URLs
+- [ ] Create `pkg/web/local/registry.go` — register "local" for search + browser roles
 - [ ] Write tests: unit tests for fetch/markdown, integration-tagged tests for crawl
 
 #### Rod Exploration (future phase, not W8 deliverable)
@@ -530,16 +676,18 @@ func newConverter() *converter.Converter {
 ### Phase W9: Cloudflare Browser Run Provider
 
 - [ ] Create `pkg/web/cloudflare/client.go` — thin HTTP wrapper over Quick Actions REST API
+- [ ] Create `pkg/web/cloudflare/registry.go` — register "cloudflare" for browser + aibrowser roles
 - [ ] Implement `BrowserProvider` (FetchContent, Crawl, Scrape)
 - [ ] Implement `SearchProvider.Fetch` via /content and /markdown endpoints
-- [ ] Implement `AgentProvider.ExtractJSON` via /json endpoint
+- [ ] Implement `AIBrowser.ExtractJSON` via /json endpoint
 - [ ] Support CDP session creation for agent workflows
-- [ ] Add `gmd web fetch`, `gmd web crawl`, `gmd web agent` commands
+- [ ] Add `gmd web crawl` command
 - [ ] Add `gmd web research` (search + LLM, EXA-backed initially)
 
 ### Phase W10: Browserbase Provider
 
 - [ ] Create `pkg/web/browserbase/client.go` — wrapper over Browserbase API / Go SDK
+- [ ] Create `pkg/web/browserbase/registry.go` — register "browserbase"
 - [ ] Implement `BrowserProvider` using Browserbase's CDP/Playwright/Stagehand endpoints
 - [ ] Use Stagehand for AI-native extract / act capabilities
 - [ ] MCP server integration
@@ -548,10 +696,10 @@ func newConverter() *converter.Converter {
 
 Explore and implement based on user demand and feature coverage:
 
-- **Browserless** (`pkg/web/browserless/client.go`) — self-host option, Docker image available
-- **Steel.dev** (`pkg/web/steel/client.go`) — self-host option, credit-based pricing
-- **Tavily** (`pkg/web/tavily/client.go`) — additional search provider
-- **SearXNG** (`pkg/web/searxng/client.go`) — self-hosted search
+- **Browserless** (`pkg/web/browserless/`) — self-host option, Docker image available
+- **Steel.dev** (`pkg/web/steel/`) — self-host option, credit-based pricing
+- **Tavily** (`pkg/web/tavily/`) — additional search provider
+- **SearXNG** (`pkg/web/searxng/`) — self-hosted search
 
 ### Phase W12: Research Agent
 
@@ -565,7 +713,7 @@ Explore and implement based on user demand and feature coverage:
 The user controls provider selection via two mechanisms:
 
 1. **`--provider <name>` flag** — per-command override
-2. **Config `providers` roles** — defaults for search, browser, agent
+2. **Config `providers` roles** — defaults for search, browser, aibrowser
 
 ```
 gmd web <command> [--provider <name>]
@@ -604,6 +752,42 @@ rather than switching to a different provider.
 Supported provider names: `exa`, `tavily`, `searxng`, `cloudflare`, `browserbase`,
 `browserless`, `steel`, `local`.
 
+## Testing Strategy
+
+### Unit Tests (`make test` — no external deps)
+
+- **Cloud providers**: `httptest.Server` mocks replaying recorded API responses
+  per endpoint. Each provider package ships response fixtures.
+- **Registry**: Test registration, resolution, missing-provider errors, and
+  duplicate-registration detection.
+- **Config → provider mapping**: Verify that CUE config provider names route
+  to correct constructors.
+- **Local HTML→MD**: Convert known HTML fixtures to markdown, verify output.
+
+### Integration Tests (`//go:build integration`, `make test.integration`)
+
+- **EXA**: Live smoke test (search + fetch), skipped if `EXA_API_KEY` unset.
+- **Local crawl**: Crawl a local HTTP test server serving controlled pages with
+  robots.txt and rate-limit behavior.
+- **Remote providers** (Cloudflare, Browserbase): Opt-in via env vars. Skipped
+  if API keys are absent.
+
+### Contract Tests (compile-time)
+
+```go
+var _ SearchProvider  = (*exa.SearchClient)(nil)
+var _ BrowserProvider = (*local.LocalProvider)(nil)
+var _ AIBrowser       = (*cloudflare.AIBrowserClient)(nil)
+```
+
+### Test Fixtures
+
+```
+pkg/web/testdata/           # shared HTML fixtures
+pkg/web/exa/testdata/       # EXA API response recordings
+pkg/web/local/testdata/     # local crawl test server pages
+pkg/web/cloudflare/testdata/# Cloudflare API response recordings
+```
 
 ## Design Decisions
 
@@ -620,8 +804,8 @@ Supported provider names: `exa`, `tavily`, `searxng`, `cloudflare`, `browserbase
    supports this; a single `provider` string keeps BC.
 
 4. **User controls provider selection.** No automatic fallback. The user sets
-   `providers.browser` / `providers.search` in config or passes `--provider`
-   per command. Missing or unavailable providers produce errors.
+   `providers.browser` / `providers.search` / `providers.aibrowser` in config or
+   passes `--provider` per command. Missing or unavailable providers produce errors.
 
 5. **No SDK deps.** Browser providers are wrapped with `net/http`.
    Cloudflare, Browserbase, and Browserless all have REST APIs or CDP WebSocket
@@ -649,6 +833,11 @@ Supported provider names: `exa`, `tavily`, `searxng`, `cloudflare`, `browserbase
     per-domain rate limits, and configurable delays between requests. Cloud
     providers handle this on their end; the interface is provider-agnostic.
 
+11. **Provider registry with init-time registration.** Each provider package
+    registers itself via `init()`, keeping the name→constructor mapping
+    alongside the implementation. Central registry validates names and resolves
+    constructors by role.
+
 ## Open Questions
 
 - **Browser provider vs search provider for `gmd web fetch`?**
@@ -661,7 +850,7 @@ Supported provider names: `exa`, `tavily`, `searxng`, `cloudflare`, `browserbase
 
 - **What about providers that support both categories?**
   (e.g., Scrapfly has search-like crawling AND browser rendering)
-  They implement multiple interfaces.
+  They implement multiple interfaces. The registry supports multiple roles per name.
 
 - **Is Rod suitable for a CLI tool?**
   Concerns: ~170MB download on first use, version-pinned Chromium drifting over
@@ -680,7 +869,9 @@ Supported provider names: `exa`, `tavily`, `searxng`, `cloudflare`, `browserbase
 
 - **What granularity for `BrowserCapabilities`?**
   Coarse granularity limits error specificity. Fine granularity increases config
-  surface. Start with the fields defined above and add as needed.
+  surface. Stable features are booleans; optional/provider-specific features use
+  the `Features []string` set. Add new stable fields only when a capability is
+  needed by command dispatch logic across multiple providers.
 
 - **Does `gmd web research` need its own provider interface or is it composition**
   **of SearchProvider + BrowserProvider + LLM?**

@@ -31,8 +31,8 @@ var (
 
 var webSearchCmd = &cobra.Command{
 	Use:   "search <query>",
-	Short: "Search the web via EXA neural search",
-	Long: `Neural web search using the EXA search API.
+	Short: "Traditional web search via EXA",
+	Long: `Traditional web search using the EXA search API.
 
 EXA indexes and embeds the entire web. Searches are semantic and rank results
 by relevance rather than keyword matching.

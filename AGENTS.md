@@ -43,7 +43,12 @@ gmd context list
 gmd context rm <source>
 gmd doctor                             # Diagnostics (collections + wikis)
 gmd cleanup                            # Remove stale chunks for deleted files
-gmd serve [--port] [--host]            # REST API server (stub, Phase 5)
+gmd web search <query>                  # Tier 1: Web search (no LLM)
+gmd web fetch <url> [url2 ...]           # Tier 1: Fetch clean content from URLs
+gmd web crawl <url> [--depth] [--max-pages] # Tier 1: Crawl from seed URL (stub)
+gmd web agent <query> [--steps] [--save] # Tier 2: LLM-orchestrated research agent
+gmd web research <query> [--depth]       # Tier 3: Deep structured research (stub)
+gmd serve [--port] [--host]              # REST API server (stub, Phase 5)
 gmd mcp [--http]                       # MCP server (stub, Phase 6)
 gmd agentsmd [oneline|summary|detailed|full]  # Output AGENTS.md content for users
 gmd wiki create <name> [--path] [--wiki-dir] [--raw-dir] [--skills]
@@ -82,6 +87,8 @@ pkg/output/       Result formatting (CLI, JSON)
 pkg/runtime/      Runtime struct — owns Typesense client lifecycle
 pkg/agentsmd/     Embedded AGENTS.md content (oneline/summary/detailed/full)
 pkg/wiki/         LLM Wiki: scaffold, built-in agent, graph, lint, skills
+pkg/web/          Web providers: shared interfaces, registry, agent, prompts
+pkg/web/providers/ Provider implementations: exa, cloudflare, local, tavily, searxng
 pkg/mcp/          MCP server tools (wiki-aware tools)
 models/           vLLM serve scripts + systemd units for 3 LLM models
 k8s/              Typesense Kubernetes manifest

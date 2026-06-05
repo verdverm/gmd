@@ -45,6 +45,22 @@ gmd wiki query "<q>"          # RAG search → LLM synthesis with [[page]] citat
 - Use `gmd ls` to see what documents are currently indexed.
 - If `gmd query` returns no results, check `gmd status` to verify the index is populated.
 
+## Web Search
+
+GMD can search the live web via multiple providers (EXA, Cloudflare, Tavily, SearXNG):
+
+```sh
+gmd web search "<query>"       # Traditional web search (no LLM)
+gmd web fetch <url>            # Clean content extraction from URLs
+gmd web crawl <url>            # Discover + fetch linked pages (stub)
+gmd web agent "<question>"     # Multi-step LLM-orchestrated research
+gmd web research "<topic>"     # Deep structured research pipeline (stub)
+```
+
+Commands fall on a three-tier spectrum: deterministic (search/fetch/crawl) → conversational agent → deep research. Each tier builds on the prior.
+
+Requires `EXA_API_KEY` (or other provider credentials). See `gmd web --help` for flags.
+
 ## LLM Wiki
 
 GMD includes a built-in agent for Karpathy-style compounding knowledge bases:

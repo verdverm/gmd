@@ -224,6 +224,25 @@ Search flags:
 | `gmd doctor` | Run system diagnostics |
 | `gmd agentsmd [oneline|summary|detailed|full]` | Output AGENTS.md content for AI coding assistants |
 
+### Web Search
+
+Three-tier command spectrum for searching the live web:
+
+| Tier | Command | Description |
+|---|---|---|
+| 1 | `gmd web search <query>` | Traditional web search (no LLM) |
+| 1 | `gmd web fetch <url> [url2 ...]` | Clean content extraction from URLs |
+| 1 | `gmd web crawl <url>` | Discover + fetch linked pages (stub) |
+| 2 | `gmd web agent <query>` | Multi-step LLM-orchestrated research agent |
+| 3 | `gmd web research <query>` | Deep structured research pipeline (stub) |
+
+Tier 1 commands are deterministic API calls. Tier 2 adds LLM-driven iteration.
+Tier 3 builds on Tier 2 with structured phases (decompose, cross-reference, validate).
+Each tier builds on the prior.
+
+Currently backed by EXA. Multi-provider support (Cloudflare, Tavily, SearXNG, Local)
+is in progress. Requires `EXA_API_KEY` environment variable.
+
 ### LLM Wiki
 
 | Command | Description |
@@ -325,6 +344,8 @@ pkg/output/       Result formatting (CLI, JSON)
 pkg/runtime/      Runtime struct — owns Typesense client lifecycle
 pkg/wiki/         LLM Wiki: scaffold, built-in agent, graph, lint, skills
 pkg/mcp/          MCP server tools (wiki-aware tools)
+pkg/web/          Web providers: shared interfaces, registry, agent, prompts
+pkg/web/providers/ Provider implementations: exa, cloudflare, local, tavily, searxng
 models/           vLLM serve scripts + systemd units for 3 LLM models
 k8s/              Typesense Kubernetes manifest
 docs/             Configuration reference

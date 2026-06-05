@@ -11,18 +11,23 @@ import (
 
 var webCmd = &cobra.Command{
 	Use:   "web",
-	Short: "Web search and content retrieval via EXA",
-	Long: `Web commands for searching and fetching web content using the EXA neural search API.
+	Short: "Web search, fetch, crawl, agent, and research",
+	Long: `Web commands for searching and retrieving web content via multiple providers.
 
-EXA indexes and embeds the entire web, enabling semantic search (not just
-keyword matching) and clean content extraction from any URL.
+Three-tier command spectrum (each builds on the prior):
+  Tier 1 — Deterministic: search, fetch, crawl (no LLM, direct provider calls)
+  Tier 2 — Agent:         agent (conversational, multi-step, LLM-orchestrated)
+  Tier 3 — Research:      research (structured deep pipeline, formal reports)
 
 Workflows:
   1. Search:   gmd web search "your query"
   2. Fetch:    gmd web fetch https://example.com
-  3. Agent:    gmd web agent "your research question" --steps 5
+  3. Crawl:    gmd web crawl https://example.com/docs --depth 2
+  4. Agent:    gmd web agent "your research question" --steps 5
+  5. Research: gmd web research "comprehensive topic analysis" --depth deep
 
-Requires EXA_API_KEY environment variable to be set.`,
+Currently backed by EXA. Multi-provider support (Cloudflare, Tavily, SearXNG,
+Local) is in progress — see .design/web-providers.md.`,
 }
 
 func slugify(s string) string {
@@ -57,6 +62,8 @@ func boolPtr(b bool) *bool {
 func init() {
 	webCmd.AddCommand(webFetchCmd)
 	webCmd.AddCommand(webSearchCmd)
+	webCmd.AddCommand(webCrawlCmd)
 	webCmd.AddCommand(webAgentCmd)
+	webCmd.AddCommand(webResearchCmd)
 	rootCmd.AddCommand(webCmd)
 }

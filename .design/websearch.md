@@ -1,6 +1,15 @@
 # 15. Web Search & Research (EXA Integration)
 
-**Status: Design**
+**Status: Design** — Provider architecture generalized in `.design/web-providers.md`.
+
+> This document describes the original EXA-only web search design. The provider
+> layer has since been generalized to a multi-provider architecture (EXA,
+> Cloudflare, Tavily, SearXNG, Local) using `SearchProvider` and
+> `BrowserProvider` interfaces. The agent/research command spectrum described
+> below (deterministic tools → conversational agent → deep research) remains
+> the architecture's north star. Provider specifics have moved to
+> `.design/web-providers.md`. The EXA client code in `pkg/web/providers/exa/` is the
+> reference implementation for the new provider interfaces.
 
 GMD adds four web commands backed by [EXA](https://exa.ai) — a neural web search
 API that indexes and embeds the entire web. These commands sit alongside the local
@@ -18,7 +27,7 @@ infrastructure and optionally feeding into wiki for persistent knowledge.
                     └─────┬─────┴────┬─────┴─────┬─────┘
                           │          │           │
                     ┌─────▼──────────▼───────────▼──────┐
-                    │         pkg/web/exa/client.go         │
+                    │         pkg/web/providers/exa/client.go         │
                     │  Thin HTTP wrapper over EXA API   │
                     │  Search / Contents / FindSimilar  │
                     └────────────────┬──────────────────┘
@@ -32,7 +41,7 @@ infrastructure and optionally feeding into wiki for persistent knowledge.
 
 | Layer | Owned By | What It Does |
 |---|---|---|
-| `pkg/web/exa/client.go` | GMD | Thin `net/http` wrapper around EXA REST API. No SDK dependency — the community Go SDK is outdated. |
+| `pkg/web/providers/exa/client.go` | GMD | Thin `net/http` wrapper around EXA REST API. No SDK dependency — the community Go SDK is outdated. |
 | `cmd/gmd/web_fetch.go` | GMD | Fetch clean markdown/text for one or more URLs |
 | `cmd/gmd/web_search.go` | GMD | Neural web search with type/length/domain filtering |
 | `pkg/web/agent.go` | GMD | Agent loop: LLM decides next searches, reads results, synthesizes |
@@ -63,14 +72,14 @@ The web commands are **not dependent on wiki** and wiki is **not dependent on
 web**. They share only the LLM client (`pkg/llm`) and config infrastructure.
 The integration points are opt-in flags (`--wiki`, `--save`).
 
-## 15b. EXA API Client (`pkg/web/exa/`)
+## 15b. EXA API Client (`pkg/web/providers/exa/`)
 
 We do **not** use the community Go SDK (`github.com/amalucelli/exa-go`). It
 lags behind the current Exa API (missing `deep`, `deep-lite`, `deep-reasoning`,
 `outputSchema`, `systemPrompt`, `stream`). Instead we write a thin `net/http`
 wrapper that maps directly to the REST API.
 
-### `pkg/web/exa/client.go`
+### `pkg/web/providers/exa/client.go`
 
 ```go
 package exa
@@ -101,7 +110,7 @@ func (c *Client) FindSimilar(ctx context.Context, req FindSimilarRequest) (*Find
 func (c *Client) Answer(ctx context.Context, req AnswerRequest) (*AnswerResponse, error)
 ```
 
-### `pkg/web/exa/types.go`
+### `pkg/web/providers/exa/types.go`
 
 All types mirror the EXA REST API JSON structure directly — no abstractions, no
 transformations:
@@ -703,11 +712,11 @@ the clean markdown extraction needed to implement this.
 
 ## 15g. Implementation Phases
 
-### Phase W1: EXA Client (`pkg/web/exa/`)
+### Phase W1: EXA Client (`pkg/web/providers/exa/`)
 
 **Files:**
 ```
-pkg/web/exa/
+pkg/web/providers/exa/
 ├── client.go      # HTTP client, New(), Search(), GetContents(), FindSimilar(), Answer()
 ├── types.go       # All request/response structs
 └── exa_test.go    # Tests with mock HTTP server
@@ -794,7 +803,7 @@ cmd/gmd/web_research.go # CLI command
 ```
 .design/websearch.md              # This document
 
-pkg/web/exa/
+pkg/web/providers/exa/
 ├── client.go                     # HTTP client: Search, GetContents, FindSimilar, Answer
 ├── types.go                      # Request/response structs
 └── exa_test.go                   # Tests with httptest.Server
@@ -874,7 +883,7 @@ search types.
 
 | Priority | Task | Depends On |
 |---|---|---|
-| 1 | `pkg/web/exa/` client + types | Nothing (stdlib only) |
+| 1 | `pkg/web/providers/exa/` client + types | Nothing (stdlib only) |
 | 2 | `gmd web fetch` + `gmd web search` | EXA client |
 | 3 | EXA config (CUE schema + Go struct) | Nothing (can do in parallel with #1) |
 | 4 | `pkg/web/agent.go` (agent loop) | EXA client + LLM client |

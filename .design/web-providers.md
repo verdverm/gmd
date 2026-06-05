@@ -83,6 +83,17 @@ roles.
     keyed by URL + fetch time) can optionally sit between the caller and
     provider for offline/repeat access. Caching strategy is detailed below.
 
+11. **Two-layer provider architecture.** Provider packages own their native
+    types and API wrappers, staying close to each provider's API/SDK
+    (Layer i — e.g. `pkg/web/providers/exa/`, `pkg/web/providers/cloudflare/`). Shared interfaces
+    (`SearchProvider`, `BrowserProvider`) use `Extra map[string]any` on
+    config, options, and result types to pass provider-specific data through
+    a minimal, uniform surface (Layer ii — `pkg/web/provider.go`). CLI
+    commands call only Layer ii. Provider-specific formatting and
+    display logic lives in the provider packages. This keeps interfaces
+    small while giving callers that know their provider full access to
+    provider-specific features through `Extra`.
+
 ## Provider Landscape
 
 ### Category 0: Local Execution (no cloud)
@@ -152,7 +163,7 @@ Behaviors to enforce for local crawling:
 
 No single Go library covers all crawling behaviors cover-to-cover. Use
 `temoto/robotstxt` for robots.txt parsing and implement per-domain rate
-limiting, queue management, and sitemap discovery in `pkg/web/local/` directly.
+limiting, queue management, and sitemap discovery in `pkg/web/providers/local/` directly.
 
 #### Local Execution Matrix
 
@@ -168,7 +179,7 @@ Rod evaluation and local browser sessions are covered in
 #### Package Structure
 
 ```
-pkg/web/local/
+pkg/web/providers/local/
 ├── client.go         # LocalProvider struct, constructor, Capabilities()
 ├── fetch.go          # Static HTTP fetch via net/http
 ├── markdown.go       # HTML→MD conversion via html-to-markdown/v2
@@ -321,7 +332,8 @@ type SearchResult struct {
     URL     string
     Content string
     Score   float64
-    Extra   map[string]any // provider-specific fields (Author, PublishedDate, Highlights, etc.)
+    Cost    *CostSummary     // provider-reported cost for this result/query
+    Extra   map[string]any   // provider-specific fields (Author, PublishedDate, Highlights, etc.)
 }
 
 type SearchOptions struct {
@@ -339,7 +351,7 @@ Implemented by: **EXA**, **Tavily**, **SearXNG**.
 
 ```go
 type BrowserProvider interface {
-    GetContent(ctx context.Context, url string, opts *GetContentOptions) (string, error)
+    GetContent(ctx context.Context, url string, opts *GetContentOptions) (*GetContentResult, error)
     Crawl(ctx context.Context, startURL string, opts *CrawlOptions) ([]Page, error)
     Scrape(ctx context.Context, url string, selector string) ([]Element, error)
     Capabilities() BrowserCapabilities
@@ -352,7 +364,7 @@ EXA via its `/contents` cached-page endpoint, Cloudflare via `/content` and
 support additional methods (Crawl, Scrape) advertise that in
 `Capabilities()`; commands check capabilities before calling those methods.
 
-**GetContentOptions:**
+**GetContentOptions and GetContentResult:**
 
 ```go
 type GetContentOptions struct {
@@ -360,6 +372,12 @@ type GetContentOptions struct {
     MaxChars   int           // max characters to return (0 = unlimited)
     MaxAge     time.Duration // prefer live fetch if cached content is older than this
     Extra      map[string]any
+}
+
+type GetContentResult struct {
+    Content string          // the rendered content (markdown/text/html)
+    Cost    *CostSummary    // provider-reported cost
+    Extra   map[string]any  // provider-specific response fields
 }
 ```
 
@@ -373,6 +391,7 @@ type CrawlOptions struct {
     IncludePattern string
     ExcludePattern string
     Timeout        time.Duration
+    Extra          map[string]any
 }
 
 type Page struct {
@@ -383,6 +402,7 @@ type Page struct {
     Depth   int
     Links   []string
     Error   string
+    Extra   map[string]any
 }
 
 type Element struct {
@@ -390,6 +410,7 @@ type Element struct {
     Text  string
     HTML  string
     Attrs map[string]string
+    Extra map[string]any
 }
 ```
 
@@ -492,13 +513,30 @@ with stdin/stdout streaming rather than a direct library call.
 
 ### Agent Refactoring
 
-The existing `pkg/web/agent.go` hardcodes `*exa.Client` and uses
-EXA-specific result fields (`Author`, `PublishedDate`, `Highlights`).
+The existing `pkg/web/agent.go` (Tier 2 — conversational agent) hardcodes
+`*exa.Client` and uses EXA-specific result fields (`Author`, `PublishedDate`,
+`Highlights`). This must be modernized to use the provider interfaces so the
+agent works with any `SearchProvider`, not just EXA. This refactoring is
+independent of research — it's about making the existing agent multi-provider.
+The research pipeline (Tier 3) will be built from scratch using the same
+provider interfaces.
+
+Under the two-layer architecture (Design Decision 11), the refactoring target is:
+
+- **Layer i (provider packages):** EXA-specific formatting moves to
+  `pkg/web/providers/exa/` (e.g. `formatResultForDisplay`, `printCost`). Each provider
+  owns its display logic.
+- **Layer ii (shared interface):** `agent.go` takes a `SearchProvider` and
+  accesses provider-specific data through `SearchResult.Extra` and
+  `SearchOptions.Extra`. The agent's core loop (search → analyze → synthesize)
+  uses only shared fields (`Title`, `URL`, `Content`, `Score`, `Cost`).
+  `Extra` is passed through for provider-specific features accessed by display
+  code (e.g. `Author`, `PublishedDate`, `Highlights`).
 
 | Approach | Description | When |
 |---|---|---|
 | **A: Stay EXA-specific** | Agent keeps `*exa.Client` directly. No interface abstraction. | Now — no other search providers exist yet |
-| **B: SearchProvider + Extra** | Agent takes `SearchProvider`; uses common `SearchResult` fields. Provider-specific extras accessed through `SearchResult.Extra["highlights"]` etc. and `SearchOptions.Extra` for params. | When a second search provider ships (Tavily / SearXNG) |
+| **B: SearchProvider + Extra** | Agent takes `SearchProvider`; uses common `SearchResult` fields. Provider-specific extras accessed through `SearchResult.Extra["highlights"]` etc. and `SearchOptions.Extra` for params. Display logic in provider packages. | When a second search provider ships (Tavily / SearXNG) |
 | **C: Provider-specific agents** | `NewEXAAgent`, `NewTavilyAgent` — each optimized for its provider. | If providers diverge too much for a single agent shape |
 
 **Recommendation:** Start with **A** (no change to agent.go in Phase 1). Move to **B**
@@ -510,13 +548,15 @@ when a second search provider lands. Fall back to **C** if needed.
 // pkg/web/errors.go
 
 var (
-    ErrNotSupported        = errors.New("gmd/web: operation not supported by provider")
-    ErrProviderNotFound    = errors.New("gmd/web: provider not found in registry")
-    ErrBrowserNotAvailable = errors.New("gmd/web: browser not available on this machine")
-    ErrAuthFailed          = errors.New("gmd/web: authentication failed")
-    ErrRateLimited         = errors.New("gmd/web: rate limited by provider")
-    ErrTimeout             = errors.New("gmd/web: request timed out")
-    ErrSSRFBlocked         = errors.New("gmd/web: request blocked — private/internal IP")
+	ErrNotSupported        = errors.New("gmd/web: operation not supported by provider")
+	ErrProviderNotFound    = errors.New("gmd/web: provider not found in registry")
+	ErrProviderNotConfigured = errors.New("gmd/web: provider referenced by group but not configured")
+	ErrBrowserNotAvailable = errors.New("gmd/web: browser not available on this machine")
+	ErrAuthMissing         = errors.New("gmd/web: required credentials not set — check env vars")
+	ErrAuthFailed          = errors.New("gmd/web: authentication failed")
+	ErrRateLimited         = errors.New("gmd/web: rate limited by provider")
+	ErrTimeout             = errors.New("gmd/web: request timed out")
+	ErrSSRFBlocked         = errors.New("gmd/web: request blocked — private/internal IP")
 )
 
 type ProviderError struct {
@@ -611,6 +651,20 @@ The CLI's `--max-age` flag on `gmd web fetch` maps to this field.
 Provider names map to constructors via a central, explicit map — no `init()`
 magic, no blank imports. Each provider package exports a constructor; the
 registry file imports those packages and wires them up directly.
+
+`ProviderConfig` carries the identity and extra configuration for a provider.
+It is the single struct passed to every constructor; `Extra` holds
+provider-specific fields (API keys, base URLs, account IDs, etc.) that the
+provider package knows how to interpret.
+
+```go
+// pkg/web/config.go
+
+type ProviderConfig struct {
+	Name  string         // provider name ("exa", "cloudflare", "local", etc.)
+	Extra map[string]any // provider-specific config populated from env vars and CUE
+}
+```
 
 ```go
 // pkg/web/registry.go
@@ -775,15 +829,35 @@ specify identity and credentials only. A generic HTTP proxy setting may be
 warranted later as a top-level config option for enterprise environments, but
 per-provider endpoint customization is premature.
 
+## Command Spectrum
+
+`gmd web` commands fall on a three-tier spectrum. Each tier builds on the
+previous — deterministic tools feed the agent, agent patterns inform the
+research pipeline.
+
+| Tier | Commands | LLM? | Description |
+|---|---|---|---|
+| **1. Deterministic** | `search`, `fetch`, `crawl`, `scrape` | No | Direct provider calls. Single API round-trip (search) or HTTP fetch/parse (fetch, crawl). Deterministic, fast, cheap. |
+| **2. Agent** | `agent` | Yes | Conversational, iterative research. LLM analyzes results and decides next searches. Multi-step but lightweight — 2-6 provider calls per run. Quick synthesis with sources. |
+| **3. Research** | `research` | Yes | Structured deep research. Multi-phase pipeline: decompose → explore → cross-reference → validate → fill → synthesize. 8-30+ provider calls. Formal reports with evidence maps, confidence ratings, and assumption validation. |
+
+`agent` and `research` are distinct commands serving different needs. `agent`
+is for quick, conversational exploration ("what are the latest developments in
+X?"). `research` is for thorough, structured investigation ("write a
+comprehensive report on the environmental impact of EV batteries"). Both are
+driven at the top level by a user conversation with the LLM; the difference is
+depth and structure. Both will use the provider interfaces once the
+multi-provider architecture lands (see Agent Refactoring below).
+
 ## CLI Command Mapping
 
-| `gmd web` Subcommand | Interface Needed | Local | EXA | Cloudflare | Status |
-|---|---|---|---|---|---|
-| `gmd web search` | `SearchProvider` | no | yes | no | existing |
-| `gmd web fetch` | `BrowserProvider.GetContent` | yes static | yes cached | yes /content | existing (EXA only) |
-| `gmd web agent` | `SearchProvider` + LLM | no | yes | no | existing |
-| `gmd web crawl` | `BrowserProvider.Crawl` | yes | no | yes | new |
-| `gmd web research` | `SearchProvider` + `BrowserProvider` + LLM | search: no, browser: yes | yes | planned | new |
+| `gmd web` Subcommand | Tier | Interface Needed | Local | EXA | Cloudflare | Status |
+|---|---|---|---|---|---|---|
+| `gmd web search` | 1 | `SearchProvider` | no | yes | no | existing |
+| `gmd web fetch` | 1 | `BrowserProvider.GetContent` | yes static | yes cached | yes /content | existing (EXA only) |
+| `gmd web crawl` | 1 | `BrowserProvider.Crawl` | yes | no | yes | new |
+| `gmd web agent` | 2 | `SearchProvider` + LLM | no | yes (hardcoded) | no | existing (will refactor) |
+| `gmd web research` | 3 | `SearchProvider` + `BrowserProvider` + LLM | search: no, browser: yes | yes | planned | new |
 
 ### Fetch vs. Crawl
 
@@ -880,8 +954,8 @@ functionality.
 - [ ] Implement `ProviderError` wrapping in command dispatch — wrap provider errors before user display so messages always include the provider name
 - [ ] Implement `CostSummary` return from providers (providers return cost alongside results)
 - [ ] Add generic cost display in CLI output (`pkg/output/`) — replaces EXA-specific `printCost`
-- [ ] Create EXA search adapter (`pkg/web/exa/search.go`) implementing `SearchProvider` over `*exa.Client`
-- [ ] Create EXA browser adapter (`pkg/web/exa/browser.go`) implementing `BrowserProvider` over `*exa.Client` (GetContent only; Crawl/Scrape return ErrNotSupported)
+- [ ] Create EXA search adapter (`pkg/web/providers/exa/search.go`) implementing `SearchProvider` over `*exa.Client`
+- [ ] Create EXA browser adapter (`pkg/web/providers/exa/browser.go`) implementing `BrowserProvider` over `*exa.Client` (GetContent only; Crawl/Scrape return ErrNotSupported)
 - [ ] Update CLI commands (`cmd/gmd/web_*.go`) to use typed provider interfaces
 - [ ] Wire `gmd web fetch` to use `BrowserProvider.GetContent` instead of direct EXA client
 - [ ] Add `Capabilities()` check before dispatching to Crawl/Scrape
@@ -901,7 +975,7 @@ Goal: implement Cloudflare Browser Run as a `BrowserProvider` (GetContent,
 Crawl). Cloudflare is the first new provider after EXA, proving the
 multi-provider architecture works end-to-end.
 
-- [ ] Create `pkg/web/cloudflare/client.go` — thin HTTP wrapper over Quick Actions REST API
+- [ ] Create `pkg/web/providers/cloudflare/client.go` — thin HTTP wrapper over Quick Actions REST API
 - [ ] Implement `BrowserProvider.GetContent` via `/content` and `/markdown`
 - [ ] Implement `BrowserProvider.Crawl`
 - [ ] Add `gmd web crawl` command
@@ -918,8 +992,8 @@ Goal: expand search provider coverage. Tavily and SearXNG are both pure search
 providers — they implement `SearchProvider` only, adding choice without
 introducing new interface shapes.
 
-- [ ] Tavily provider (`pkg/web/tavily/`) — `SearchProvider`
-- [ ] SearXNG provider (`pkg/web/searxng/`) — `SearchProvider`
+- [ ] Tavily provider (`pkg/web/providers/tavily/`) — `SearchProvider`
+- [ ] SearXNG provider (`pkg/web/providers/searxng/`) — `SearchProvider`
 - [ ] Register both in the `search` role
 
 **Testing:**
@@ -946,7 +1020,7 @@ final — see Open Questions for the pure-Go vs. subprocess evaluation.
 `goquery` wraps `golang.org/x/net/html` (already an indirect dependency)
 to provide jQuery-style CSS selector support for `BrowserProvider.Scrape()`.
 
-#### Package: `pkg/web/local/`
+#### Package: `pkg/web/providers/local/`
 
 Package structure defined in [Category 0 Package Structure](#package-structure)
 above. Phase 4 delivers the files listed there except `rod.go` and
@@ -956,16 +1030,16 @@ above. Phase 4 delivers the files listed there except `rod.go` and
 
 - [ ] Resolve HTML→MD conversion approach (pure Go library or subprocess)
 - [ ] `go get github.com/temoto/robotstxt github.com/PuerkitoBio/goquery`
-- [ ] `pkg/web/local/client.go` — `LocalProvider` struct, `NewLocalProvider()`, `Capabilities()` implements `BrowserProvider`
-- [ ] `pkg/web/local/fetch.go` — `GetContent(ctx, url, opts)` via `net/http`, SSRF protection, timeout, max size, HTML→MD conversion
-- [ ] `pkg/web/local/markdown.go` — `HTMLToMarkdown(ctx, html)` using chosen converter
-- [ ] `pkg/web/local/crawl.go` — crawling with:
+- [ ] `pkg/web/providers/local/client.go` — `LocalProvider` struct, `NewLocalProvider()`, `Capabilities()` implements `BrowserProvider`
+- [ ] `pkg/web/providers/local/fetch.go` — `GetContent(ctx, url, opts)` via `net/http`, SSRF protection, timeout, max size, HTML→MD conversion
+- [ ] `pkg/web/providers/local/markdown.go` — `HTMLToMarkdown(ctx, html)` using chosen converter
+- [ ] `pkg/web/providers/local/crawl.go` — crawling with:
   - robots.txt parsing and enforcement (`temoto/robotstxt`)
   - Per-domain rate limiting with configurable delay
   - Max depth, same-domain constraint
   - Cycle detection via URL canonicalization
   - Sitemap discovery for seed URLs
-- [ ] `pkg/web/local/scrape.go` — `Scrape(ctx, url, selector)` using `goquery` for CSS selector matching on static HTML
+- [ ] `pkg/web/providers/local/scrape.go` — `Scrape(ctx, url, selector)` using `goquery` for CSS selector matching on static HTML
 - [ ] Register `local` in the provider registry (`browser` role only)
 - [ ] Implement Layer 2 local content cache (`pkg/web/cache/`) — disk-backed, keyed by `(provider, url, format)`, honoring `MaxAge`/`cache_ttl` from `LocalConfig`
 
@@ -977,15 +1051,20 @@ above. Phase 4 delivers the files listed there except `rod.go` and
   robots.txt, rate limits, and multi-page link graphs
 - Contract: `var _ BrowserProvider = (*local.LocalProvider)(nil)`
 
-### Phase 5: Research Agent
+### Phase 5: Research Agent + Agent Refactoring
 
-Goal: build `gmd web research` — deep research using SearchProvider + LLM, and
-refactor the existing agent to the provider interface.
+Goal: build `gmd web research` (Tier 3) — deep research using SearchProvider +
+BrowserProvider + LLM — and refactor the existing `agent` (Tier 2) to use the
+provider interfaces. These are two separate work items: research is new,
+agent refactoring is a modernization of existing code.
 
 Research is a workflow composed over existing interfaces (SearchProvider +
-BrowserProvider + LLM), not a new provider interface. Some providers may offer
-research-specific endpoints in the future, but the initial implementation uses
-the same provider dispatch as other commands.
+BrowserProvider + LLM), not a new provider interface. It builds on the
+patterns proven by the agent (multi-step LLM-driven search) but adds structured
+phases: sub-question decomposition, cross-referencing, assumption validation,
+and formal report generation. Some providers may offer research-specific
+endpoints in the future, but the initial implementation uses the same provider
+dispatch as other commands.
 
 - [ ] `gmd web research` command — deep research agent loop
   - Sub-question generation, cross-referencing, citation tracking
@@ -993,6 +1072,7 @@ the same provider dispatch as other commands.
   - Works with any provider combination in the active group
 - [ ] Refactor `pkg/web/agent.go` to use `SearchProvider` interface (option B from Agent Refactoring)
   - EXA-specific fields accessed through `SearchResult.Extra`
+  - Agent remains a separate command from research; both share provider dispatch
 
 **Testing:**
 - Unit: mock providers for research agent workflow tests
@@ -1002,11 +1082,11 @@ the same provider dispatch as other commands.
 
 ```
 pkg/web/testdata/           # shared HTML fixtures
-pkg/web/exa/testdata/       # EXA API response recordings
-pkg/web/cloudflare/testdata/# Cloudflare API response recordings
-pkg/web/local/testdata/     # crawl test server pages, robots.txt fixtures
-pkg/web/tavily/testdata/    # Tavily API response recordings
-pkg/web/searxng/testdata/   # SearXNG API response recordings
+pkg/web/providers/exa/testdata/       # EXA API response recordings
+pkg/web/providers/cloudflare/testdata/# Cloudflare API response recordings
+pkg/web/providers/local/testdata/     # crawl test server pages, robots.txt fixtures
+pkg/web/providers/tavily/testdata/    # Tavily API response recordings
+pkg/web/providers/searxng/testdata/   # SearXNG API response recordings
 ```
 
 ### Contract Tests (compile-time)

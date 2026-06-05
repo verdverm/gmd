@@ -12,8 +12,17 @@ keep it focused on the deliverable scope.
 
 | Topic | Where |
 |---|---|
-| Search, fetch, crawl, provider registry, config, CLI mapping | `web-providers.md` |
+| Search, fetch, crawl, provider registry, config, CLI mapping, two-layer arch | `web-providers.md` |
 | Browser sessions, CDP, AIBrowser, input simulation, Rod evaluation | This doc |
+
+This doc follows the same **two-layer provider architecture** defined in
+`web-providers.md` (Design Decision 11):
+- **Layer i** (`pkg/web/providers/<name>/`): provider-native types, SDK wrappers, formatting
+- **Layer ii** (`pkg/web/`): shared interfaces (`BrowserProvider`, `AIBrowser`) with `Extra map[string]any` on options and results
+
+Advanced browser providers (Browserbase, Browserless, Steel.dev, etc.) are
+`BrowserProvider` implementations that live in Layer i and expose their
+additional capabilities through `Extra` on the shared result types.
 
 ## Browser Attach Mode
 
@@ -105,10 +114,14 @@ Key differences:
 - **playwright-go** requires Node.js runtime (~50MB bridge) plus browser binaries.
   Supports Chromium + Firefox + WebKit.
 
-If Rod is adopted, it is added as a `BrowserProvider` implementation via
-`pkg/web/local/rod.go`. Until the evaluation is complete, local browser
-operations requiring JS rendering need a cloud provider or user-installed
-Chromium + CDP connection.
+If Rod is adopted, it is added as a `BrowserProvider` implementation in
+Layer i via `pkg/web/providers/local/rod.go`, adapting the native Rod API to
+the shared `BrowserProvider` interface in Layer ii. Provider-specific Rod
+features (Bezier mouse paths, human-like typing, etc.) live entirely within
+the local provider package; callers access them through
+`GetContentResult.Extra` and `CrawlOptions.Extra`. Until the evaluation is
+complete, local browser operations requiring JS rendering need a cloud
+provider or user-installed Chromium + CDP connection.
 
 ## BrowserSession Interface
 
@@ -137,6 +150,7 @@ type SessionOptions struct {
     Proxy    string        // proxy URL for the session
     Record   bool          // record session for replay
     LiveView bool          // enable live view URL
+    Extra    map[string]any
 }
 ```
 
@@ -179,12 +193,14 @@ type PageState struct {
     Elements   []Element
     Screenshot []byte // optional, nil if not requested
     ScrollY    int
+    Extra      map[string]any
 }
 
 type ActionResult struct {
     Success     bool
     Description string
     PageState   *PageState
+    Extra       map[string]any
 }
 
 type ExecuteOptions struct {
@@ -192,6 +208,7 @@ type ExecuteOptions struct {
     OnStep             func(int, string, *PageState)
     Timeout            time.Duration
     ObserveScreenshot  bool
+    Extra              map[string]any
 }
 
 type ExecuteResult struct {
@@ -258,27 +275,41 @@ Stealth       bool // supports stealth / evasion
 
 ## Config
 
+Following the two-layer architecture, per-provider config (API keys, project IDs)
+is read from env vars and passed to constructors through `ProviderConfig.Extra`.
+Provider packages interpret their own keys from the `Extra` map.
+
 ```cue
+// CUE schema (web-providers.md)
 BrowserbaseConfig: {
     api_key:    string | *""   // from BROWSERBASE_API_KEY env var
     project_id: string | *""
 }
 ```
 
-Go-side:
+Go-side — provider config flows through `ProviderConfig.Extra`:
 
 ```go
-type BrowserbaseConfig struct {
-    APIKey    string `json:"api_key"`
-    ProjectID string `json:"project_id"`
+// pkg/web/providers/browserbase/config.go
+type Config struct {
+    APIKey    string
+    ProjectID string
+}
+
+func ConfigFromProviderConfig(cfg web.ProviderConfig) Config {
+    return Config{
+        APIKey:    stringFromExtra(cfg.Extra, "api_key"),
+        ProjectID: stringFromExtra(cfg.Extra, "project_id"),
+    }
 }
 ```
 
 Register in the registry's `browser` role:
 
 ```go
-"browserbase": func(cfg ProviderConfig) (any, error) { return browserbase.NewBrowserProvider(cfg) },
-```
+"browserbase": func(cfg web.ProviderConfig) (any, error) {
+    return browserbase.NewBrowserProvider(cfg)
+},
 
 ## Design Decisions (Advanced)
 
@@ -323,7 +354,7 @@ provider architecture is stable:
 |---|---|
 | Phase | Scope |
 |---|---|---|
-| **Phase 6: Browserbase Provider** | `BrowserProvider` implementation, `pkg/web/browserbase/`, REST API client |
+| **Phase 6: Browserbase Provider** | `BrowserProvider` implementation, `pkg/web/providers/browserbase/`, REST API client |
 | **Phase 7: Local Browser** | Rod integration, headless Chromium launch, CDP endpoint |
 | **Phase 8: Session Management** | BrowserSession interface, attach mode, `gmd web session` command |
 | **Phase 9: AIBrowser** | Stagehand / Browser Use integration, Execute loop, Observe/Act |

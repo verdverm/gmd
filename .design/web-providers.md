@@ -7,93 +7,6 @@ system spanning search/discovery and content retrieval. The first pass focuses o
 fetch and crawl. Browser sessions, AI-driven browser control, and input
 simulation are covered in `.design/web-browser-advanced.md`.
 
-## Design Decisions
-
-1. **Multiple interfaces, not one.** Forcing all providers into one interface
-   creates stub methods and abstraction leaks. Each command selects its
-   interface at runtime. `SearchProvider` for search/fetch, `BrowserProvider`
-   for crawl/scrape/rendered-content.
-
-2. **Capability introspection.** `BrowserCapabilities` lets commands fail early
-   with actionable messages ("Provider X does not support crawl") rather than
-   runtime errors.
-
-3. **Provider roles in config.** A user configures `search: exa` and
-   `browser: local` for different workflows. The `providers` object in CUE
-   maps each role to a provider name.
-
-4. **User controls provider selection.** No automatic fallback. The user sets
-   `providers.browser` / `providers.search` in config or passes `--provider`
-   per command. Missing or unavailable providers produce errors.
-
-5. **No SDK deps for cloud providers.** Cloud provider clients are thin HTTP
-   wrappers over REST APIs. Browserbase's Go SDK may be used optionally, but
-   the baseline is `net/http` + JSON.
-
-6. **EXA is the default search provider.** EXA's neural index supports semantic
-   search and content discovery. Cloud provider content/markdown endpoints
-   complement this for live/rendered content.
-
-7. **Cloudflare is the first cloud browser provider to be implemented.**
-   $0.09/hr browser time, 10 hrs/mo free tier, Quick Actions REST API, plus
-   existing Cloudflare documentation on disk.
-
-8. **Provider registry is explicit, not init-time.** Provider name→constructor
-   mappings live in a single central file (`pkg/web/registry.go`). Adding a
-   provider means adding one line to the appropriate role map plus writing the
-   provider package. No `init()` ordering, no blank imports.
-
-9. **Robots.txt and rate limiting for local crawl.** Local crawling enforces
-   robots.txt, per-domain rate limits, and configurable delays between requests.
-   Cloud providers handle this on their end; the interface is provider-agnostic.
-
-10. **SSRF protection for local fetch.** Static HTTP fetch blocks
-    private/loopback IP ranges.
-
-11. **No custom HTML→MD converter.** Use `html-to-markdown/v2` (CommonMark
-    with table/strikethrough support). Writing a converter from scratch is
-    a maintenance trap.
-
-## Open Questions
-
-- **Browser provider vs search provider for `gmd web fetch`?**
-  Depends on the `--live` flag — search provider for cached content, browser
-  provider for freshly rendered. Without `--live`, use the configured search
-  provider.
-
-- **Does `gmd web research` need its own provider interface?**
-  Composition — research is a workflow over SearchProvider + BrowserProvider +
-  LLM, not a new provider interface. Some providers may offer research-specific
-  endpoints in the future.
-
-- **Should cloud provider configs include endpoint overrides?**
-
-- **What local options exist that don't require JS rendering?**
-  `net/http` + HTML→MD covers static sites. For hybrid pages (partial JS),
-  evaluate lightweight DOM hydration without a full browser. The spectrum from
-  static → SPA determines when JS execution is required. SPA detection is a
-  heuristic: if the HTML body is empty or contains only a bootstrap `<div>`
-  (common for React/Vue apps), content needs JS rendering.
-
-- **Are there Go libraries for respectful crawling?**
-  `temoto/robotstxt` handles robots.txt parsing. No single Go library covers
-  per-domain rate limiting + queue management + sitemap discovery. Plan to
-  build the rate-limit/queue layer in `pkg/web/local/crawl.go`.
-
-- **How does cost feedback work for per-minute vs per-query providers?**
-  A `CostSummary` struct with a `Unit` field (query, minute, credit) lets the
-  CLI display costs generically, replacing the EXA-specific `printCost` pattern.
-
-- **HTML→MD library selection — Go-only or broader?**
-  `html-to-markdown/v2` is pure Go and fits the `CGO_ENABLED=0` constraint.
-  Broader alternatives (Python `markitdown`, JS Turndown) would require
-  subprocess calls and are not under consideration for the Go binary. If richer
-  conversion with main-content extraction is needed later, `semantic-markdown`
-  (also pure Go) is an alternative. TODO: deepen evaluation.
-
-Open questions about browser sessions, CDP, Rod evaluation, and AI-driven
-control have moved to `.design/web-browser-advanced.md`.
-
 ## Rationale
 
 | Why Expand | What It Enables |
@@ -111,6 +24,51 @@ in real time. Some providers blur the line — Cloudflare Browser Run's
 functioning as an on-demand content retrieval service even though it sits under
 the "browser" product umbrella. This is why providers can register in multiple
 roles.
+
+## Design Decisions
+
+1. **Multiple interfaces, not one.** Forcing all providers into one interface
+   creates stub methods and abstraction leaks. Each command selects its
+   interface at runtime. `SearchProvider` for search/fetch, `BrowserProvider`
+   for crawl/scrape/rendered-content.
+
+2. **Provider roles in config.** A user configures `search: exa` and
+   `browser: local` for different workflows. The `providers` object in CUE
+   maps each role to a provider name.
+
+3. **User controls provider selection.** No automatic fallback and no default
+   provider. The user must explicitly set `providers.browser` /
+   `providers.search` in config or pass `--provider` per command. Missing or
+   unavailable providers produce errors.
+
+4. **SDKs preferred over raw HTTP wrappers.** Cloud provider clients should use
+   official Go SDKs when available and well-maintained. Fall back to raw HTTP
+   only when no Go SDK exists or the SDK is unmaintained. SDKs handle auth,
+   retries, rate limits, and API evolution.
+
+5. **Provider registry is explicit, not init-time.** Provider name→constructor
+   mappings live in a single central file (`pkg/web/registry.go`). Adding a
+   provider means adding one line to the appropriate role map plus writing the
+   provider package. No `init()` ordering, no blank imports.
+
+6. **Robots.txt and rate limiting for local crawl.** Local crawling enforces
+   robots.txt, per-domain rate limits, and configurable delays between requests.
+   Cloud providers handle this on their end; the interface is provider-agnostic.
+
+7. **Local execution is a first-class provider category.** Static HTTP fetch
+   and HTML→MD conversion — with no cloud dependencies, API keys, or JS
+   runtime — is independently useful for privacy-sensitive and offline
+   workflows. Browser automation is additive, not a prerequisite.
+
+8. **Credentials via environment variables.** API keys and secrets are loaded
+   from env vars, never stored in CUE config files. Provider config blocks
+   reference env var names as defaults. Omitting a provider block from config
+   means "don't use this provider."
+
+9. **HTML→MD conversion approach is still being evaluated.** Pure Go libraries
+   (html-to-markdown, semantic-markdown) and subprocess-based converters
+   (Python markitdown, JS Turndown) are both under consideration. The Go binary
+   constraint (`CGO_ENABLED=0`) doesn't preclude calling external tools.
 
 ## Provider Landscape
 
@@ -134,6 +92,13 @@ The question per request: can the content be obtained via HTTP alone, or is
 JS execution required? Fetch via HTTP first; fall back to a browser when the
 result is empty or placeholder content.
 
+SPA detection is heuristic-based: an empty `<body>` or a bootstrap `<div>`
+with no readable text (e.g. `<div id="root">` in React/Vue apps) indicates
+content needs JS rendering. The open question is whether heuristic gating is
+reliable enough, or whether a browser should always be attempted when the
+initial static fetch yields no usable text. This interacts with cost — browser
+rendering is slower and more expensive per request.
+
 #### HTML to Markdown Libraries
 
 | Library | Stars | Approach | CGO? | Features |
@@ -142,10 +107,25 @@ result is empty or placeholder content.
 | `thorstenpfister/semantic-markdown` | newer | Pure Go, content-aware | No | Main content extraction, URL refification |
 | `conductor-oss/markitdown` | newer | Pure Go, multi-format | No (WASM PDF) | PDF/DOCX/HTML all in one |
 
-`html-to-markdown/v2` is the primary choice: pure Go, built on
+`html-to-markdown/v2` is the leading pure-Go candidate: built on
 `golang.org/x/net/html` (already an indirect dep), pluggable, goroutine-safe.
-Writing a custom converter is not under consideration — the maintenance burden
-of HTML parsing edge cases is too high for an in-house solution.
+Subprocess-based alternatives (Python `markitdown`, JS Turndown) are also
+under evaluation for conversion quality. Writing a custom converter from
+scratch is not under consideration — the maintenance burden of HTML parsing
+edge cases is too high.
+
+Subprocess calls are on the table:
+
+| Approach | Example | Pros | Cons |
+|---|---|---|---|
+| Pure Go library | `html-to-markdown/v2`, `semantic-markdown` | No external deps, fast startup | Narrower feature set, less battle-tested |
+| Subprocess (Python) | `markitdown` | Best-in-class conversion, active ecosystem | Requires Python runtime, IPC overhead |
+| Subprocess (JS/TS) | Turndown | Mature, widely used | Requires Node.js runtime, IPC overhead |
+
+Pure Go keeps the binary self-contained but may sacrifice conversion quality
+for edge cases. Subprocess converters bring richer ecosystems but add runtime
+dependencies and startup latency. A hybrid approach — prefer pure Go, with
+optional subprocess fallback for problem URLs — is worth evaluating.
 
 #### Respectful Crawling
 
@@ -157,9 +137,9 @@ Behaviors to enforce for local crawling:
 - **User-agent** declaration and `Crawl-delay` directive support
 - **sitemap.xml** discovery for seed URLs
 
-No single Go library covers all behaviors. Use `temoto/robotstxt` for robots.txt
-and implement per-domain rate limiting + queue management in `pkg/web/local/`
-directly.
+No single Go library covers all crawling behaviors cover-to-cover. Use
+`temoto/robotstxt` for robots.txt parsing and implement per-domain rate
+limiting, queue management, and sitemap discovery in `pkg/web/local/` directly.
 
 #### Local Execution Matrix
 
@@ -382,7 +362,7 @@ in the extended `BrowserCapabilities` covered in the advanced doc.
 
 ```go
 type LocalProvider struct {
-    htmlConverter *htmltomarkdown.Converter
+    mdConverter HTMLToMarkdownConverter // interface — backs pure Go or subprocess impl
     // Future: rodClient *rodBrowser (when Rod is adopted)
 }
 ```
@@ -394,7 +374,9 @@ type LocalProvider struct {
 
 Rod-based JS rendering is a future addition covered in the advanced doc.
 
-### HTML→Markdown Integration
+### HTML→Markdown Integration (Reference)
+
+If the pure-Go path is chosen, the integration looks like this:
 
 ```go
 package local
@@ -418,6 +400,10 @@ func newConverter() *converter.Converter {
         ),
     )
 }
+```
+
+For subprocess-based converters, the integration is an `exec.Command` wrapper
+with stdin/stdout streaming rather than a direct library call.
 ```
 
 ### Agent Refactoring
@@ -462,6 +448,22 @@ Existing EXA-specific helpers (`IsRateLimit`, `IsAuthError`) stay in the
 `exa` package. The registry's `Resolve` returns `ErrProviderNotFound`. Commands
 check `errors.Is(err, ErrNotSupported)` after `Capabilities()` checks and wrap
 with `ProviderError` for actionable messages.
+
+### Cost Display
+
+```go
+type CostSummary struct {
+    Provider string
+    Cost     float64
+    Unit     string // "query", "minute", "credit"
+    Currency string // "USD"
+}
+```
+
+Providers return `CostSummary` alongside results. The CLI renders it
+generically, replacing the EXA-specific `printCost` pattern. Billing models
+differ per provider (per-query, per-minute, credit-based) — `Unit` makes the
+distinction visible without leaking provider logic into display code.
 
 ## Provider Registry
 
@@ -595,6 +597,11 @@ type WebProviderRoles struct {
 API keys are loaded from environment variables in the config loading path,
 matching the existing pattern for `EXA_API_KEY`.
 
+Per-provider endpoint overrides are not included. The provider config blocks
+specify identity and credentials only. A generic HTTP proxy setting may be
+warranted later as a top-level config option for enterprise environments, but
+per-provider endpoint customization is premature.
+
 ## CLI Command Mapping
 
 | `gmd web` Subcommand | Interface Needed | Local | EXA | Cloudflare | Status |
@@ -609,9 +616,11 @@ matching the existing pattern for `EXA_API_KEY`.
 - For `fetch`, local first tries static HTTP and converts to markdown. If the
   result is empty or consists only of an SPA bootstrap `<div>` (e.g.,
   `<div id="root">` with no readable text), and a browser is available, it
-  falls back to JS rendering. The `--live` flag skips the static attempt.
-- `--provider` flag overrides the configured default per-call.
-- `--live` flag on `fetch` forces browser rendering even for static pages.
+  falls back to JS rendering.
+- `--provider` flag overrides the configured role per-call.
+- `--max-age <duration>` flag on `fetch` controls cache freshness: content
+  older than the specified duration triggers a browser fetch instead of
+  using cached/indexed results.
 
 ## Provider Selection Logic
 
@@ -628,7 +637,7 @@ gmd web <command> [--provider <name>]
                  ▼      ▼
           Use specified   Look up configured
           provider        provider role from
-                          CUE config (or default)
+                           CUE config
                               │
                               ▼
                     ┌──────────────────┐
@@ -687,7 +696,7 @@ architecture works end-to-end.
 - [ ] Implement `BrowserProvider.GetContent` via `/content` and `/markdown`
 - [ ] Implement `SearchProvider.Fetch` via the same endpoints (Cloudflare as content-only search)
 - [ ] Implement `BrowserProvider.Crawl`
-- [ ] Add `gmd web crawl` command (or wire into existing fetch with `--live`)
+- [ ] Add `gmd web crawl` command (or wire into existing fetch with `--max-age`)
 - [ ] Register `cloudflare` in both `search` and `browser` roles
 
 **Testing:**
@@ -715,14 +724,15 @@ introducing new interface shapes.
 Goal: deliver the local provider for static HTTP fetch, HTML→MD conversion, and
 respectful crawling. No browser dependency, no JS rendering.
 
-#### New Dependencies
+#### New Dependencies (candidates)
 
 ```
-github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.1
+github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.1   (or subprocess approach)
 github.com/temoto/robotstxt
 ```
 
-Both meet the `CGO_ENABLED=0` constraint.
+Both meet the `CGO_ENABLED=0` constraint. The HTML→MD library is not final —
+see Open Questions for the pure-Go vs. subprocess evaluation.
 
 #### Package: `pkg/web/local/`
 
@@ -730,18 +740,18 @@ Both meet the `CGO_ENABLED=0` constraint.
 pkg/web/local/
 ├── client.go         # LocalProvider struct, constructor, Capabilities()
 ├── fetch.go          # Static HTTP fetch via net/http
-├── markdown.go       # HTML→MD conversion via html-to-markdown/v2
+├── markdown.go       # HTML→MD conversion
 ├── crawl.go          # Crawling (robots.txt, rate limits, queue)
 └── client_test.go    # Tests
 ```
 
 #### Checklist
 
-- [ ] `go get github.com/JohannesKaufmann/html-to-markdown/v2@v2.5.1`
+- [ ] Resolve HTML→MD conversion approach (pure Go library or subprocess)
 - [ ] `go get github.com/temoto/robotstxt`
 - [ ] `pkg/web/local/client.go` — `LocalProvider` struct, `NewLocalProvider()`, `Capabilities()` implements both `SearchProvider` and `BrowserProvider`
 - [ ] `pkg/web/local/fetch.go` — `FetchStatic(ctx, url)` via `net/http`, SSRF protection, timeout, max size
-- [ ] `pkg/web/local/markdown.go` — `HTMLToMarkdown(ctx, html)` with CommonMark + table + strikethrough plugins
+- [ ] `pkg/web/local/markdown.go` — `HTMLToMarkdown(ctx, html)` using chosen converter
 - [ ] `pkg/web/local/crawl.go` — crawling with:
   - robots.txt parsing and enforcement (`temoto/robotstxt`)
   - Per-domain rate limiting with configurable delay
@@ -761,6 +771,11 @@ pkg/web/local/
 
 Goal: build `gmd web research` — deep research using SearchProvider + LLM, and
 refactor the existing agent to the provider interface.
+
+Research is a workflow composed over existing interfaces (SearchProvider +
+BrowserProvider + LLM), not a new provider interface. Some providers may offer
+research-specific endpoints in the future, but the initial implementation uses
+the same provider dispatch as other commands.
 
 - [ ] `gmd web research` command — deep research agent loop
   - Sub-question generation, cross-referencing, citation tracking

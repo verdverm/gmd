@@ -188,7 +188,7 @@ Config: {
 	}
 }
 
-func TestSetCollectionPatterns(t *testing.T) {
+func TestAddCollectionPatterns(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "project")
 	gmdDir := filepath.Join(root, ".gmd")
@@ -217,15 +217,18 @@ Config: {
 		},
 	}
 
-	err := SetCollectionPatterns(cfg, "docs", []string{"**/*.txt", "**/*.md"})
+	err := AddCollectionPatterns(cfg, "docs", []string{"**/*.txt", "**/*.md"}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.Collections["docs"].Patterns) != 2 {
-		t.Errorf("patterns length = %d, want 2", len(cfg.Collections["docs"].Patterns))
+	if len(cfg.Collections["docs"].Patterns) != 3 {
+		t.Errorf("patterns length = %d, want 3", len(cfg.Collections["docs"].Patterns))
 	}
-	if cfg.Collections["docs"].Patterns[0] != "**/*.txt" {
-		t.Errorf("patterns[0] = %q, want %q", cfg.Collections["docs"].Patterns[0], "**/*.txt")
+	if cfg.Collections["docs"].Patterns[1] != "**/*.txt" {
+		t.Errorf("patterns[1] = %q, want %q", cfg.Collections["docs"].Patterns[1], "**/*.txt")
+	}
+	if cfg.Collections["docs"].Patterns[2] != "**/*.md" {
+		t.Errorf("patterns[2] = %q, want %q", cfg.Collections["docs"].Patterns[2], "**/*.md")
 	}
 
 	data, err := os.ReadFile(cfgPath)
@@ -235,9 +238,32 @@ Config: {
 	if !contains(string(data), "**/*.txt") {
 		t.Errorf("config should contain new pattern, got:\n%s", data)
 	}
+
+	t.Run("replace all", func(t *testing.T) {
+		err := AddCollectionPatterns(cfg, "docs", []string{"*.go"}, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(cfg.Collections["docs"].Patterns) != 1 {
+			t.Errorf("patterns length = %d, want 1", len(cfg.Collections["docs"].Patterns))
+		}
+		if cfg.Collections["docs"].Patterns[0] != "*.go" {
+			t.Errorf("patterns[0] = %q, want %q", cfg.Collections["docs"].Patterns[0], "*.go")
+		}
+	})
+
+	t.Run("dedup on append", func(t *testing.T) {
+		err := AddCollectionPatterns(cfg, "docs", []string{"*.go", "*.rs"}, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(cfg.Collections["docs"].Patterns) != 2 {
+			t.Errorf("patterns length = %d, want 2 (no dup), got %v", len(cfg.Collections["docs"].Patterns), cfg.Collections["docs"].Patterns)
+		}
+	})
 }
 
-func TestIgnorePattern(t *testing.T) {
+func TestIgnorePatterns(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "project")
 	gmdDir := filepath.Join(root, ".gmd")
@@ -266,13 +292,13 @@ Config: {
 		},
 	}
 
-	t.Run("add ignore pattern", func(t *testing.T) {
-		err := AddIgnorePattern(cfg, "docs", "node_modules/**")
+	t.Run("add ignore patterns", func(t *testing.T) {
+		err := AddIgnorePatterns(cfg, "docs", []string{"node_modules/**", "tmp/**"}, false)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(cfg.Collections["docs"].Ignore) != 1 {
-			t.Fatalf("expected 1 ignore, got %d", len(cfg.Collections["docs"].Ignore))
+		if len(cfg.Collections["docs"].Ignore) != 2 {
+			t.Fatalf("expected 2 ignore, got %d", len(cfg.Collections["docs"].Ignore))
 		}
 		data, err := os.ReadFile(cfgPath)
 		if err != nil {
@@ -281,20 +307,36 @@ Config: {
 		if !contains(string(data), "node_modules/**") {
 			t.Errorf("config should contain ignore pattern, got:\n%s", data)
 		}
+		if !contains(string(data), "tmp/**") {
+			t.Errorf("config should contain tmp ignore pattern, got:\n%s", data)
+		}
 	})
 
 	t.Run("add duplicate ignore pattern is no-op", func(t *testing.T) {
-		err := AddIgnorePattern(cfg, "docs", "node_modules/**")
+		err := AddIgnorePatterns(cfg, "docs", []string{"node_modules/**"}, false)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(cfg.Collections["docs"].Ignore) != 1 {
+		if len(cfg.Collections["docs"].Ignore) != 2 {
 			t.Errorf("duplicate should not add, got %d", len(cfg.Collections["docs"].Ignore))
 		}
 	})
 
+	t.Run("replace all ignore patterns", func(t *testing.T) {
+		err := AddIgnorePatterns(cfg, "docs", []string{"build/**"}, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(cfg.Collections["docs"].Ignore) != 1 {
+			t.Errorf("expected 1 ignore after replace, got %d", len(cfg.Collections["docs"].Ignore))
+		}
+		if cfg.Collections["docs"].Ignore[0] != "build/**" {
+			t.Errorf("ignore[0] = %q, want %q", cfg.Collections["docs"].Ignore[0], "build/**")
+		}
+	})
+
 	t.Run("remove ignore pattern", func(t *testing.T) {
-		err := RemoveIgnorePattern(cfg, "docs", "node_modules/**")
+		err := RemoveIgnorePattern(cfg, "docs", "build/**")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -305,7 +347,7 @@ Config: {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if contains(string(data), "node_modules") {
+		if contains(string(data), "build") {
 			t.Errorf("config should not contain removed ignore, got:\n%s", data)
 		}
 	})

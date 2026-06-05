@@ -27,7 +27,7 @@ This document catalogs feature requests, bug reports, and expansion ideas drawn 
 
 ## Indexing & Embedding
 
-- **`collection add` with no args** ([qmd#684](https://github.com/tobi/qmd/issues/684)) - auto-create a collection from CWD without editing config.
+- **`collection create` with no args** ([qmd#684](https://github.com/tobi/qmd/issues/684)) - auto-create a collection from CWD without editing config.
 - **`--watch` mode for periodic re-indexing** ([qmd#646](https://github.com/tobi/qmd/pull/646)) - filesystem watcher that triggers update on change.
 - **Scope `update` to a single collection** ([qmd#671](https://github.com/tobi/qmd/issues/671)) - `gmd update -c <name>` to avoid re-scanning everything.
 - **Exclude patterns for nested collections** ([qmd#645](https://github.com/tobi/qmd/issues/645)) - prevent double-indexing when collection paths overlap.
@@ -252,7 +252,7 @@ Two special files: `index.md` (content catalog) and `log.md` (chronological reco
 | Role | Tool |
 |---|---|
 | Wiki search engine | GMD (via CLI and MCP) |
-| Wiki content indexing | `gmd collection add wiki/` |
+| Wiki content indexing | `gmd collection create wiki/` |
 | Agent integration | `gmd mcp` exposes search as native tool |
 | Embedding + rerank | GMD's LLM pipeline for hybrid search |
 

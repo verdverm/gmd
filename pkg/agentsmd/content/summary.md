@@ -37,7 +37,7 @@ gmd wiki query "<q>"          # RAG search → LLM synthesis with [[page]] citat
 
 ## Important Rules for AI Agents Using GMD
 
-- **Never run `gmd update`, `gmd embed`, or `gmd collection add` automatically.** Always write the command for the user to run.
+- **Never run `gmd update`, `gmd embed`, or `gmd collection create` automatically.** Always write the command for the user to run.
 - **Never modify CUE config files or the Typesense index directly** without being asked.
 - Use `gmd query` for general questions — it provides the best results through the full pipeline.
 - Use `gmd search` when you need fast keyword results without LLM overhead.

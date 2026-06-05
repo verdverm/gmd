@@ -8,14 +8,14 @@ import (
 )
 
 var collectionCmd = &cobra.Command{
-	Use:   "collection [add|list|remove|rename|show|include|exclude]",
-	Short: "Manage collections — add, list, remove, rename, show, include, exclude",
+	Use:   "collection [create|list|remove|rename|show|include|exclude]",
+	Short: "Manage collections — create, list, remove, rename, show, include, exclude",
 	Long: `Collections define which files to index. Each collection has a root path,
 a glob pattern for matching files, optional ignore rules, and optional
 context text for AI assistants.
 
 Workflow:
-  gmd collection add mydocs --path ./docs --pattern "**/*.md"
+  gmd collection create mydocs --path ./docs --pattern "**/*.md"
   gmd collection list
   gmd collection show mydocs
   gmd collection include mydocs "**/*.{md,txt}"

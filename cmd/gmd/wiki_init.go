@@ -61,13 +61,10 @@ Example:
 			if _, err := os.Stat(configPath); err == nil {
 				if err := config.AddCollection(cfg, wikiName, wikiPath, []string{"wiki/**/*.md"}); err != nil {
 					fmt.Fprintf(os.Stderr, "Warning: could not update config file: %v\n", err)
-					fmt.Fprintf(os.Stderr, "Add this collection manually or run: gmd collection add %s --path %s --pattern 'wiki/**/*.md'\n",
+					fmt.Fprintf(os.Stderr, "Add this collection manually or run: gmd collection create %s --path %s --pattern 'wiki/**/*.md'\n",
 						wikiName, wikiPath)
 				} else {
-					if err := config.AddIgnorePattern(cfg, wikiName, "wiki/_index.md"); err != nil {
-						fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
-					}
-					if err := config.AddIgnorePattern(cfg, wikiName, "wiki/_log.md"); err != nil {
+					if err := config.AddIgnorePatterns(cfg, wikiName, []string{"wiki/_index.md", "wiki/_log.md"}, false); err != nil {
 						fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 					}
 					fmt.Printf("Updated %s with wiki collection %q\n", configPath, wikiName)

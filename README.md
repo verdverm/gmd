@@ -51,7 +51,7 @@ other tools can search your docs, query wikis, and browse indexed content.
 
 ```bash
 gmd init                        # scaffold .gmd/config.cue
-gmd collection add docs --path ./guide --patterns "**/*.md"
+gmd collection create docs --path ./guide --patterns "**/*.md"
 gmd collection include docs "**/*.md" "**/*.mdx"
 gmd collection exclude docs "node_modules/**"
 gmd collection list             # see what's configured
@@ -218,10 +218,10 @@ Project and global configs merge automatically, with project values taking prece
 | `gmd get <path>` | Get document content by path |
 | `gmd ls [collection]` | List indexed documents |
 | `gmd collection list` | List collections |
-| `gmd collection add <name>` | Add a collection with --path and --pattern |
+| `gmd collection create <name>` | Create a collection with --path and --pattern |
 | `gmd collection show <name>` | Collection details + chunk count |
-| `gmd collection include <name> <patterns>` | Set file-matching patterns for a collection |
-| `gmd collection exclude <name> <pattern>` | Add an ignore pattern to a collection |
+| `gmd collection include <name> <patterns...>` | Add file-matching patterns to a collection (append, or --replace-all) |
+| `gmd collection exclude <name> <patterns...>` | Add ignore patterns to a collection (append, or --replace-all) |
 | `gmd collection rename <old> <new>` | Rename a collection |
 | `gmd collection remove <name>` | Remove a collection |
 | `gmd doctor` | Run diagnostics |

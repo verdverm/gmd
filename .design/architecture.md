@@ -228,7 +228,7 @@ optional API key authentication.
 ### Phase 4: CLI — Commands Registered, Stubs Implemented
 All QMD commands, ported:
 `status` `update` `embed` `search` `vsearch` `query` `get` `multi-get`
-`collection [add|list|remove|rename|show|include|exclude]`
+`collection [create|list|remove|rename|show|include|exclude]`
 `context [add|list|rm]` `ls` `init` `doctor` `cleanup` `mcp` `serve`
 `import-qmd` (migration helper: reads QMD SQLite DB → Typesense + CUE config)
 

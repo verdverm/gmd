@@ -8,16 +8,16 @@ import (
 var collAddPath string
 var collAddPatterns []string
 
-var collectionAddCmd = &cobra.Command{
-	Use:   "add <name>",
-	Short: "Add a new collection to the config",
+var collectionCreateCmd = &cobra.Command{
+	Use:   "create <name>",
+	Short: "Create a new collection in the config",
 	Long: `Creates a new collection entry in the project config with the given name,
 root path, and file glob patterns.
 
 Example:
-  gmd collection add mydocs --path ./docs --patterns "**/*.md"
+  gmd collection create mydocs --path ./docs --patterns "**/*.md"
 
-After adding, run 'gmd update' to index the collection's files.`,
+After creating, run 'gmd update' to index the collection's files.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		r, err := getRuntime()
@@ -35,7 +35,7 @@ After adding, run 'gmd update' to index the collection's files.`,
 }
 
 func init() {
-	collectionAddCmd.Flags().StringVarP(&collAddPath, "path", "p", ".", "Collection root path")
-	collectionAddCmd.Flags().StringSliceVarP(&collAddPatterns, "patterns", "P", []string{"**/*.md"}, "File glob patterns")
-	collectionCmd.AddCommand(collectionAddCmd)
+	collectionCreateCmd.Flags().StringVarP(&collAddPath, "path", "p", ".", "Collection root path")
+	collectionCreateCmd.Flags().StringSliceVarP(&collAddPatterns, "patterns", "P", []string{"**/*.md"}, "File glob patterns")
+	collectionCmd.AddCommand(collectionCreateCmd)
 }

@@ -60,11 +60,11 @@ All commands backed by `pkg/` code:
 - [x] `gmd init` — creates `.gmd/config.cue`
 - [x] `gmd collection list` — lists collections from `pkg/config`
 - [x] `gmd collection show` — collection details + chunk count via `pkg/ts`
-- [x] `gmd collection add` — config file editing (CUE AST) + `--path`/`--pattern` flags
+- [x] `gmd collection create` — config file editing (CUE AST) + `--path`/`--pattern` flags
 - [x] `gmd collection remove` — config file editing + chunk deletion via `pkg/ts`
 - [x] `gmd collection rename` — config file editing (CUE AST label rename)
-- [x] `gmd collection include` — config file editing (sets pattern field)
-- [x] `gmd collection exclude` — config file editing (adds to ignore list)
+- [x] `gmd collection include` — config file editing (appends to pattern list, or --replace-all)
+- [x] `gmd collection exclude` — config file editing (appends to ignore list, or --replace-all)
 - [x] `gmd context add` — config file editing (sets context field on collection)
 - [x] `gmd context list` — lists context docs from `pkg/config`
 - [x] `gmd context rm` — config file editing (removes context field)

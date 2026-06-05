@@ -32,12 +32,12 @@ gmd get <path>                         # Get document content by path
 gmd multi-get <pattern>                # Batch fetch documents
 gmd ls [collection]                    # List indexed documents
 gmd collection list                    # List collections
-gmd collection add <name> --path --pattern
+gmd collection create <name> --path --pattern
 gmd collection show <name>             # Collection details + chunk count
 gmd collection remove <name>
 gmd collection rename <old> <new>
-gmd collection include <name> --pattern
-gmd collection exclude <name> --pattern
+gmd collection include <name> <patterns...>
+gmd collection exclude <name> <patterns...>
 gmd context add <collection> "text"
 gmd context list
 gmd context rm <collection>
@@ -106,7 +106,7 @@ Project root detected by walking up from CWD looking for `.gmd/` sentinel.
 
 ## Rules
 
-- Never run `gmd update`, `gmd embed`, or `gmd collection add` automatically. Write the command
+- Never run `gmd update`, `gmd embed`, or `gmd collection create` automatically. Write the command
   for the user to run.
 - Never modify CUE config files or the Typesense index directly without being asked.
 - Always run `make lint` after code changes.

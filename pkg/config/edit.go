@@ -263,8 +263,9 @@ func RenameCollection(cfg *Config, oldName, newName string) error {
 	return nil
 }
 
-// SetCollectionPatterns sets the patterns for a collection.
-func SetCollectionPatterns(cfg *Config, name string, patterns []string) error {
+// AddCollectionPatterns adds patterns to a collection.
+// If replaceAll is true, existing patterns are replaced entirely.
+func AddCollectionPatterns(cfg *Config, name string, patterns []string, replaceAll bool) error {
 	if _, exists := cfg.Collections[name]; !exists {
 		return fmt.Errorf("collection %q not found", name)
 	}
@@ -302,28 +303,71 @@ func SetCollectionPatterns(cfg *Config, name string, patterns []string) error {
 		return fmt.Errorf("collection %q is not a struct", name)
 	}
 
-	if existing := findFieldInStruct(colInner, "patterns"); existing != nil {
-		list := &ast.ListLit{}
-		for _, p := range patterns {
-			list.Elts = append(list.Elts, ast.NewString(p))
+	if replaceAll {
+		if existing := findFieldInStruct(colInner, "patterns"); existing != nil {
+			list := &ast.ListLit{}
+			for _, p := range patterns {
+				list.Elts = append(list.Elts, ast.NewString(p))
+			}
+			existing.Value = list
+		} else {
+			colInner.Elts = append(colInner.Elts, strListField("patterns", patterns))
 		}
-		existing.Value = list
+		col := cfg.Collections[name]
+		col.Patterns = patterns
+		cfg.Collections[name] = col
 	} else {
-		colInner.Elts = append(colInner.Elts, strListField("patterns", patterns))
+		existing := findFieldInStruct(colInner, "patterns")
+		if existing != nil {
+			if list, ok := existing.Value.(*ast.ListLit); ok {
+				seen := make(map[string]bool, len(list.Elts))
+				for _, elt := range list.Elts {
+					if lit, ok := elt.(*ast.BasicLit); ok {
+						seen[lit.Value] = true
+					}
+				}
+				for _, p := range patterns {
+					q := fmt.Sprintf("%q", p)
+					if !seen[q] {
+						list.Elts = append(list.Elts, ast.NewString(p))
+						seen[q] = true
+					}
+				}
+			}
+		} else {
+			list := &ast.ListLit{}
+			for _, p := range patterns {
+				list.Elts = append(list.Elts, ast.NewString(p))
+			}
+			colInner.Elts = append(colInner.Elts, &ast.Field{
+				Label: ast.NewIdent("patterns"),
+				Value: list,
+			})
+		}
+		col := cfg.Collections[name]
+		seen := make(map[string]bool, len(col.Patterns))
+		for _, p := range col.Patterns {
+			seen[p] = true
+		}
+		for _, p := range patterns {
+			if !seen[p] {
+				col.Patterns = append(col.Patterns, p)
+				seen[p] = true
+			}
+		}
+		cfg.Collections[name] = col
 	}
 
 	if err := writeConfigFile(cfgPath, f); err != nil {
 		return err
 	}
 
-	col := cfg.Collections[name]
-	col.Patterns = patterns
-	cfg.Collections[name] = col
 	return nil
 }
 
-// AddIgnorePattern adds an ignore pattern to a collection.
-func AddIgnorePattern(cfg *Config, name, pattern string) error {
+// AddIgnorePatterns adds ignore patterns to a collection.
+// If replaceAll is true, existing ignore patterns are replaced entirely.
+func AddIgnorePatterns(cfg *Config, name string, patterns []string, replaceAll bool) error {
 	if _, exists := cfg.Collections[name]; !exists {
 		return fmt.Errorf("collection %q not found", name)
 	}
@@ -361,35 +405,65 @@ func AddIgnorePattern(cfg *Config, name, pattern string) error {
 		return fmt.Errorf("collection %q is not a struct", name)
 	}
 
-	// Check if already in ignore list
-	existing := findFieldInStruct(colInner, "ignore")
-	if existing != nil {
-		if list, ok := existing.Value.(*ast.ListLit); ok {
-			for _, elt := range list.Elts {
-				if lit, ok := elt.(*ast.BasicLit); ok && lit.Value == fmt.Sprintf("%q", pattern) {
-					return nil
+	if replaceAll {
+		if existing := findFieldInStruct(colInner, "ignore"); existing != nil {
+			list := &ast.ListLit{}
+			for _, p := range patterns {
+				list.Elts = append(list.Elts, ast.NewString(p))
+			}
+			existing.Value = list
+		} else {
+			colInner.Elts = append(colInner.Elts, strListField("ignore", patterns))
+		}
+		col := cfg.Collections[name]
+		col.Ignore = patterns
+		cfg.Collections[name] = col
+	} else {
+		existing := findFieldInStruct(colInner, "ignore")
+		if existing != nil {
+			if list, ok := existing.Value.(*ast.ListLit); ok {
+				seen := make(map[string]bool, len(list.Elts))
+				for _, elt := range list.Elts {
+					if lit, ok := elt.(*ast.BasicLit); ok {
+						seen[lit.Value] = true
+					}
+				}
+				for _, p := range patterns {
+					q := fmt.Sprintf("%q", p)
+					if !seen[q] {
+						list.Elts = append(list.Elts, ast.NewString(p))
+						seen[q] = true
+					}
 				}
 			}
-			list.Elts = append(list.Elts, ast.NewString(pattern))
 		} else {
-			return fmt.Errorf("ignore field is not a list")
+			list := &ast.ListLit{}
+			for _, p := range patterns {
+				list.Elts = append(list.Elts, ast.NewString(p))
+			}
+			colInner.Elts = append(colInner.Elts, &ast.Field{
+				Label: ast.NewIdent("ignore"),
+				Value: list,
+			})
 		}
-	} else {
-		list := &ast.ListLit{}
-		list.Elts = append(list.Elts, ast.NewString(pattern))
-		colInner.Elts = append(colInner.Elts, &ast.Field{
-			Label: ast.NewIdent("ignore"),
-			Value: list,
-		})
+		col := cfg.Collections[name]
+		seen := make(map[string]bool, len(col.Ignore))
+		for _, ig := range col.Ignore {
+			seen[ig] = true
+		}
+		for _, p := range patterns {
+			if !seen[p] {
+				col.Ignore = append(col.Ignore, p)
+				seen[p] = true
+			}
+		}
+		cfg.Collections[name] = col
 	}
 
 	if err := writeConfigFile(cfgPath, f); err != nil {
 		return err
 	}
 
-	col := cfg.Collections[name]
-	col.Ignore = append(col.Ignore, pattern)
-	cfg.Collections[name] = col
 	return nil
 }
 

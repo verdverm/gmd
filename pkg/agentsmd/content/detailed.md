@@ -123,11 +123,11 @@ Search flags:
 |---|---|
 | `gmd collection list` | List all configured collections |
 | `gmd collection show <name>` | Show collection details and chunk count |
-| `gmd collection add <name> --path <dir> --pattern <glob>` | Add a new collection to config |
+| `gmd collection create <name> --path <dir> --pattern <glob>` | Create a new collection in config |
 | `gmd collection remove <name>` | Remove a collection from config |
 | `gmd collection rename <old> <new>` | Rename a collection |
-| `gmd collection include <name> --pattern <glob>` | Add an include pattern |
-| `gmd collection exclude <name> --pattern <glob>` | Add an ignore pattern |
+| `gmd collection include <name> <patterns...>` | Add file-matching patterns (append, or --replace-all) |
+| `gmd collection exclude <name> <patterns...>` | Add ignore patterns (append, or --replace-all) |
 
 ### Context Documents
 
@@ -226,7 +226,7 @@ pkg/mcp/          MCP server tools (wiki-aware tools)
 
 ## Important Rules for AI Agents Using GMD
 
-- **Never run `gmd update`, `gmd embed`, or `gmd collection add` automatically.** Write the command for the user to run.
+- **Never run `gmd update`, `gmd embed`, or `gmd collection create` automatically.** Write the command for the user to run.
 - **Never modify CUE config files or the Typesense index directly** without being asked.
 - Use `gmd query` for general questions — it provides the best results through the full pipeline.
 - Use `gmd search` when you need fast keyword results without LLM overhead.

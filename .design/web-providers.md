@@ -218,6 +218,12 @@ type Provider interface {
 }
 ```
 
+`SearchOptions` gains an `Extra map[string]any` field for provider-specific
+parameters (e.g., EXA's `useAutoprompt`, `type`, `outputSchema`). Callers
+pass keys the target provider understands; adapters ignore unknown keys.
+This keeps the core interface stable while giving advanced callers an
+escape hatch without leaking provider types into the interface.
+
 Multiple interfaces reflect the Venn diagram. A single monolithic
 interface would require all providers to implement all methods.
 
@@ -227,7 +233,7 @@ interface would require all providers to implement all methods.
 
 - `SearchProvider.Fetch` is served by static HTTP fetch + HTML→MD conversion
   (always available).
-- `BrowserProvider` methods (Crawl, Scrape, FetchContent, NewSession) are served
+- `BrowserProvider` methods (Crawl, Scrape, GetContent, NewSession) are served
   by Rod when Chromium is available. When Chromium is absent, `Capabilities()`
   reports `LocalBrowser: false` and callers can check before dispatching.
 
@@ -334,20 +340,25 @@ Implemented by: **EXA**, **Tavily** (future), **SearXNG** (future)
 
 ```go
 type BrowserProvider interface {
-    // Core: fetch rendered content from a URL
-    FetchContent(ctx context.Context, url string) (string, error)    // rendered HTML/markdown
+	// GetContent fetches rendered content from a single URL.
+	// Returns HTML or markdown (provider-dependent). Contrast with
+	// SearchProvider.Fetch which returns multiple structured results.
+	GetContent(ctx context.Context, url string) (string, error)
 
-    // Core: crawl from a start URL, following links within scope
-    Crawl(ctx context.Context, startURL string, opts *CrawlOptions) ([]Page, error)
+	// Crawl from a start URL, following links within scope.
+	Crawl(ctx context.Context, startURL string, opts *CrawlOptions) ([]Page, error)
 
-    // Scrape structured elements from a page
-    Scrape(ctx context.Context, url string, selector string) ([]Element, error)
+	// Scrape structured elements from a page.
+	Scrape(ctx context.Context, url string, selector string) ([]Element, error)
 
-    // Session-based control (for agent workflows)
-    NewSession(ctx context.Context, opts *SessionOptions) (BrowserSession, error)
+	// NewSession opens an interactive browser session (CDP WebSocket).
+	// Sessions are CLI-agent-scoped: they live for the duration of a
+	// command and are torn down on exit. gmd serve does not manage
+	// browser sessions in this phase.
+	NewSession(ctx context.Context, opts *SessionOptions) (BrowserSession, error)
 
-    // Capability introspection
-    Capabilities() BrowserCapabilities
+	// Capability introspection
+	Capabilities() BrowserCapabilities
 }
 
 type BrowserSession interface {
@@ -468,48 +479,102 @@ With a single interface:
 Commands declare which interface they need, and config selects both a
 provider **and a capability mode** (e.g., `--provider cloudflare --action crawl`).
 
+### Agent Refactoring
+
+The existing `pkg/web/agent.go` hardcodes `*exa.Client` and uses
+EXA-specific result fields (`Author`, `PublishedDate`, `Highlights`).
+Options for decoupling:
+
+| Approach | Description | When |
+|---|---|---|
+| **A: Stay EXA-specific** | Agent keeps `*exa.Client` directly. No interface abstraction. | Now — no other search providers exist yet |
+| **B: SearchProvider + fallback** | Agent takes `SearchProvider`; uses common `SearchResult` fields (Title, URL, Content, Score). Provider-specific extras go through `SearchOptions.Extra`. | When a second search provider ships (Tavily / SearXNG) |
+| **C: Provider-specific agents** | `NewEXAAgent`, `NewTavilyAgent` — each optimized for its provider. The `gmd web agent` command selects via provider name. | If providers diverge too much for a single agent shape |
+
+**Recommendation:** Start with **A** (no change to agent.go in W7). The agent
+_is_ an EXA-powered research loop. When a second search provider lands, move
+to **B** and add `Extra` passthrough for `useAutoprompt` and
+`contents.maxCharacters`. If EXA and Tavily prove too different, fall back
+to **C**.
+
+The W12 `gmd web research` command will be designed from the start against
+`SearchProvider` with `SearchOptions.Extra`.
+
+### Error Taxonomy
+
+```go
+// pkg/web/errors.go
+
+var (
+    ErrNotSupported        = errors.New("gmd/web: operation not supported by provider")
+    ErrProviderNotFound    = errors.New("gmd/web: provider not found in registry")
+    ErrBrowserNotAvailable = errors.New("gmd/web: browser not available on this machine")
+    ErrAuthFailed          = errors.New("gmd/web: authentication failed")
+    ErrRateLimited         = errors.New("gmd/web: rate limited by provider")
+    ErrTimeout             = errors.New("gmd/web: request timed out")
+    ErrSSRFBlocked         = errors.New("gmd/web: request blocked — private/internal IP")
+)
+
+// ProviderError wraps a sentinel with provider-specific detail.
+type ProviderError struct {
+    Provider string
+    Err      error
+    Detail   string
+}
+func (e *ProviderError) Error() string { ... }
+func (e *ProviderError) Unwrap() error { return e.Err }
+```
+
+Existing EXA-specific helpers (`IsRateLimit`, `IsAuthError`) stay in the
+`exa` package. The registry's `Resolve` returns `ErrProviderNotFound`. Commands
+check `errors.Is(err, ErrNotSupported)` after `Capabilities()` checks and wrap
+with `ProviderError` for actionable messages. The taxonomy is a starting point;
+it will grow during implementation.
+
 ## Provider Registry
 
-Provider names map to constructors via a registry. Each provider package
-registers itself at init time, keeping the mapping alongside the
-implementation and avoiding a central switch statement.
+Provider names map to constructors via a central, explicit map — no `init()`
+magic, no blank imports. Each provider package exports a constructor; the
+registry file imports those packages and wires them up directly. This keeps
+the mapping obvious and discoverable in one place.
 
 ```go
 // pkg/web/registry.go
 
-var Registry = &ProviderRegistry{
-    search:    map[string]func(ProviderConfig) (SearchProvider, error){},
-    browser:   map[string]func(ProviderConfig) (BrowserProvider, error){},
-    aibrowser: map[string]func(ProviderConfig) (AIBrowser, error){},
+type ProviderConstructor func(cfg ProviderConfig) (any, error)
+
+type ProviderRegistry struct {
+    search    map[string]ProviderConstructor
+    browser   map[string]ProviderConstructor
+    aibrowser map[string]ProviderConstructor
 }
 
-func (r *ProviderRegistry) RegisterSearch(name string, ctor func(ProviderConfig) (SearchProvider, error))
-func (r *ProviderRegistry) RegisterBrowser(name string, ctor func(ProviderConfig) (BrowserProvider, error))
-func (r *ProviderRegistry) RegisterAIBrowser(name string, ctor func(ProviderConfig) (AIBrowser, error))
+func NewRegistry() *ProviderRegistry {
+    return &ProviderRegistry{
+        search: map[string]ProviderConstructor{
+            "exa":    func(cfg ProviderConfig) (any, error) { return exa.NewSearchProvider(cfg) },
+            "local":  func(cfg ProviderConfig) (any, error) { return local.NewSearchProvider(cfg) },
+            "tavily": func(cfg ProviderConfig) (any, error) { return tavily.NewSearchProvider(cfg) },
+        },
+        browser: map[string]ProviderConstructor{
+            "local":       func(cfg ProviderConfig) (any, error) { return local.NewBrowserProvider(cfg) },
+            "cloudflare":  func(cfg ProviderConfig) (any, error) { return cloudflare.NewBrowserProvider(cfg) },
+            "browserbase": func(cfg ProviderConfig) (any, error) { return browserbase.NewBrowserProvider(cfg) },
+        },
+        aibrowser: map[string]ProviderConstructor{
+            "cloudflare":  func(cfg ProviderConfig) (any, error) { return cloudflare.NewAIBrowser(cfg) },
+            "browserbase": func(cfg ProviderConfig) (any, error) { return browserbase.NewAIBrowser(cfg) },
+        },
+    }
+}
+
 func (r *ProviderRegistry) Resolve(role, name string, cfg ProviderConfig) (any, error)
 func (r *ProviderRegistry) ValidateName(role, name string) error
 ```
 
-Each provider package calls the appropriate `RegisterX` in its `init()`:
-
-```go
-// pkg/web/exa/registry.go
-func init() {
-    web.Registry.RegisterSearch("exa", newEXASearchProvider)
-}
-
-// pkg/web/local/registry.go
-func init() {
-    web.Registry.RegisterSearch("local", newLocalSearchProvider)
-    web.Registry.RegisterBrowser("local", newLocalBrowserProvider)
-}
-
-// pkg/web/cloudflare/registry.go
-func init() {
-    web.Registry.RegisterBrowser("cloudflare", newCloudflareBrowserProvider)
-    web.Registry.RegisterAIBrowser("cloudflare", newCloudflareAIBrowserProvider)
-}
-```
+Each role map is built once at startup. Adding a new provider means adding
+one line to the appropriate role map and writing the provider package — no
+init-order surprises, no blank-import side effects.
 
 **Supported provider names per role:**
 
@@ -519,13 +584,10 @@ func init() {
 | `browser` | `local`, `cloudflare`, `browserbase`, `browserless`, `steel` |
 | `aibrowser` | `cloudflare`, `browserbase` |
 
-A provider can register for multiple roles. For example, `local` registers
-as a search provider (static fetch) and a browser provider (Rod); `cloudflare`
-registers as both browser and aibrowser.
-
-`Resolve` returns typed `error` values — `ErrProviderNotFound`,
-`ErrProviderNotRegistered` — so callers can distinguish configuration errors
-from runtime failures.
+A provider can appear in multiple roles (`local` is both search and browser;
+`cloudflare` is both browser and aibrowser). `Resolve` returns typed `error`
+values — `ErrProviderNotFound`, `ErrProviderNotRegistered` — so callers can
+distinguish configuration errors from runtime failures.
 
 ## Config Evolution
 
@@ -587,6 +649,17 @@ LocalConfig: {
 
     // Maximum bytes for static HTTP fetch (default: 10MB)
     html_max_size?: int    | *10485760
+
+    // Crawl tuning: minimum delay between requests to the same domain
+    // (in milliseconds, default 1000ms = 1s). Set to 0 to disable
+    // per-domain rate limiting (not recommended).
+    crawl_delay_ms?: int | *1000
+
+    // Maximum number of domains crawled concurrently (default: 2).
+    max_concurrent_domains?: int | *2
+
+    // Maximum pages to fetch per domain during a crawl (default: 200).
+    max_pages_per_domain?: int | *200
 }
 
 CloudflareConfig: {
@@ -637,9 +710,12 @@ The `gmd web` subcommands focus on four workflows:
 
 - **Local** = execution on the user's machine (requires
   user-installed Chromium for browser ops).
-- For `fetch`, local first tries static HTTP; if the response requires JS
-  rendering and a browser is available, it falls back to Rod. Otherwise it
-  returns the static content as-is.
+- For `fetch`, local first tries static HTTP and converts to markdown. If the
+  result is empty or consists only of a shell `<div id="root">` / `<div id="app">`
+  (common SPA bootstrap patterns with no readable text), and a browser is
+  available, it falls back to Rod for JS rendering. Otherwise it returns the
+  static content as-is. The `--live` flag skips the static attempt and goes
+  straight to browser rendering.
 - `--provider` flag overrides the configured default per-call.
 - `--live` flag on `fetch` forces browser rendering even for static pages.
 
@@ -648,15 +724,16 @@ The `gmd web` subcommands focus on four workflows:
 ### Phase W7: Interface Refinement (this sprint)
 
 - [ ] Split `Provider` into `SearchProvider` / `BrowserProvider` / `AIBrowser`
+- [ ] Add `Extra map[string]any` to `SearchOptions`
 - [ ] Define `BrowserCapabilities` struct for runtime introspection
 - [ ] Define `CrawlOptions`, `SessionOptions`, `Element`, `Page` types
-- [ ] Implement provider registry (`pkg/web/registry.go`)
-- [ ] Update existing `exa` package to implement `SearchProvider` (with adapter)
-- [ ] Refactor `pkg/web/agent.go` to use `SearchProvider` instead of `*exa.Client` directly
-- [ ] Update CLI commands to use the new interfaces (not hardcoded `*exa.Client`)
+- [ ] Implement provider registry (`pkg/web/registry.go`) — explicit map, no init()
+- [ ] Define error taxonomy sentinels (`pkg/web/errors.go`)
+- [ ] Create EXA adapter (`pkg/web/exa/adapter.go`) implementing `SearchProvider` over `*exa.Client`
+- [ ] Keep `pkg/web/agent.go` EXA-specific for now (no refactor — option A from Agent Refactoring)
+- [ ] Update CLI commands to use `SearchProvider` interface (not hardcoded `*exa.Client`)
 - [ ] Add `Capabilities()` check before dispatching to a browser provider
 - [ ] Update CUE schema with `WebProviderRoles`; add Go-side `WebProviderRoles` struct
-- [ ] Add compile-time interface satisfaction checks per provider
 
 ### Phase W8: Local Provider (basic)
 
@@ -681,7 +758,6 @@ pkg/web/local/
 ├── fetch.go          # Static HTTP fetch via net/http
 ├── markdown.go       # HTML→MD conversion via html-to-markdown/v2
 ├── crawl.go          # Crawling (robots.txt, rate limits, queue)
-├── registry.go       # init() — registers "local" for search + browser roles
 ├── browser.go        # Chromium path detection + Rod wrapper (future)
 └── client_test.go    # Tests (unit + integration-tagged)
 ```
@@ -699,7 +775,6 @@ pkg/web/local/
   - Max depth, same-domain constraint
   - Cycle detection via URL canonicalization
   - Sitemap discovery for seed URLs
-- [ ] Create `pkg/web/local/registry.go` — register "local" for search + browser roles
 - [ ] Write tests: unit tests for fetch/markdown, integration-tagged tests for crawl
 
 #### Rod Exploration (future phase, not W8 deliverable)
@@ -749,10 +824,12 @@ func newConverter() *converter.Converter {
 ### Phase W9: Cloudflare Browser Run Provider
 
 - [ ] Create `pkg/web/cloudflare/client.go` — thin HTTP wrapper over Quick Actions REST API
-- [ ] Create `pkg/web/cloudflare/registry.go` — register "cloudflare" for browser + aibrowser roles
-- [ ] Implement `BrowserProvider` (FetchContent, Crawl, Scrape)
-- [ ] Implement `SearchProvider.Fetch` via /content and /markdown endpoints
-- [ ] Implement `AIBrowser.ExtractJSON` via /json endpoint
+- [ ] Implement `BrowserProvider` (GetContent, Crawl, Scrape)
+- [ ] Implement `SearchProvider.Fetch` via Cloudflare's `/content` and `/markdown` endpoints.
+  Cloudflare can fetch and render any URL, making it a valid (if unusual)
+  `SearchProvider` for content retrieval — it just renders on demand instead of
+  serving from a cached index like EXA.
+- [ ] Implement `AIBrowser.ExtractJSON` via `/json` endpoint
 - [ ] Support CDP session creation for agent workflows
 - [ ] Add `gmd web crawl` command
 - [ ] Add `gmd web research` (search + LLM, EXA-backed initially)
@@ -760,7 +837,6 @@ func newConverter() *converter.Converter {
 ### Phase W10: Browserbase Provider
 
 - [ ] Create `pkg/web/browserbase/client.go` — wrapper over Browserbase API / Go SDK
-- [ ] Create `pkg/web/browserbase/registry.go` — register "browserbase"
 - [ ] Implement `BrowserProvider` using Browserbase's CDP/Playwright/Stagehand endpoints
 - [ ] Use Stagehand for AI-native extract / act capabilities
 - [ ] MCP server integration
@@ -831,8 +907,7 @@ Supported provider names: `exa`, `tavily`, `searxng`, `cloudflare`, `browserbase
 
 - **Cloud providers**: `httptest.Server` mocks replaying recorded API responses
   per endpoint. Each provider package ships response fixtures.
-- **Registry**: Test registration, resolution, missing-provider errors, and
-  duplicate-registration detection.
+- **Registry**: Test resolution, missing-provider errors, and unknown-name errors.
 - **Config → provider mapping**: Verify that CUE config provider names route
   to correct constructors.
 - **Local HTML→MD**: Convert known HTML fixtures to markdown, verify output.
@@ -848,8 +923,10 @@ Supported provider names: `exa`, `tavily`, `searxng`, `cloudflare`, `browserbase
 ### Contract Tests (compile-time)
 
 ```go
-var _ SearchProvider  = (*exa.SearchClient)(nil)
-var _ BrowserProvider = (*local.LocalProvider)(nil)
+var _ SearchProvider  = (*exa.SearchAdapter)(nil)
+var _ SearchProvider  = (*local.SearchClient)(nil)
+var _ BrowserProvider = (*local.BrowserClient)(nil)
+var _ BrowserProvider = (*cloudflare.BrowserClient)(nil)
 var _ AIBrowser       = (*cloudflare.AIBrowserClient)(nil)
 ```
 
@@ -906,10 +983,10 @@ pkg/web/cloudflare/testdata/# Cloudflare API response recordings
     per-domain rate limits, and configurable delays between requests. Cloud
     providers handle this on their end; the interface is provider-agnostic.
 
-11. **Provider registry with init-time registration.** Each provider package
-    registers itself via `init()`, keeping the name→constructor mapping
-    alongside the implementation. Central registry validates names and resolves
-    constructors by role.
+11. **Provider registry is explicit, not init-time.** Provider name→constructor
+    mappings live in a single central file (`pkg/web/registry.go`). Adding a
+    provider means adding one line to the appropriate role map plus writing the
+    provider package. No `init()` ordering, no blank imports, no magic.
 
 ## Open Questions
 
@@ -918,8 +995,10 @@ pkg/web/cloudflare/testdata/# Cloudflare API response recordings
   rendered. Without `--live`, use the configured search provider.
 
 - **How does cost feedback work for per-minute providers?**
-  Implement `printBrowserCost()` analogous to `printCost()` for EXA. Providers
-  report cost in different units (minutes vs credits vs queries).
+  Providers implement a `Cost()` method returning a common `CostSummary` struct
+  (total cost + breakdown). The `printCost()` function in web.go handles the
+  CLI display, dispatching on the struct's `Unit` field (query, minute, credit).
+  This replaces the EXA-specific `printCost(*exa.CostDollars)` pattern.
 
 - **What about providers that support both categories?**
   (e.g., Scrapfly has search-like crawling AND browser rendering)
@@ -940,25 +1019,12 @@ pkg/web/cloudflare/testdata/# Cloudflare API response recordings
   per-domain rate limiting + queue management + sitemap discovery.
   Plan to build the rate-limit/queue layer in `pkg/web/local/crawl.go`.
 
-- **What granularity for `BrowserCapabilities`?**
-  Coarse granularity limits error specificity. Fine granularity increases config
-  surface. Stable features are booleans; optional/provider-specific features use
-  the `Features []string` set. Add new stable fields only when a capability is
-  needed by command dispatch logic across multiple providers.
-
 - **Does `gmd web research` need its own provider interface or is it composition**
   **of SearchProvider + BrowserProvider + LLM?**
   Composition — research is a workflow over SearchProvider + BrowserProvider +
   LLM. Some providers may offer research-specific endpoints in the future.
 
 - **Should cloud provider configs include endpoint overrides?**
-  For self-hosted (SearXNG, Browserless Docker) and proxies.
-  In a follow-on config update, not the initial schema.
-
-- **Error taxonomy.**
-  Define error types: `ErrNotSupported`, `ErrAuthFailed`, `ErrRateLimited`,
-  `ErrTimeout`, `ErrBrowserNotAvailable` so callers can distinguish retryable
-  from fatal errors.
 
 - **SSRF protection for local fetch.**
   Static HTTP fetch blocks private/loopback IP ranges to prevent SSRF.

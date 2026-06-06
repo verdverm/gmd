@@ -37,3 +37,51 @@ We want to be able to start a user's preferred harness from the cli, prepopulate
 - different places within the cli, infer agent for task based on the ones we provide, which the user may or may not have "installed" yet
 - do opencode for now, prepare for expansion to other cli, there should be config for these as well
 - we'll want to associate them with agents/providers as well
+
+---
+
+
+## Old notes
+
+my (human) ideas & questions
+
+- create/output schema for collection on init/add
+- can we update/migrate collection schemas?
+- wiki init should also init collection (if it doesn't)
+- CRUD commands for collection dirs
+- web crawl
+- anthropic endpoint support
+- auth/apikeys per model
+    - opencode-go support
+    - gcloud auth support
+- code fetching & processing (like web... + wiki)
+    - prefer clone, need a "raw" place for it
+- typesense lifecycle commands (backup,restore) perhaps via the collection cmd
+- verbose mode with wiki so we know what query pipeline is used (want to see more advanced takes)
+
+---
+
+## Review
+
+in-code: `XXX-AGENT ...` comments
+
+
+
+web cmd:
+- ./pkg/web/exa
+- web prompts as embedded files
+
+other:
+
+- ./pkg/runtime ought to have more on it, like LLMs?
+- ./pkg/output is only for search it seems...? (not anymore perhaps)
+- count tokens with endpoint, not bad approximation
+- remove markdown/other that should be embeded
+
+## Fixed
+
+- multi-get should go away, get should be flexible enough itself
+- inconsistent ./cmd/gmd/... organization / file naming
+- ./pkg/agents
+    - rename to agentsmd
+    - options from file names, not hardcoded

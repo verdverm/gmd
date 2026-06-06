@@ -32,40 +32,7 @@ LLMProfile: {
 }
 
 // LLMConfig defines the OpenAI-compatible provider settings.
-// Supports both legacy flat fields (per-role model + URL + key) and new
-// structured providers + profiles layout. When structured config is present,
-// legacy fields are ignored.
 LLMConfig: {
-	// Legacy flat fields (backwards compatible)
-	embedding_model?:      string
-	embedding_base_url?:   string
-	embedding_api_key:     string | *""
-
-	expansion_model?:      string
-	expansion_base_url?:   string
-	expansion_api_key:     string | *""
-
-	rerank_model?:         string
-	rerank_base_url?:      string
-	rerank_api_key:        string | *""
-
-	summarizing_model?:    string
-	summarizing_base_url?: string
-	summarizing_api_key:   string | *""
-
-	general_big_model?:    string
-	general_big_base_url?: string
-	general_big_api_key:   string | *""
-
-	general_mid_model?:    string
-	general_mid_base_url?: string
-	general_mid_api_key:   string | *""
-
-	general_small_model?:    string
-	general_small_base_url?: string
-	general_small_api_key:   string | *""
-
-	// New structured configuration
 	providers?:  [string]: LLMProviderConfig
 	profile?:    string | *"default"
 	profiles?:   [string]: LLMProfile

@@ -161,9 +161,9 @@ when search returns no results or indexing fails.`,
 			}
 			fmt.Printf("WARN   %s model not found: %s\n", name, model)
 		}
-		modelCheck("embedding", cfg.LLM.EmbeddingModel)
-		modelCheck("expansion", cfg.LLM.ExpansionModel)
-		modelCheck("rerank", cfg.LLM.RerankModel)
+		modelCheck("embedding", l.RoleModel("embedding"))
+		modelCheck("expansion", l.RoleModel("expansion"))
+		modelCheck("rerank", l.RoleModel("rerank"))
 
 		return nil
 	},

@@ -39,6 +39,7 @@ var globalRuntime *runtime.Runtime
 var globalConfig *config.Config
 
 var envFlag, secretFlag []string
+var verboseFlag bool
 
 func getConfig() (*config.Config, error) {
 	if globalConfig != nil {
@@ -77,6 +78,7 @@ func getRuntime() (*runtime.Runtime, error) {
 }
 
 func init() {
+	rootCmd.PersistentFlags().BoolVarP(&verboseFlag, "verbose", "v", false, "Show file contents in env output (excludes secrets)")
 	rootCmd.PersistentFlags().StringArrayVar(&envFlag, "env", nil, "Extra env VAR=VAL (processed before --secret, can be repeated)")
 	rootCmd.PersistentFlags().StringArrayVar(&secretFlag, "secret", nil, "Extra secret VAR=VAL (processed after --env, highest precedence, can be repeated)")
 

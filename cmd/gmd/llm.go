@@ -88,7 +88,7 @@ var llmProvidersCmd = &cobra.Command{
 			return err
 		}
 		if len(cfg.LLM.Providers) == 0 {
-			fmt.Println("No providers configured (using legacy flat config)")
+			fmt.Println("No providers configured")
 			return nil
 		}
 		for name, pc := range cfg.LLM.Providers {
@@ -125,13 +125,13 @@ var llmProfilesCmd = &cobra.Command{
 				marker = "*"
 			}
 			fmt.Printf("%s %s\n", marker, name)
-		printRole("embedding", profile.Embedding)
-		printRole("expansion", profile.Expansion)
-		printRole("rerank", profile.Rerank)
-		printRole("summarizing", profile.Summarizing)
-		printRole("general_big", profile.GeneralBig)
-		printRole("general_mid", profile.GeneralMid)
-		printRole("general_small", profile.GeneralSmall)
+			printRole("embedding", profile.Embedding)
+			printRole("expansion", profile.Expansion)
+			printRole("rerank", profile.Rerank)
+			printRole("summarizing", profile.Summarizing)
+			printRole("general_big", profile.GeneralBig)
+			printRole("general_mid", profile.GeneralMid)
+			printRole("general_small", profile.GeneralSmall)
 		}
 		return nil
 	},

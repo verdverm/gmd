@@ -1,15 +1,10 @@
-## multi-llm providers and profiles
+# launching agent harnesses from gmd
 
-Currently, we only have basic support for llms. We want to expand in the following ways:
-- support multiple llm providers beyond openai compat, like athropic (which vllm might also provide?)
-- support multiple llm provider auth methods: [local,opencode,vertex]
-- each of the configurable llm roles we have should be turned into an object, we will have new schemas
-- support profiles for configuration generally
+We want to be able to start a user's preferred harness from the gdm cli, prepopulated with message and/or other preperation (flags, custom config file path for "this" run)
+- different ways to do this based on harness, let's just use exec
+- do opencode for now, prepare for expansion to other cli, there should be config for these as well so user can reference by name
 
-## feedback on plan v1
-
-we should have both auth method and provider fields
-  - auth is more like [none,apikey,service-account,...]
-  - provider is [openai,anthropic,vertex,opencode]
-is there some go module that already handles this for us, such that we do not have to create provider packages for each? Can we get this down to mostly config/data processing?
-
+Do the following:
+1. a './pkg/agent/' with the abstraction and specifics
+2. a 'gdm agent' command which can launch various agent harnesses like opencode and claude.
+3. update my global config for the new content

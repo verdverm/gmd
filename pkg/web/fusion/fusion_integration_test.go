@@ -80,26 +80,16 @@ func llmClientOrSkip(t *testing.T) *llm.Client {
 		t.Skipf("config load failed: %v", err)
 	}
 
-	llmCfg := llm.ConfigFromProject(cfg)
-	if llmCfg.SummarizingModel == "" && llmCfg.GeneralSmallModel == "" {
-		t.Skip("no LLM model configured")
-	}
-	if llmCfg.SummarizingBaseURL == "" && llmCfg.GeneralSmallBaseURL == "" {
-		t.Skip("no LLM base URL configured")
+	llmClient, err := llm.ResolveLLMConfig(cfg)
+	if err != nil {
+		t.Skipf("LLM config resolve failed: %v", err)
 	}
 
-	// fall back to general_small if summarizing is not explicitly set
-	if llmCfg.SummarizingModel == "" {
-		llmCfg.SummarizingModel = llmCfg.GeneralSmallModel
-	}
-	if llmCfg.SummarizingBaseURL == "" {
-		llmCfg.SummarizingBaseURL = llmCfg.GeneralSmallBaseURL
-	}
-	if llmCfg.SummarizingAPIKey == "" {
-		llmCfg.SummarizingAPIKey = llmCfg.GeneralSmallAPIKey
+	if llmClient.RoleModel("summarizing") == "" {
+		t.Skip("no LLM model configured for summarizing")
 	}
 
-	return llm.New(llmCfg)
+	return llmClient
 }
 
 func TestMultiSearch_Integration(t *testing.T) {

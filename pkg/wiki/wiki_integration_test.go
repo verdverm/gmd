@@ -57,7 +57,11 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "wiki integration: FATAL: LLM config load failed (%v)\n", err)
 	} else {
-		testLLMClient = llm.New(llm.ConfigFromProject(cfg))
+		var llmErr error
+		testLLMClient, llmErr = llm.ResolveLLMConfig(cfg)
+		if llmErr != nil {
+			fmt.Fprintf(os.Stderr, "wiki integration: FATAL: LLM config resolve failed (%v)\n", llmErr)
+		}
 		testCfg = cfg
 	}
 

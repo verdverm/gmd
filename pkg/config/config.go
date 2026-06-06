@@ -433,36 +433,6 @@ type LLMProfileConfig struct {
 type LLMConfig struct {
 	APIKey string `json:"-"`
 
-	// Legacy flat fields
-	EmbeddingModel   string `json:"embedding_model"`
-	EmbeddingBaseURL string `json:"embedding_base_url"`
-	EmbeddingAPIKey  string `json:"embedding_api_key"`
-
-	ExpansionModel   string `json:"expansion_model"`
-	ExpansionBaseURL string `json:"expansion_base_url"`
-	ExpansionAPIKey  string `json:"expansion_api_key"`
-
-	RerankModel   string `json:"rerank_model"`
-	RerankBaseURL string `json:"rerank_base_url"`
-	RerankAPIKey  string `json:"rerank_api_key"`
-
-	SummarizingModel   string `json:"summarizing_model"`
-	SummarizingBaseURL string `json:"summarizing_base_url"`
-	SummarizingAPIKey  string `json:"summarizing_api_key"`
-
-	GeneralBigModel   string `json:"general_big_model"`
-	GeneralBigBaseURL string `json:"general_big_base_url"`
-	GeneralBigAPIKey  string `json:"general_big_api_key"`
-
-	GeneralMidModel   string `json:"general_mid_model"`
-	GeneralMidBaseURL string `json:"general_mid_base_url"`
-	GeneralMidAPIKey  string `json:"general_mid_api_key"`
-
-	GeneralSmallModel   string `json:"general_small_model"`
-	GeneralSmallBaseURL string `json:"general_small_base_url"`
-	GeneralSmallAPIKey  string `json:"general_small_api_key"`
-
-	// New structured configuration
 	Providers map[string]LLMProviderConfig `json:"providers,omitempty"`
 	Profile   string                       `json:"profile,omitempty"`
 	Profiles  map[string]LLMProfileConfig  `json:"profiles,omitempty"`
@@ -668,15 +638,8 @@ func Load(cwd string) (*Config, error) {
 		cfg.Wikis[name] = wc
 	}
 
-	// Apply API keys from env vars
+	// API key fallback from env var (used by gmd env for display)
 	cfg.LLM.APIKey = os.Getenv("OPENAI_API_KEY")
-	cfg.LLM.EmbeddingAPIKey = envOrFallback("GMD_EMBEDDING_API_KEY", cfg.LLM.APIKey)
-	cfg.LLM.ExpansionAPIKey = envOrFallback("GMD_EXPANSION_API_KEY", cfg.LLM.APIKey)
-	cfg.LLM.RerankAPIKey = envOrFallback("GMD_RERANK_API_KEY", cfg.LLM.APIKey)
-	cfg.LLM.SummarizingAPIKey = envOrFallback("GMD_SUMMARIZING_API_KEY", cfg.LLM.APIKey)
-	cfg.LLM.GeneralBigAPIKey = envOrFallback("GMD_GENERAL_BIG_API_KEY", cfg.LLM.APIKey)
-	cfg.LLM.GeneralMidAPIKey = envOrFallback("GMD_GENERAL_MID_API_KEY", cfg.LLM.APIKey)
-	cfg.LLM.GeneralSmallAPIKey = envOrFallback("GMD_GENERAL_SMALL_API_KEY", cfg.LLM.APIKey)
 
 	// Resolve provider API keys from env vars based on provider type
 	if cfg.LLM.Providers != nil {
@@ -738,16 +701,48 @@ func Load(cwd string) (*Config, error) {
 func defaultConfig() *Config {
 	return &Config{
 		LLM: LLMConfig{
-			EmbeddingModel:      "google/embeddinggemma-300m",
-			EmbeddingBaseURL:    "http://localhost:8001/v1",
-			ExpansionModel:      "Qwen/Qwen3-1.7B",
-			ExpansionBaseURL:    "http://localhost:8002/v1",
-			RerankModel:         "Qwen/Qwen3-Reranker-0.6B",
-			RerankBaseURL:       "http://localhost:8003/v1",
-			SummarizingBaseURL:  "http://localhost:8000/v1",
-			GeneralBigBaseURL:   "http://localhost:8000/v1",
-			GeneralMidBaseURL:   "http://localhost:8000/v1",
-			GeneralSmallBaseURL: "http://localhost:8000/v1",
+			Profile: "default",
+			Providers: map[string]LLMProviderConfig{
+				"embedder": {
+					Name:     "embedder",
+					Provider: "openai",
+					BaseURL:  "http://localhost:8001/v1",
+					Auth:     "apikey",
+					Features: &LLMProviderFeatures{Embed: true, Chat: false, Rerank: false},
+				},
+				"small": {
+					Name:     "small",
+					Provider: "openai",
+					BaseURL:  "http://localhost:8002/v1",
+					Auth:     "apikey",
+					Features: &LLMProviderFeatures{Embed: false, Chat: true, Rerank: false},
+				},
+				"reranker": {
+					Name:     "reranker",
+					Provider: "openai",
+					BaseURL:  "http://localhost:8003/v1",
+					Auth:     "apikey",
+					Features: &LLMProviderFeatures{Embed: false, Chat: false, Rerank: true},
+				},
+				"default": {
+					Name:     "default",
+					Provider: "openai",
+					BaseURL:  "http://localhost:8000/v1",
+					Auth:     "apikey",
+					Features: &LLMProviderFeatures{Embed: false, Chat: true, Rerank: false},
+				},
+			},
+			Profiles: map[string]LLMProfileConfig{
+				"default": {
+					Embedding:    &LLMRoleConfig{Provider: "embedder", Model: "google/embeddinggemma-300m"},
+					Expansion:    &LLMRoleConfig{Provider: "small", Model: "Qwen/Qwen3-1.7B"},
+					Rerank:       &LLMRoleConfig{Provider: "reranker", Model: "Qwen/Qwen3-Reranker-0.6B"},
+					Summarizing:  &LLMRoleConfig{Provider: "default"},
+					GeneralBig:   &LLMRoleConfig{Provider: "default"},
+					GeneralMid:   &LLMRoleConfig{Provider: "default"},
+					GeneralSmall: &LLMRoleConfig{Provider: "default"},
+				},
+			},
 		},
 		Typesense: TypesenseConfig{
 			Host: "http://localhost:8108",
@@ -765,20 +760,6 @@ func mergeConfigs(dst, src *Config) {
 	// Merge LLM
 	l := &src.LLM
 	d := &dst.LLM
-	mergeStringField(&l.EmbeddingModel, &d.EmbeddingModel)
-	mergeStringField(&l.EmbeddingBaseURL, &d.EmbeddingBaseURL)
-	mergeStringField(&l.ExpansionModel, &d.ExpansionModel)
-	mergeStringField(&l.ExpansionBaseURL, &d.ExpansionBaseURL)
-	mergeStringField(&l.RerankModel, &d.RerankModel)
-	mergeStringField(&l.RerankBaseURL, &d.RerankBaseURL)
-	mergeStringField(&l.SummarizingModel, &d.SummarizingModel)
-	mergeStringField(&l.SummarizingBaseURL, &d.SummarizingBaseURL)
-	mergeStringField(&l.GeneralBigModel, &d.GeneralBigModel)
-	mergeStringField(&l.GeneralBigBaseURL, &d.GeneralBigBaseURL)
-	mergeStringField(&l.GeneralMidModel, &d.GeneralMidModel)
-	mergeStringField(&l.GeneralMidBaseURL, &d.GeneralMidBaseURL)
-	mergeStringField(&l.GeneralSmallModel, &d.GeneralSmallModel)
-	mergeStringField(&l.GeneralSmallBaseURL, &d.GeneralSmallBaseURL)
 	mergeStringField(&l.Profile, &d.Profile)
 	if l.Providers != nil {
 		if d.Providers == nil {
@@ -888,11 +869,4 @@ func tryReadProjectConfig(root string) (string, error) {
 		return string(data), nil
 	}
 	return "", fmt.Errorf("no project config found")
-}
-
-func envOrFallback(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
 }

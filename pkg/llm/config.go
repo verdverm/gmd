@@ -7,10 +7,7 @@ import (
 )
 
 func ResolveLLMConfig(cfg *config.Config) (*Client, error) {
-	if len(cfg.LLM.Providers) > 0 {
-		return resolveStructured(cfg)
-	}
-	return resolveLegacy(cfg), nil
+	return resolveStructured(cfg)
 }
 
 func resolveStructured(cfg *config.Config) (*Client, error) {
@@ -53,8 +50,4 @@ func resolveStructured(cfg *config.Config) (*Client, error) {
 	setRole(&profile.GeneralSmall, profileCfg.GeneralSmall)
 
 	return BuildAllClients(providers, profile)
-}
-
-func resolveLegacy(cfg *config.Config) *Client {
-	return New(ConfigFromProject(cfg))
 }

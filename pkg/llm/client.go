@@ -8,46 +8,12 @@ import (
 	"github.com/openai/openai-go/v3/option"
 	"github.com/openai/openai-go/v3/packages/param"
 	"github.com/openai/openai-go/v3/shared"
-
-	"github.com/verdverm/gmd/pkg/config"
 )
 
 type roleClient struct {
 	client *openai.Client
 	model  string
 	url    string
-}
-
-type Config struct {
-	APIKey string
-
-	EmbeddingModel  string
-	EmbeddingAPIKey string
-	EmbedURL        string
-
-	ExpansionModel  string
-	ExpansionAPIKey string
-	ExpandURL       string
-
-	RerankModel  string
-	RerankAPIKey string
-	RerankURL    string
-
-	SummarizingModel   string
-	SummarizingAPIKey  string
-	SummarizingBaseURL string
-
-	GeneralBigModel   string
-	GeneralBigAPIKey  string
-	GeneralBigBaseURL string
-
-	GeneralMidModel   string
-	GeneralMidAPIKey  string
-	GeneralMidBaseURL string
-
-	GeneralSmallModel   string
-	GeneralSmallAPIKey  string
-	GeneralSmallBaseURL string
 }
 
 type Client struct {
@@ -126,13 +92,6 @@ func (c *Client) RoleURL(role string) string {
 	return ""
 }
 
-func keyOrFallback(key, fallback string) string {
-	if key != "" {
-		return key
-	}
-	return fallback
-}
-
 func newOpenAIClient(baseURL, apiKey string) openai.Client {
 	opts := []option.RequestOption{
 		option.WithBaseURL(baseURL),
@@ -141,65 +100,6 @@ func newOpenAIClient(baseURL, apiKey string) openai.Client {
 		opts = append(opts, option.WithAPIKey(apiKey))
 	}
 	return openai.NewClient(opts...)
-}
-
-func ConfigFromProject(cfg *config.Config) Config {
-	return Config{
-		APIKey:              cfg.LLM.APIKey,
-		EmbeddingModel:      cfg.LLM.EmbeddingModel,
-		ExpansionModel:      cfg.LLM.ExpansionModel,
-		RerankModel:         cfg.LLM.RerankModel,
-		EmbedURL:            cfg.LLM.EmbeddingBaseURL,
-		ExpandURL:           cfg.LLM.ExpansionBaseURL,
-		RerankURL:           cfg.LLM.RerankBaseURL,
-		EmbeddingAPIKey:     cfg.LLM.EmbeddingAPIKey,
-		ExpansionAPIKey:     cfg.LLM.ExpansionAPIKey,
-		RerankAPIKey:        cfg.LLM.RerankAPIKey,
-		SummarizingModel:    cfg.LLM.SummarizingModel,
-		SummarizingBaseURL:  cfg.LLM.SummarizingBaseURL,
-		SummarizingAPIKey:   cfg.LLM.SummarizingAPIKey,
-		GeneralBigModel:     cfg.LLM.GeneralBigModel,
-		GeneralBigBaseURL:   cfg.LLM.GeneralBigBaseURL,
-		GeneralBigAPIKey:    cfg.LLM.GeneralBigAPIKey,
-		GeneralMidModel:     cfg.LLM.GeneralMidModel,
-		GeneralMidBaseURL:   cfg.LLM.GeneralMidBaseURL,
-		GeneralMidAPIKey:    cfg.LLM.GeneralMidAPIKey,
-		GeneralSmallModel:   cfg.LLM.GeneralSmallModel,
-		GeneralSmallBaseURL: cfg.LLM.GeneralSmallBaseURL,
-		GeneralSmallAPIKey:  cfg.LLM.GeneralSmallAPIKey,
-	}
-}
-
-func New(cfg Config) *Client {
-	c := &Client{
-		providers: make(map[string]*openai.Client),
-	}
-
-	embedClient := newOpenAIClient(cfg.EmbedURL, keyOrFallback(cfg.EmbeddingAPIKey, cfg.APIKey))
-	expandClient := newOpenAIClient(cfg.ExpandURL, keyOrFallback(cfg.ExpansionAPIKey, cfg.APIKey))
-	rerankClient := newOpenAIClient(cfg.RerankURL, keyOrFallback(cfg.RerankAPIKey, cfg.APIKey))
-	summarizeClient := newOpenAIClient(cfg.SummarizingBaseURL, keyOrFallback(cfg.SummarizingAPIKey, cfg.APIKey))
-	bigClient := newOpenAIClient(cfg.GeneralBigBaseURL, keyOrFallback(cfg.GeneralBigAPIKey, cfg.APIKey))
-	midClient := newOpenAIClient(cfg.GeneralMidBaseURL, keyOrFallback(cfg.GeneralMidAPIKey, cfg.APIKey))
-	smallClient := newOpenAIClient(cfg.GeneralSmallBaseURL, keyOrFallback(cfg.GeneralSmallAPIKey, cfg.APIKey))
-
-	c.embedder = roleClient{client: &embedClient, model: cfg.EmbeddingModel, url: cfg.EmbedURL}
-	c.expander = roleClient{client: &expandClient, model: cfg.ExpansionModel, url: cfg.ExpandURL}
-	c.reranker = roleClient{client: &rerankClient, model: cfg.RerankModel, url: cfg.RerankURL}
-	c.summarizer = roleClient{client: &summarizeClient, model: cfg.SummarizingModel, url: cfg.SummarizingBaseURL}
-	c.generalBig = roleClient{client: &bigClient, model: cfg.GeneralBigModel, url: cfg.GeneralBigBaseURL}
-	c.generalMid = roleClient{client: &midClient, model: cfg.GeneralMidModel, url: cfg.GeneralMidBaseURL}
-	c.generalSmall = roleClient{client: &smallClient, model: cfg.GeneralSmallModel, url: cfg.GeneralSmallBaseURL}
-
-	c.providers["embedding"] = &embedClient
-	c.providers["expansion"] = &expandClient
-	c.providers["rerank"] = &rerankClient
-	c.providers["summarizing"] = &summarizeClient
-	c.providers["general_big"] = &bigClient
-	c.providers["general_mid"] = &midClient
-	c.providers["general_small"] = &smallClient
-
-	return c
 }
 
 func (c *Client) Embed(ctx context.Context, text string) ([]float64, error) {

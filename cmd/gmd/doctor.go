@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/verdverm/gmd/pkg/llm"
 )
 
 var doctorCmd = &cobra.Command{
@@ -135,7 +134,11 @@ when search returns no results or indexing fails.`,
 
 		fmt.Println()
 		fmt.Println("LLM Endpoints:")
-		l := llm.New(llmConfigFromConfig(cfg))
+		l, err := llmConfigFromConfig(cfg)
+		if err != nil {
+			fmt.Printf("FAIL   LLM config: %v\n", err)
+			return nil
+		}
 		statuses := l.CheckAll(context.Background())
 		for _, s := range statuses {
 			if !s.OK {

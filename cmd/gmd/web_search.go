@@ -116,7 +116,11 @@ Examples:
 
 		var llmClient *llm.Client
 		if synthesize || dedup == "llm" {
-			llmClient = llm.New(llmConfigFromConfig(config))
+			var err error
+			llmClient, err = llmConfigFromConfig(config)
+			if err != nil {
+				return fmt.Errorf("resolving LLM config: %w", err)
+			}
 		}
 
 		fcfg := fusion.Config{

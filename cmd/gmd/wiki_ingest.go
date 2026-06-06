@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/verdverm/gmd/pkg/llm"
 	"github.com/verdverm/gmd/pkg/wiki"
 )
 
@@ -41,7 +40,10 @@ Example:
 		}
 
 		tsClient := r.TSClient()
-		llmClient := llm.New(llmConfigFromConfig(cfg))
+		llmClient, err := llmConfigFromConfig(cfg)
+		if err != nil {
+			return fmt.Errorf("resolving LLM config: %w", err)
+		}
 
 		agent := wiki.NewAgent(w, cfg, tsClient, llmClient)
 

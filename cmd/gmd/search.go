@@ -7,7 +7,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/verdverm/gmd/pkg/config"
-	"github.com/verdverm/gmd/pkg/llm"
 	"github.com/verdverm/gmd/pkg/output"
 	"github.com/verdverm/gmd/pkg/search"
 )
@@ -26,7 +25,10 @@ func searchRun(args []string, mode search.Mode) error {
 		return err
 	}
 	cfg := r.Config()
-	llmClient := llm.New(llmConfigFromConfig(cfg))
+	llmClient, err := llmConfigFromConfig(cfg)
+	if err != nil {
+		return err
+	}
 	p := search.New(cfg, r.TSClient(), llmClient)
 	ctx := context.Background()
 

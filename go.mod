@@ -9,10 +9,12 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/typesense/typesense-go/v4 v4.0.0-alpha2
 	github.com/yuin/goldmark v1.8.2
+	golang.org/x/oauth2 v0.36.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
+	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/cockroachdb/apd/v3 v3.2.1 // indirect
 	github.com/emicklei/proto v1.14.3 // indirect

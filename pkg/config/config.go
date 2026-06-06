@@ -393,10 +393,47 @@ func (c *Config) SourceExists(name string) bool {
 	return inCol || inWiki
 }
 
+// LLMProviderConfig maps from the CUE LLMProviderConfig schema.
+type LLMProviderConfig struct {
+	Name      string               `json:"-"`
+	Provider  string               `json:"provider"`
+	BaseURL   string               `json:"base_url,omitempty"`
+	Auth      string               `json:"auth"`
+	ProjectID string               `json:"project_id,omitempty"`
+	Location  string               `json:"location,omitempty"`
+	Features  *LLMProviderFeatures `json:"features,omitempty"`
+	AuthData  map[string]string    `json:"-"`
+}
+
+// LLMProviderFeatures maps from the CUE LLMProviderConfig.features schema.
+type LLMProviderFeatures struct {
+	Embed  bool `json:"embed"`
+	Chat   bool `json:"chat"`
+	Rerank bool `json:"rerank"`
+}
+
+// LLMRoleConfig maps from the CUE LLMRoleConfig schema.
+type LLMRoleConfig struct {
+	Provider string `json:"provider,omitempty"`
+	Model    string `json:"model,omitempty"`
+}
+
+// LLMProfileConfig maps from the CUE LLMProfile schema.
+type LLMProfileConfig struct {
+	Embedding    *LLMRoleConfig `json:"embedding,omitempty"`
+	Expansion    *LLMRoleConfig `json:"expansion,omitempty"`
+	Rerank       *LLMRoleConfig `json:"rerank,omitempty"`
+	Summarizing  *LLMRoleConfig `json:"summarizing,omitempty"`
+	GeneralBig   *LLMRoleConfig `json:"general_big,omitempty"`
+	GeneralMid   *LLMRoleConfig `json:"general_mid,omitempty"`
+	GeneralSmall *LLMRoleConfig `json:"general_small,omitempty"`
+}
+
 // LLMConfig maps from the CUE LLMConfig schema.
 type LLMConfig struct {
 	APIKey string `json:"-"`
 
+	// Legacy flat fields
 	EmbeddingModel   string `json:"embedding_model"`
 	EmbeddingBaseURL string `json:"embedding_base_url"`
 	EmbeddingAPIKey  string `json:"embedding_api_key"`
@@ -424,6 +461,11 @@ type LLMConfig struct {
 	GeneralSmallModel   string `json:"general_small_model"`
 	GeneralSmallBaseURL string `json:"general_small_base_url"`
 	GeneralSmallAPIKey  string `json:"general_small_api_key"`
+
+	// New structured configuration
+	Providers map[string]LLMProviderConfig `json:"providers,omitempty"`
+	Profile   string                       `json:"profile,omitempty"`
+	Profiles  map[string]LLMProfileConfig  `json:"profiles,omitempty"`
 }
 
 // TypesenseConfig maps from the CUE TypesenseConfig schema.
@@ -635,6 +677,38 @@ func Load(cwd string) (*Config, error) {
 	cfg.LLM.GeneralBigAPIKey = envOrFallback("GMD_GENERAL_BIG_API_KEY", cfg.LLM.APIKey)
 	cfg.LLM.GeneralMidAPIKey = envOrFallback("GMD_GENERAL_MID_API_KEY", cfg.LLM.APIKey)
 	cfg.LLM.GeneralSmallAPIKey = envOrFallback("GMD_GENERAL_SMALL_API_KEY", cfg.LLM.APIKey)
+
+	// Resolve provider API keys from env vars based on provider type
+	if cfg.LLM.Providers != nil {
+		for name, pc := range cfg.LLM.Providers {
+			pc.Name = name
+			if pc.AuthData == nil {
+				pc.AuthData = make(map[string]string)
+			}
+			switch pc.Provider {
+			case "openai":
+				if key := os.Getenv("OPENAI_API_KEY"); key != "" {
+					pc.AuthData["api_key"] = key
+				}
+			case "anthropic":
+				if key := os.Getenv("ANTHROPIC_API_KEY"); key != "" {
+					pc.AuthData["api_key"] = key
+				}
+			case "vertex":
+				pc.AuthData["project_id"] = pc.ProjectID
+				pc.AuthData["location"] = pc.Location
+			case "opencode":
+				if key := os.Getenv("OPENCODE_API_KEY"); key != "" {
+					pc.AuthData["api_key"] = key
+				}
+			default:
+				if key := os.Getenv("GMD_LLM_API_KEY"); key != "" {
+					pc.AuthData["api_key"] = key
+				}
+			}
+			cfg.LLM.Providers[name] = pc
+		}
+	}
 	cfg.Typesense.APIKey = os.Getenv("GMD_TYPESENSE_API_KEY")
 	if v := os.Getenv("EXA_API_KEY"); v != "" {
 		cfg.Web.EXA.APIKey = v
@@ -705,6 +779,23 @@ func mergeConfigs(dst, src *Config) {
 	mergeStringField(&l.GeneralMidBaseURL, &d.GeneralMidBaseURL)
 	mergeStringField(&l.GeneralSmallModel, &d.GeneralSmallModel)
 	mergeStringField(&l.GeneralSmallBaseURL, &d.GeneralSmallBaseURL)
+	mergeStringField(&l.Profile, &d.Profile)
+	if l.Providers != nil {
+		if d.Providers == nil {
+			d.Providers = make(map[string]LLMProviderConfig)
+		}
+		for k, v := range l.Providers {
+			d.Providers[k] = v
+		}
+	}
+	if l.Profiles != nil {
+		if d.Profiles == nil {
+			d.Profiles = make(map[string]LLMProfileConfig)
+		}
+		for k, v := range l.Profiles {
+			d.Profiles[k] = v
+		}
+	}
 
 	// Merge Typesense
 	mergeStringField(&src.Typesense.Host, &dst.Typesense.Host)

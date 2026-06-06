@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/verdverm/gmd/pkg/llm"
 	"github.com/verdverm/gmd/pkg/web"
 	"github.com/verdverm/gmd/pkg/web/exa"
 )
@@ -48,7 +47,10 @@ Examples:
 
 		exaClient := exa.New(config.Web.EXA.APIKey)
 
-		llmClient := llm.New(llmConfigFromConfig(config))
+		llmClient, err := llmConfigFromConfig(config)
+		if err != nil {
+			return fmt.Errorf("resolving LLM config: %w", err)
+		}
 
 		maxSteps := webAgentSteps
 		switch webAgentDepth {

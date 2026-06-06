@@ -12,30 +12,10 @@ import (
 	"github.com/verdverm/gmd/pkg/config"
 )
 
-type Client struct {
-	embedClient        openai.Client
-	expandClient       openai.Client
-	rerankClient       openai.Client
-	summarizeClient    openai.Client
-	generalBigClient   openai.Client
-	generalMidClient   openai.Client
-	generalSmallClient openai.Client
-
-	embeddingModel    string
-	expansionModel    string
-	rerankModel       string
-	summarizingModel  string
-	generalBigModel   string
-	generalMidModel   string
-	generalSmallModel string
-
-	embedURL        string
-	expandURL       string
-	rerankURL       string
-	summarizeURL    string
-	generalBigURL   string
-	generalMidURL   string
-	generalSmallURL string
+type roleClient struct {
+	client *openai.Client
+	model  string
+	url    string
 }
 
 type Config struct {
@@ -70,6 +50,82 @@ type Config struct {
 	GeneralSmallBaseURL string
 }
 
+type Client struct {
+	embedder     roleClient
+	expander     roleClient
+	reranker     roleClient
+	summarizer   roleClient
+	generalBig   roleClient
+	generalMid   roleClient
+	generalSmall roleClient
+
+	providers map[string]*openai.Client
+}
+
+func (c *Client) ProviderClients() map[string]*openai.Client {
+	return c.providers
+}
+
+func (c *Client) RoleClient(role string) *openai.Client {
+	switch role {
+	case "embedding":
+		return c.embedder.client
+	case "expansion":
+		return c.expander.client
+	case "rerank":
+		return c.reranker.client
+	case "summarizing":
+		return c.summarizer.client
+	case "general_big":
+		return c.generalBig.client
+	case "general_mid":
+		return c.generalMid.client
+	case "general_small":
+		return c.generalSmall.client
+	}
+	return nil
+}
+
+func (c *Client) RoleModel(role string) string {
+	switch role {
+	case "embedding":
+		return c.embedder.model
+	case "expansion":
+		return c.expander.model
+	case "rerank":
+		return c.reranker.model
+	case "summarizing":
+		return c.summarizer.model
+	case "general_big":
+		return c.generalBig.model
+	case "general_mid":
+		return c.generalMid.model
+	case "general_small":
+		return c.generalSmall.model
+	}
+	return ""
+}
+
+func (c *Client) RoleURL(role string) string {
+	switch role {
+	case "embedding":
+		return c.embedder.url
+	case "expansion":
+		return c.expander.url
+	case "rerank":
+		return c.reranker.url
+	case "summarizing":
+		return c.summarizer.url
+	case "general_big":
+		return c.generalBig.url
+	case "general_mid":
+		return c.generalMid.url
+	case "general_small":
+		return c.generalSmall.url
+	}
+	return ""
+}
+
 func keyOrFallback(key, fallback string) string {
 	if key != "" {
 		return key
@@ -87,7 +143,6 @@ func newOpenAIClient(baseURL, apiKey string) openai.Client {
 	return openai.NewClient(opts...)
 }
 
-// ConfigFromProject builds an llm.Config from a project-level gmd Config.
 func ConfigFromProject(cfg *config.Config) Config {
 	return Config{
 		APIKey:              cfg.LLM.APIKey,
@@ -116,48 +171,43 @@ func ConfigFromProject(cfg *config.Config) Config {
 }
 
 func New(cfg Config) *Client {
-	return &Client{
-		embedClient:        newOpenAIClient(cfg.EmbedURL, keyOrFallback(cfg.EmbeddingAPIKey, cfg.APIKey)),
-		expandClient:       newOpenAIClient(cfg.ExpandURL, keyOrFallback(cfg.ExpansionAPIKey, cfg.APIKey)),
-		rerankClient:       newOpenAIClient(cfg.RerankURL, keyOrFallback(cfg.RerankAPIKey, cfg.APIKey)),
-		summarizeClient:    newOpenAIClient(cfg.SummarizingBaseURL, keyOrFallback(cfg.SummarizingAPIKey, cfg.APIKey)),
-		generalBigClient:   newOpenAIClient(cfg.GeneralBigBaseURL, keyOrFallback(cfg.GeneralBigAPIKey, cfg.APIKey)),
-		generalMidClient:   newOpenAIClient(cfg.GeneralMidBaseURL, keyOrFallback(cfg.GeneralMidAPIKey, cfg.APIKey)),
-		generalSmallClient: newOpenAIClient(cfg.GeneralSmallBaseURL, keyOrFallback(cfg.GeneralSmallAPIKey, cfg.APIKey)),
-
-		embeddingModel:    cfg.EmbeddingModel,
-		expansionModel:    cfg.ExpansionModel,
-		rerankModel:       cfg.RerankModel,
-		summarizingModel:  cfg.SummarizingModel,
-		generalBigModel:   cfg.GeneralBigModel,
-		generalMidModel:   cfg.GeneralMidModel,
-		generalSmallModel: cfg.GeneralSmallModel,
-
-		embedURL:        cfg.EmbedURL,
-		expandURL:       cfg.ExpandURL,
-		rerankURL:       cfg.RerankURL,
-		summarizeURL:    cfg.SummarizingBaseURL,
-		generalBigURL:   cfg.GeneralBigBaseURL,
-		generalMidURL:   cfg.GeneralMidBaseURL,
-		generalSmallURL: cfg.GeneralSmallBaseURL,
+	c := &Client{
+		providers: make(map[string]*openai.Client),
 	}
+
+	embedClient := newOpenAIClient(cfg.EmbedURL, keyOrFallback(cfg.EmbeddingAPIKey, cfg.APIKey))
+	expandClient := newOpenAIClient(cfg.ExpandURL, keyOrFallback(cfg.ExpansionAPIKey, cfg.APIKey))
+	rerankClient := newOpenAIClient(cfg.RerankURL, keyOrFallback(cfg.RerankAPIKey, cfg.APIKey))
+	summarizeClient := newOpenAIClient(cfg.SummarizingBaseURL, keyOrFallback(cfg.SummarizingAPIKey, cfg.APIKey))
+	bigClient := newOpenAIClient(cfg.GeneralBigBaseURL, keyOrFallback(cfg.GeneralBigAPIKey, cfg.APIKey))
+	midClient := newOpenAIClient(cfg.GeneralMidBaseURL, keyOrFallback(cfg.GeneralMidAPIKey, cfg.APIKey))
+	smallClient := newOpenAIClient(cfg.GeneralSmallBaseURL, keyOrFallback(cfg.GeneralSmallAPIKey, cfg.APIKey))
+
+	c.embedder = roleClient{client: &embedClient, model: cfg.EmbeddingModel, url: cfg.EmbedURL}
+	c.expander = roleClient{client: &expandClient, model: cfg.ExpansionModel, url: cfg.ExpandURL}
+	c.reranker = roleClient{client: &rerankClient, model: cfg.RerankModel, url: cfg.RerankURL}
+	c.summarizer = roleClient{client: &summarizeClient, model: cfg.SummarizingModel, url: cfg.SummarizingBaseURL}
+	c.generalBig = roleClient{client: &bigClient, model: cfg.GeneralBigModel, url: cfg.GeneralBigBaseURL}
+	c.generalMid = roleClient{client: &midClient, model: cfg.GeneralMidModel, url: cfg.GeneralMidBaseURL}
+	c.generalSmall = roleClient{client: &smallClient, model: cfg.GeneralSmallModel, url: cfg.GeneralSmallBaseURL}
+
+	c.providers["embedding"] = &embedClient
+	c.providers["expansion"] = &expandClient
+	c.providers["rerank"] = &rerankClient
+	c.providers["summarizing"] = &summarizeClient
+	c.providers["general_big"] = &bigClient
+	c.providers["general_mid"] = &midClient
+	c.providers["general_small"] = &smallClient
+
+	return c
 }
 
-func (c *Client) clientForEmbed() openai.Client        { return c.embedClient }
-func (c *Client) clientForExpand() openai.Client       { return c.expandClient }
-func (c *Client) clientForRerank() openai.Client       { return c.rerankClient }
-func (c *Client) clientForSummarize() openai.Client    { return c.summarizeClient }
-func (c *Client) clientForGeneralBig() openai.Client   { return c.generalBigClient }
-func (c *Client) clientForGeneralMid() openai.Client   { return c.generalMidClient }
-func (c *Client) clientForGeneralSmall() openai.Client { return c.generalSmallClient }
-
 func (c *Client) Embed(ctx context.Context, text string) ([]float64, error) {
-	return c.EmbedWithModel(ctx, text, c.embeddingModel)
+	return c.EmbedWithModel(ctx, text, c.embedder.model)
 }
 
 func (c *Client) EmbedWithModel(ctx context.Context, text, model string) ([]float64, error) {
-	client := c.clientForEmbed()
-	resp, err := client.Embeddings.New(ctx, openai.EmbeddingNewParams{
+	resp, err := c.embedder.client.Embeddings.New(ctx, openai.EmbeddingNewParams{
 		Model: model,
 		Input: openai.EmbeddingNewParamsInputUnion{
 			OfString: param.NewOpt(text),
@@ -173,9 +223,8 @@ func (c *Client) EmbedWithModel(ctx context.Context, text, model string) ([]floa
 }
 
 func (c *Client) EmbedBatch(ctx context.Context, texts []string) ([][]float64, error) {
-	client := c.clientForEmbed()
-	resp, err := client.Embeddings.New(ctx, openai.EmbeddingNewParams{
-		Model: c.embeddingModel,
+	resp, err := c.embedder.client.Embeddings.New(ctx, openai.EmbeddingNewParams{
+		Model: c.embedder.model,
 		Input: openai.EmbeddingNewParamsInputUnion{
 			OfArrayOfStrings: texts,
 		},
@@ -198,7 +247,7 @@ type ChatMessage struct {
 	Content string
 }
 
-func (c *Client) chatWithClient(ctx context.Context, messages []ChatMessage, model string, client openai.Client) (string, error) {
+func (c *Client) chatWithClient(ctx context.Context, messages []ChatMessage, model string, client *openai.Client) (string, error) {
 	chatMsgs := make([]openai.ChatCompletionMessageParamUnion, len(messages))
 	for i, m := range messages {
 		switch m.Role {
@@ -227,27 +276,27 @@ func (c *Client) chatWithClient(ctx context.Context, messages []ChatMessage, mod
 }
 
 func (c *Client) Chat(ctx context.Context, messages []ChatMessage) (string, error) {
-	return c.chatWithClient(ctx, messages, c.expansionModel, c.clientForExpand())
+	return c.chatWithClient(ctx, messages, c.expander.model, c.expander.client)
 }
 
 func (c *Client) ChatWithModel(ctx context.Context, messages []ChatMessage, model string) (string, error) {
-	return c.chatWithClient(ctx, messages, model, c.clientForExpand())
+	return c.chatWithClient(ctx, messages, model, c.expander.client)
 }
 
 func (c *Client) Summarize(ctx context.Context, messages []ChatMessage) (string, error) {
-	return c.chatWithClient(ctx, messages, c.summarizingModel, c.clientForSummarize())
+	return c.chatWithClient(ctx, messages, c.summarizer.model, c.summarizer.client)
 }
 
 func (c *Client) GeneralBigChat(ctx context.Context, messages []ChatMessage) (string, error) {
-	return c.chatWithClient(ctx, messages, c.generalBigModel, c.clientForGeneralBig())
+	return c.chatWithClient(ctx, messages, c.generalBig.model, c.generalBig.client)
 }
 
 func (c *Client) GeneralMidChat(ctx context.Context, messages []ChatMessage) (string, error) {
-	return c.chatWithClient(ctx, messages, c.generalMidModel, c.clientForGeneralMid())
+	return c.chatWithClient(ctx, messages, c.generalMid.model, c.generalMid.client)
 }
 
 func (c *Client) GeneralSmallChat(ctx context.Context, messages []ChatMessage) (string, error) {
-	return c.chatWithClient(ctx, messages, c.generalSmallModel, c.clientForGeneralSmall())
+	return c.chatWithClient(ctx, messages, c.generalSmall.model, c.generalSmall.client)
 }
 
 type RerankResult struct {
@@ -315,13 +364,13 @@ func (c *Client) CheckAll(ctx context.Context) []EndpointStatus {
 		url   string
 		model string
 	}{
-		{"embedding", c.embedURL, c.embeddingModel},
-		{"expansion", c.expandURL, c.expansionModel},
-		{"rerank", c.rerankURL, c.rerankModel},
-		{"summarizing", c.summarizeURL, c.summarizingModel},
-		{"general_big", c.generalBigURL, c.generalBigModel},
-		{"general_mid", c.generalMidURL, c.generalMidModel},
-		{"general_small", c.generalSmallURL, c.generalSmallModel},
+		{"embedding", c.embedder.url, c.embedder.model},
+		{"expansion", c.expander.url, c.expander.model},
+		{"rerank", c.reranker.url, c.reranker.model},
+		{"summarizing", c.summarizer.url, c.summarizer.model},
+		{"general_big", c.generalBig.url, c.generalBig.model},
+		{"general_mid", c.generalMid.url, c.generalMid.model},
+		{"general_small", c.generalSmall.url, c.generalSmall.model},
 	}
 
 	results := make([]EndpointStatus, 0, len(endpoints))
@@ -332,15 +381,27 @@ func (c *Client) CheckAll(ctx context.Context) []EndpointStatus {
 	return results
 }
 
+func (c *Client) CheckProvider(ctx context.Context, name string, provider ProviderConfig) EndpointStatus {
+	return c.CheckEndpoint(ctx, name, provider.BaseURL, "")
+}
+
+func (c *Client) CheckAllProviders(ctx context.Context, providers map[string]ProviderConfig) []EndpointStatus {
+	results := make([]EndpointStatus, 0, len(providers))
+	for name, pc := range providers {
+		s := c.CheckProvider(ctx, name, pc)
+		results = append(results, s)
+	}
+	return results
+}
+
 func (c *Client) Rerank(ctx context.Context, query string, documents []string) ([]RerankResult, error) {
-	client := c.clientForRerank()
 	body := rerankRequest{
-		Model:     c.rerankModel,
+		Model:     c.reranker.model,
 		Query:     query,
 		Documents: documents,
 	}
 	var resp rerankResponse
-	err := client.Post(ctx, "/rerank", body, &resp)
+	err := c.reranker.client.Post(ctx, "/rerank", body, &resp)
 	if err != nil {
 		return nil, fmt.Errorf("rerank: %w", err)
 	}

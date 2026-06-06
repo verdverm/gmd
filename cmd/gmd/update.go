@@ -10,9 +10,9 @@ import (
 	"github.com/verdverm/gmd/pkg/llm"
 )
 
-func makeLLMClient() *llm.Client {
+func makeLLMClient() (*llm.Client, error) {
 	cfg := globalRuntime.Config()
-	return llm.New(llmConfigFromConfig(cfg))
+	return llmConfigFromConfig(cfg)
 }
 
 func runIndex(msg string) error {
@@ -20,7 +20,11 @@ func runIndex(msg string) error {
 	if err != nil {
 		return err
 	}
-	idx := indexer.New(r.Config(), r.TSClient(), makeLLMClient())
+	llmClient, err := makeLLMClient()
+	if err != nil {
+		return err
+	}
+	idx := indexer.New(r.Config(), r.TSClient(), llmClient)
 	ctx := context.Background()
 	progress := func(m string) { fmt.Println(m) }
 	result, err := idx.UpdateAll(ctx, progress)

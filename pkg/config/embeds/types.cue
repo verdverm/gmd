@@ -1,9 +1,42 @@
 package gmd
 
+// LLMProviderConfig defines a named LLM service endpoint.
+LLMProviderConfig: {
+	provider:       "openai" | "anthropic" | "vertex" | "opencode" | string
+	base_url?:      string
+	auth:           "none" | "apikey" | "service-account" | *"apikey"
+	project_id?:    string
+	location?:      string
+	features?: {
+		embed?:  bool | *true
+		chat?:   bool | *true
+		rerank?: bool | *false
+	}
+}
+
+// LLMRoleConfig maps a role to a provider + model.
+LLMRoleConfig: {
+	provider?:  string
+	model?:     string
+}
+
+// LLMProfile bundles all roles into a named preset.
+LLMProfile: {
+	embedding?:       LLMRoleConfig
+	expansion?:       LLMRoleConfig
+	rerank?:          LLMRoleConfig
+	summarizing?:     LLMRoleConfig
+	general_big?:     LLMRoleConfig
+	general_mid?:     LLMRoleConfig
+	general_small?:   LLMRoleConfig
+}
+
 // LLMConfig defines the OpenAI-compatible provider settings.
-// Each model role has its own endpoint URL (vLLM needs separate servers per model).
-// API keys are read from environment variables per role, falling back to OPENAI_API_KEY.
+// Supports both legacy flat fields (per-role model + URL + key) and new
+// structured providers + profiles layout. When structured config is present,
+// legacy fields are ignored.
 LLMConfig: {
+	// Legacy flat fields (backwards compatible)
 	embedding_model?:      string
 	embedding_base_url?:   string
 	embedding_api_key:     string | *""
@@ -31,6 +64,11 @@ LLMConfig: {
 	general_small_model?:    string
 	general_small_base_url?: string
 	general_small_api_key:   string | *""
+
+	// New structured configuration
+	providers?:  [string]: LLMProviderConfig
+	profile?:    string | *"default"
+	profiles?:   [string]: LLMProfile
 }
 
 // TypesenseConfig defines the search engine connection settings.

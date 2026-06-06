@@ -19,6 +19,11 @@
 
 ---
 
+start preferred harness from the cli prepopulated with message, like scion
+- different ways to do this based on harness, let's just do opencode for now, prepare for expansion
+- different places within the cli, infer agent for task based on the ones we provide, which the user may or may not have "installed" yet
+- while we are at it, ...
+
 agents:
 
 - gmd

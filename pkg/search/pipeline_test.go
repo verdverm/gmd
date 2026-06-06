@@ -413,16 +413,17 @@ func TestStrongSignalThresholds(t *testing.T) {
 }
 
 func TestExpansionPrompt(t *testing.T) {
-	if expansionPrompt == "" {
+	p := expansionPrompt()
+	if p == "" {
 		t.Fatal("expansionPrompt should not be empty")
 	}
-	if !strings.Contains(expansionPrompt, "lex:") {
+	if !strings.Contains(p, "lex:") {
 		t.Error("expansionPrompt should contain lex:")
 	}
-	if !strings.Contains(expansionPrompt, "vec:") {
+	if !strings.Contains(p, "vec:") {
 		t.Error("expansionPrompt should contain vec:")
 	}
-	if !strings.Contains(expansionPrompt, "hyde:") {
+	if !strings.Contains(p, "hyde:") {
 		t.Error("expansionPrompt should contain hyde:")
 	}
 }

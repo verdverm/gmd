@@ -152,7 +152,7 @@ func (a *Agent) Run(ctx context.Context, query string) (*AgentResult, error) {
 func (a *Agent) analyzeResults(ctx context.Context, query string, results []exa.SearchResult) (string, []string, error) {
 	resultsText := formatResultsForLLM(results)
 
-	prompt := strings.ReplaceAll(agentSystemPrompt, "{query}", query)
+	prompt := strings.ReplaceAll(agentSystemPrompt(), "{query}", query)
 
 	messages := []llm.ChatMessage{
 		{Role: "system", Content: prompt},
@@ -194,7 +194,7 @@ func (a *Agent) analyzeResults(ctx context.Context, query string, results []exa.
 func (a *Agent) synthesize(ctx context.Context, query string, results []exa.SearchResult) (string, error) {
 	resultsText := formatResultsForLLM(results)
 
-	prompt := strings.ReplaceAll(agentSynthesizePrompt, "{query}", query)
+	prompt := strings.ReplaceAll(agentSynthesizePrompt(), "{query}", query)
 	prompt = strings.ReplaceAll(prompt, "{results}", resultsText)
 
 	messages := []llm.ChatMessage{

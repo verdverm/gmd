@@ -1,14 +1,10 @@
 package wiki
 
 import (
-	"embed"
 	"fmt"
 	"os"
 	"path/filepath"
 )
-
-//go:embed skills/*.md
-var embeddedSkills embed.FS
 
 type SkillTemplate struct {
 	Name        string
@@ -18,7 +14,7 @@ type SkillTemplate struct {
 }
 
 func ListSkillTemplates() ([]SkillTemplate, error) {
-	entries, err := embeddedSkills.ReadDir("skills")
+	entries, err := wikiEmbedsFS.ReadDir("embeds/skills")
 	if err != nil {
 		return nil, fmt.Errorf("reading embedded skills: %w", err)
 	}
@@ -28,7 +24,7 @@ func ListSkillTemplates() ([]SkillTemplate, error) {
 		if entry.IsDir() {
 			continue
 		}
-		data, err := embeddedSkills.ReadFile("skills/" + entry.Name())
+		data, err := wikiEmbedsFS.ReadFile("embeds/skills/" + entry.Name())
 		if err != nil {
 			continue
 		}

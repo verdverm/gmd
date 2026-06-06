@@ -222,7 +222,7 @@ func Synthesize(ctx context.Context, query string, results []web.SearchResult, c
 
 	systemPrompt := cfg.SynthesisPrompt
 	if systemPrompt == "" {
-		systemPrompt = searchSynthesisPrompt
+		systemPrompt = searchSynthesisPrompt()
 	}
 
 	messages := []llm.ChatMessage{

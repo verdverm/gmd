@@ -1,8 +1,6 @@
 # SCRATCH
 
 - filters/facets for coll/wiki search
-- parallel web search, list in group config, synth/dedup with agent or raw
-- move any markdown/config to embedded files
 - work on agent/research
     - markdown and skills, run with opencode -c (generally a configurable agent-cli)
     - ability to write these files to global/project with init [--global]
@@ -18,3 +16,10 @@
 - 'gmd init' should write a global config if global dir not found
 - 'gmd find ...' ?
 - record some integration (real) results and save them for better regular tests
+
+---
+
+agent:
+
+- gmd
+- personal

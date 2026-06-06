@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,6 +11,14 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/verdverm/gmd/pkg/agentsmd"
 )
+
+//go:embed embeds
+var initEmbedsFS embed.FS
+
+func initConfigContent() string {
+	data, _ := initEmbedsFS.ReadFile("embeds/init_config.cue")
+	return string(data)
+}
 
 func detectProjectName(dir string) string {
 	if out, err := exec.Command("git", "-C", dir, "remote", "get-url", "origin").Output(); err == nil {
@@ -45,33 +54,8 @@ then run 'gmd update' to index your files.`,
 			return fmt.Errorf("config already exists at %s", configPath)
 		}
 		project := detectProjectName(dir)
-		defaultConfig := fmt.Sprintf(`package gmd
-
-Config: {
-	project:  %q
-		llm: {
-		embedding_base_url:  "http://localhost:8001/v1"
-		expansion_base_url:  "http://localhost:8002/v1"
-		rerank_base_url:     "http://localhost:8003/v1"
-		embedding_model:     "google/embeddinggemma-300m"
-		expansion_model:     "Qwen/Qwen3-1.7B"
-		rerank_model:        "Qwen/Qwen3-Reranker-0.6B"
-		summarizing_base_url:   "http://localhost:8000/v1"
-		general_big_base_url:   "http://localhost:8000/v1"
-		general_mid_base_url:   "http://localhost:8000/v1"
-		general_small_base_url: "http://localhost:8000/v1"
-	}
-	typesense: {
-		host:    "http://localhost:8108"
-	}
-	collections: docs: {
-		path:    "."
-		pattern: "**/*.md"
-		context: "Project documentation"
-	}
-}
-`, project)
-		if err := os.WriteFile(configPath, []byte(defaultConfig), 0644); err != nil {
+		config := strings.ReplaceAll(initConfigContent(), "{{PROJECT}}", project)
+		if err := os.WriteFile(configPath, []byte(config), 0644); err != nil {
 			return fmt.Errorf("writing config: %w", err)
 		}
 		fmt.Printf("Created GMD config at %s\n", configPath)

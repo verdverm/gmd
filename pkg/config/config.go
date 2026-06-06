@@ -536,8 +536,8 @@ type CollectionConfig struct {
 	ExcludeFromDefault bool `json:"excludeFromDefault"`
 }
 
-//go:embed schema/*.cue
-var cueSchema embed.FS
+//go:embed embeds
+var configEmbedsFS embed.FS
 
 // Load loads and validates the unified configuration.
 // It embeds the built-in schema, loads optional global config (UserConfigDir/gmd/config.cue),
@@ -547,7 +547,7 @@ func Load(cwd string) (*Config, error) {
 	ctx := cuecontext.New()
 
 	var allCUEContent string
-	entries, err := cueSchema.ReadDir("schema")
+	entries, err := configEmbedsFS.ReadDir("embeds")
 	if err != nil {
 		return nil, fmt.Errorf("reading embedded schema dir: %w", err)
 	}
@@ -555,7 +555,7 @@ func Load(cwd string) (*Config, error) {
 		if entry.IsDir() {
 			continue
 		}
-		data, err := cueSchema.ReadFile("schema/" + entry.Name())
+		data, err := configEmbedsFS.ReadFile("embeds/" + entry.Name())
 		if err != nil {
 			return nil, fmt.Errorf("reading %s: %w", entry.Name(), err)
 		}

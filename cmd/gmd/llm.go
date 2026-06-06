@@ -125,13 +125,13 @@ var llmProfilesCmd = &cobra.Command{
 				marker = "*"
 			}
 			fmt.Printf("%s %s\n", marker, name)
-			printRole("  embedding", profile.Embedding)
-			printRole("  expansion", profile.Expansion)
-			printRole("  rerank", profile.Rerank)
-			printRole("  summarizing", profile.Summarizing)
-			printRole("  general_big", profile.GeneralBig)
-			printRole("  general_mid", profile.GeneralMid)
-			printRole("  general_small", profile.GeneralSmall)
+		printRole("embedding", profile.Embedding)
+		printRole("expansion", profile.Expansion)
+		printRole("rerank", profile.Rerank)
+		printRole("summarizing", profile.Summarizing)
+		printRole("general_big", profile.GeneralBig)
+		printRole("general_mid", profile.GeneralMid)
+		printRole("general_small", profile.GeneralSmall)
 		}
 		return nil
 	},
@@ -141,7 +141,7 @@ func printRole(label string, rc *config.LLMRoleConfig) {
 	if rc == nil || rc.Model == "" {
 		return
 	}
-	fmt.Printf("%-20s provider=%-15s model=%s\n", label, rc.Provider, rc.Model)
+	fmt.Printf("  %-15s provider=%-15s model=%s\n", label, rc.Provider, rc.Model)
 }
 
 var llmProfileShowCmd = &cobra.Command{

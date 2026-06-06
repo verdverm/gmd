@@ -202,7 +202,7 @@ WebProviderGroup: {
 // WebSearchConfig controls multi-provider search behavior.
 WebSearchConfig: {
 	dedup:      string | *"heuristic"   // "heuristic", "llm", "none"
-	synthesize: bool   | *true           // synthesize results via LLM
+	synthesize: bool   | *false           // synthesize results via LLM
 	synthesis_prompt:  string | *""      // path to custom system prompt file
 }
 

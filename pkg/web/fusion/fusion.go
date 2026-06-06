@@ -51,8 +51,10 @@ func Run(ctx context.Context, query string, providers []web.SearchProvider, opts
 	}
 
 	var costs []web.CostSummary
+	seen := make(map[string]bool)
 	for _, r := range deduped {
-		if r.Cost != nil {
+		if r.Cost != nil && !seen[r.Cost.Provider] {
+			seen[r.Cost.Provider] = true
 			costs = append(costs, *r.Cost)
 		}
 	}

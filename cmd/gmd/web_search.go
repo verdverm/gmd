@@ -206,7 +206,7 @@ func init() {
 	webSearchCmd.Flags().BoolVar(&webSearchNoModeration, "no-moderation", false, "Disable content moderation")
 
 	webSearchCmd.Flags().StringVar(&webSearchDedup, "dedup", "heuristic", "Dedup method: heuristic, llm, none")
-	webSearchCmd.Flags().BoolVar(&webSearchSynthesize, "synthesize", true, "Synthesize results via LLM")
+	webSearchCmd.Flags().BoolVar(&webSearchSynthesize, "synthesize", false, "Synthesize results via LLM")
 	webSearchCmd.Flags().StringVar(&webSearchSynthesisPrompt, "synthesis-prompt", "", "Path to custom synthesis system prompt")
 	webSearchCmd.Flags().BoolVar(&webSearchNoSynthesize, "no-synthesize", false, "Disable synthesis (overrides --synthesize)")
 }

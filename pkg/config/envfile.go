@@ -70,6 +70,7 @@ func loadEnvEntry(entry string) {
 	}
 	key := strings.TrimSpace(entry[:idx])
 	val := strings.TrimSpace(entry[idx+1:])
+	val = strings.Trim(val, "'\"")
 	if key == "" {
 		return
 	}

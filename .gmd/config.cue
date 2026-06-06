@@ -2,23 +2,43 @@ package gmd
 
 Config: {
 	llm: {
-		embedding_model:     "google/embeddinggemma-300m"
-		embedding_base_url:  "http://192.168.4.31:8001/v1"
-
-		expansion_model:     "Qwen/Qwen3-1.7B"
-		expansion_base_url:  "http://192.168.4.31:8002/v1"
-
-		rerank_model:        "Qwen/Qwen3-Reranker-0.6B"
-		rerank_base_url:     "http://192.168.4.31:8003/v1"
-
-		summarizing_model:      "Qwen/Qwen3.6-27B-FP8"
-		summarizing_base_url:   "http://192.168.4.31:8000/v1"
-		general_big_model:      "Qwen/Qwen3.6-27B-FP8"
-		general_big_base_url:   "http://192.168.4.31:8000/v1"
-		general_mid_model:      "Qwen/Qwen3.6-27B-FP8"
-		general_mid_base_url:   "http://192.168.4.31:8000/v1"
-		general_small_model:    "Qwen/Qwen3.6-27B-FP8"
-		general_small_base_url: "http://192.168.4.31:8000/v1"
+		providers: {
+			vllm8000: {
+				provider: "openai"
+				base_url: "http://192.168.4.31:8000/v1"
+				auth: "none"
+				features: { embed: false, chat: true, rerank: false }
+			}
+			vllm8001: {
+				provider: "openai"
+				base_url: "http://192.168.4.31:8001/v1"
+				auth: "none"
+				features: { embed: true, chat: false, rerank: false }
+			}
+			vllm8002: {
+				provider: "openai"
+				base_url: "http://192.168.4.31:8002/v1"
+				auth: "none"
+				features: { embed: false, chat: true, rerank: false }
+			}
+			vllm8003: {
+				provider: "openai"
+				base_url: "http://192.168.4.31:8003/v1"
+				auth: "none"
+				features: { embed: false, chat: false, rerank: true }
+			}
+		}
+		profiles: {
+			default: {
+				embedding:     { provider: "vllm8001", model: "google/embeddinggemma-300m" }
+				expansion:     { provider: "vllm8002", model: "Qwen/Qwen3-1.7B" }
+				rerank:        { provider: "vllm8003", model: "Qwen/Qwen3-Reranker-0.6B" }
+				summarizing:   { provider: "vllm8000", model: "Qwen/Qwen3.6-27B-FP8" }
+				general_big:   { provider: "vllm8000", model: "Qwen/Qwen3.6-27B-FP8" }
+				general_mid:   { provider: "vllm8000", model: "Qwen/Qwen3.6-27B-FP8" }
+				general_small: { provider: "vllm8000", model: "Qwen/Qwen3.6-27B-FP8" }
+			}
+		}
 	}
 	typesense: {
 		host:    "http://192.168.4.26:31855"

@@ -217,7 +217,8 @@ All parameters have sensible defaults — you only need to set what you want to 
 
 `gmd web` commands use a multi-provider architecture. Credentials come from environment
 variables (env files or exported shell vars); provider selection and non-secret settings
-live in CUE config.
+live in CUE config. Search supports multiple providers in parallel with automatic dedup
+and optional LLM synthesis.
 
 ### Credentials
 
@@ -252,19 +253,41 @@ CLOUDFLARE_ACCOUNT_ID=abc123...
 
 ### Provider Groups
 
-Provider groups map a preset name to `{search, browser}` role selections. The `group` field
-sets the active group; `--provider-group` overrides per-command.
+Provider groups map a preset name to `{search, browser}` role selections. The `search` field
+accepts a list of provider names — all are queried in parallel. The `group` field sets the
+active group; `--provider-group` overrides per-command.
 
 ```cue
 web: {
   group: "default"              // active provider group
 
   groups: {
-    default:    { search: "exa",     browser: "exa" }
-    full:       { search: "exa",     browser: "cloudflare" }
-    custom:     { search: "tavily",  browser: "cloudflare" }
-    offline:    { search: "searxng", browser: "local" }
+    default:    { search: ["exa", "tavily"],        browser: "exa" }
+    full:       { search: ["exa", "tavily", "searxng"], browser: "cloudflare" }
+    custom:     { search: ["tavily"],               browser: "cloudflare" }
+    offline:    { search: ["searxng"],              browser: "local" }
   }
+```
+
+### Search Behavior
+
+Multi-provider search runs all configured providers in parallel, merges results, deduplicates
+(by URL or LLM), and optionally synthesizes a unified cited answer via the summarizer LLM.
+Configure defaults in `web.search`:
+
+```cue
+  search: {
+    dedup:      "heuristic"     // "heuristic" (URL-based), "llm", or "none"
+    synthesize: true            // synthesize results via LLM (uses summarizer model)
+    synthesis_prompt: ""        // path to custom system prompt file
+  }
+```
+
+CLI flags override config defaults:
+- `--dedup heuristic|llm|none` — dedup strategy
+- `--synthesize` / `--no-synthesize` — enable/disable LLM synthesis
+- `--synthesis-prompt <path>` — custom system prompt file
+- `--search-provider exa,tavily` — comma-separated provider list (overrides group)
 
   // Provider-specific config (optional — only needed to override defaults)
   //
@@ -314,7 +337,7 @@ EXA is the only provider registered in both roles: it implements `SearchProvider
 | Flag | Scope | Description |
 |---|---|---|
 | `--provider-group <name>` | Persistent | Override the configured active group for this command |
-| `--search-provider <name>` | Persistent | Override only the search role within the active group |
+| `--search-provider <name,...>` | Persistent | Override search providers in the active group (comma-separated) |
 | `--browser-provider <name>` | Persistent | Override only the browser role within the active group |
 
 Priority order: individual role override → `--provider-group` → configured `group` → `"default"`.
@@ -325,8 +348,14 @@ Priority order: individual role override → `--provider-group` → configured `
 # Search with default provider group
 gmd web search "transformer architecture"
 
-# Search with a specific provider
-gmd web search "golang generics" --search-provider tavily
+# Search across multiple providers
+gmd web search "golang generics" --search-provider exa,tavily
+
+# Search with LLM dedup, no synthesis
+gmd web search "rust features" --dedup llm --no-synthesize
+
+# Custom synthesis prompt
+gmd web search "compare frameworks" --synthesis-prompt ./my-prompt.txt
 
 # Fetch a page (uses browser provider from active group)
 gmd web fetch https://example.com

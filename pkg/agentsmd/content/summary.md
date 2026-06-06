@@ -47,19 +47,25 @@ gmd wiki query "<q>"          # RAG search → LLM synthesis with [[page]] citat
 
 ## Web Search
 
-GMD can search the live web via multiple providers (EXA, Tavily, SearXNG, Cloudflare):
+GMD can search the live web via multiple providers (EXA, Tavily, SearXNG, Cloudflare)
+with parallel fan-out, automatic dedup, and optional LLM synthesis:
 
 ```sh
-gmd web search "<query>"       # Web search via configured search provider
+gmd web search "<query>"       # Multi-provider web search → merge → dedup → synthesis
 gmd web fetch <url>            # Clean content extraction from URLs
 gmd web crawl <url>            # Crawl a site from seed URL (Cloudflare)
 gmd web agent "<question>"     # Multi-step LLM-orchestrated research
 gmd web research "<topic>"     # Deep structured research pipeline (stub)
 ```
 
-Commands fall on a three-tier spectrum: deterministic (search/fetch/crawl) → conversational agent → deep research. Each tier builds on the prior.
+Search runs all configured providers in parallel, merges results, deduplicates (by URL or
+LLM), and optionally synthesizes a unified cited answer via the summarizer LLM.
+Flags: `--search-provider exa,tavily` (comma-separated list), `--dedup heuristic|llm|none`,
+`--synthesize` / `--no-synthesize`, `--synthesis-prompt <path>`.
 
-Select providers via named groups in config, or override per-command with `--search-provider` / `--browser-provider`. Set credentials via env vars or env files: `EXA_API_KEY`, `TAVILY_API_KEY`, `CLOUDFLARE_API_KEY` + `CLOUDFLARE_ACCOUNT_ID`, `SEARXNG_BASE_URL`. SearXNG is self-hosted (no API key). Use `gmd env` to verify your resolved config. See [docs/web-providers.md](docs/web-providers.md) for details.
+Select providers via named groups in config (`web.groups` with `search: [...]` lists), or
+override per-command with `--search-provider` / `--browser-provider`. Set credentials via
+env vars or env files. Use `gmd env` to verify your resolved config.
 
 ## LLM Wiki
 

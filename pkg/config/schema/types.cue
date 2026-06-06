@@ -195,8 +195,15 @@ CloudflareConfig: {
 
 // WebProviderGroup maps a preset name to search/browser provider selections.
 WebProviderGroup: {
-	search?:  string
+	search?:  [...string]
 	browser?: string
+}
+
+// WebSearchConfig controls multi-provider search behavior.
+WebSearchConfig: {
+	dedup:      string | *"heuristic"   // "heuristic", "llm", "none"
+	synthesize: bool   | *true           // synthesize results via LLM
+	synthesis_prompt:  string | *""      // path to custom system prompt file
 }
 
 // WebConfig groups all web search provider configurations.
@@ -208,6 +215,7 @@ WebConfig: {
 	searxng?:   SearXNGConfig
 	local?:     LocalConfig
 	cloudflare?: CloudflareConfig
+	search:    WebSearchConfig
 }
 
 // ProjectConfig is the root configuration object.

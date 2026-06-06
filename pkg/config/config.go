@@ -41,6 +41,7 @@ type WebConfig struct {
 	SearXNG    SearXNGConfig               `json:"searxng,omitempty"`
 	Local      LocalConfig                 `json:"local,omitempty"`
 	Cloudflare CloudflareConfig            `json:"cloudflare,omitempty"`
+	Search     WebSearchConfig             `json:"search,omitempty"`
 }
 
 // EXAConfig maps from the CUE EXAConfig schema.
@@ -80,12 +81,19 @@ type SearXNGConfig struct {
 
 // WebProviderGroup maps a preset name to search/browser provider selections.
 type WebProviderGroup struct {
-	Search  string `json:"search,omitempty"`
-	Browser string `json:"browser,omitempty"`
+	Search  []string `json:"search,omitempty"`
+	Browser string   `json:"browser,omitempty"`
+}
+
+// WebSearchConfig controls multi-provider search behavior.
+type WebSearchConfig struct {
+	Dedup           string `json:"dedup,omitempty"`
+	Synthesize      bool   `json:"synthesize"`
+	SynthesisPrompt string `json:"synthesis_prompt,omitempty"`
 }
 
 // ResolveProvider resolves the provider name for a given role using the active group
-// or defaults. role is "search" or "browser".
+// or defaults. role is "search" or "browser". For "search", use ResolveSearchProviders instead.
 func (w WebConfig) ResolveProvider(role string, cmdOverride string) string {
 	if cmdOverride != "" {
 		return cmdOverride
@@ -97,8 +105,8 @@ func (w WebConfig) ResolveProvider(role string, cmdOverride string) string {
 	if g, ok := w.Groups[groupName]; ok {
 		switch role {
 		case "search":
-			if g.Search != "" {
-				return g.Search
+			if len(g.Search) > 0 {
+				return g.Search[0]
 			}
 		case "browser":
 			if g.Browser != "" {
@@ -113,6 +121,39 @@ func (w WebConfig) ResolveProvider(role string, cmdOverride string) string {
 		return "exa"
 	}
 	return ""
+}
+
+// ResolveSearchProviders resolves the list of search providers from the active group
+// or defaults. cmdOverride is a comma-separated list of provider names.
+func (w WebConfig) ResolveSearchProviders(cmdOverride string) []string {
+	if cmdOverride != "" {
+		return splitAndTrim(cmdOverride, ",")
+	}
+	groupName := w.Group
+	if groupName == "" {
+		groupName = "default"
+	}
+	if g, ok := w.Groups[groupName]; ok {
+		if len(g.Search) > 0 {
+			return g.Search
+		}
+	}
+	return []string{"exa"}
+}
+
+func splitAndTrim(s, sep string) []string {
+	parts := strings.Split(s, sep)
+	var result []string
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			result = append(result, p)
+		}
+	}
+	if len(result) == 0 {
+		return []string{"exa"}
+	}
+	return result
 }
 
 // CollectionKey returns the project-prefixed key for a collection name.

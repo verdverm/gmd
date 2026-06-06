@@ -17,6 +17,7 @@ const defaultSearXNGPath = "/search"
 type SearchClient struct {
 	baseURL    string
 	httpClient *http.Client
+	name       string
 }
 
 func NewSearchClient(cfg web.ProviderConfig) (*SearchClient, error) {
@@ -27,8 +28,11 @@ func NewSearchClient(cfg web.ProviderConfig) (*SearchClient, error) {
 	return &SearchClient{
 		baseURL:    baseURL,
 		httpClient: &http.Client{Timeout: 30 * time.Second},
+		name:       cfg.Name,
 	}, nil
 }
+
+func (c *SearchClient) Name() string { return c.name }
 
 func (c *SearchClient) Search(ctx context.Context, opts web.SearchOptions) ([]web.SearchResult, error) {
 	params := url.Values{}

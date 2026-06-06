@@ -24,7 +24,7 @@ gmd agentsmd summary            # get AGENTS.md for AI assistants
   (`.gmd/config.cue`); merge is automatic, project values take precedence
 - **Multi-collection projects** - index separate doc sets (e.g. user guide, dev API) as distinct
   collections within the same project, search across all or target one
-- **Web search, fetch, crawl, research** - `gmd web` subcommands with multi-provider support (EXA, Cloudflare, Tavily, SearXNG)
+- **Web search, fetch, crawl, research** - `gmd web` subcommands with multi-provider support (EXA, Cloudflare, Tavily, SearXNG). Parallel fan-out across providers with dedup and LLM synthesis.
 - **LLM Wiki** - compounding Karpathy-style knowledge base with built-in agent for ingest,
     search-powered query, graph, and lint
 - **MCP + REST API** - wiki-aware MCP tools for AI agents (`gmd mcp`); HTTP endpoints for search,
@@ -46,7 +46,8 @@ synthesize an answer with inline `[[citations]]`.
 **Web** (`gmd web`) lets you search the web, fetch clean content from URLs, crawl sites, or run a
 multi-step LLM-orchestrated research agent that searches, reads, and synthesizes across multiple
 rounds. Backed by a multi-provider architecture (EXA, Cloudflare, Tavily, SearXNG) with configurable
-provider groups.
+provider groups. `gmd web search` fans out queries to all configured search providers in parallel,
+merges and deduplicates results, and optionally synthesizes a unified cited answer via LLM.
 
 **Deploy** (`gmd serve` / `gmd mcp`) exposes gmd over HTTP and/or MCP so AI coding assistants and
 other tools can search your docs, query wikis, and browse indexed content.
@@ -82,29 +83,35 @@ automatically. Use `-c` to target specific collections.
 ## Web search, fetch, crawl, research
 
 Multi-provider web access with EXA, Tavily, SearXNG, and Cloudflare. Credentials come from
-environment variables (env files or exported shell vars). Select which provider handles each
-role (search, browser) via provider groups in CUE config.
+environment variables (env files or exported shell vars). Select which providers handle each
+role (search, browser) via provider groups in CUE config. Search supports multiple providers
+in parallel with automatic dedup and optional LLM synthesis.
 
 ```cue
 web: {
   group: "default"
   groups: {
-    default:  { search: "exa",     browser: "exa" }
-    full:     { search: "exa",     browser: "cloudflare" }
-    custom:   { search: "tavily",  browser: "cloudflare" }
-    offline:  { search: "searxng", browser: "local" }
+    default:  { search: ["exa", "tavily"], browser: "exa" }
+    full:     { search: ["exa", "tavily", "searxng"], browser: "cloudflare" }
+    custom:   { search: ["tavily"],  browser: "cloudflare" }
+    offline:  { search: ["searxng"], browser: "local" }
   }
-  // Non-secret settings (api keys are env-var-only)
+  search: {
+    dedup:      "heuristic"   // "heuristic", "llm", or "none"
+    synthesize: true          // synthesize results via LLM (summarizer model)
+  }
   searxng: { base_url: "" }     // or SEARXNG_BASE_URL env var
   local:   { no_browser: false, cache_enabled: true }
 }
 ```
 
 ```bash
-# Semantic web search (--search-provider overrides the configured default)
+# Multi-provider web search (parallel → merge → dedup → optional LLM synthesis)
 gmd web search "transformer architecture"
-gmd web search "golang generics" --search-provider tavily --limit 5
+gmd web search "golang generics" --search-provider tavily,exa --limit 5
 gmd web search "kubernetes" --domain kubernetes.io --date-start 2026-01-01
+gmd web search "ai safety" --dedup llm --no-synthesize
+gmd web search "climate" --synthesis-prompt ./my-prompt.txt
 
 # Fetch clean content from URLs (--browser-provider overrides the configured default)
 gmd web fetch https://example.com/article
@@ -225,10 +232,14 @@ Config: {
   web: {
     group: "default"
     groups: {
-      default:  { search: "exa",     browser: "exa" }
-      full:     { search: "exa",     browser: "cloudflare" }
-      custom:   { search: "tavily",  browser: "cloudflare" }
-      offline:  { search: "searxng", browser: "local" }
+      default:  { search: ["exa", "tavily"], browser: "exa" }
+      full:     { search: ["exa", "tavily", "searxng"], browser: "cloudflare" }
+      custom:   { search: ["tavily"],  browser: "cloudflare" }
+      offline:  { search: ["searxng"], browser: "local" }
+    }
+    search: {
+      dedup:      "heuristic"   // "heuristic", "llm", or "none"
+      synthesize: true          // synthesize results via LLM
     }
     // API keys (exa, tavily, cloudflare) are env-var-only - never in CUE
     // Non-secret settings can go here:
@@ -303,7 +314,7 @@ Project and global configs merge automatically, with project values taking prece
 | `gmd context rm <collection>` | Remove context from a collection |
 | `gmd serve` | Start REST API server |
 | `gmd mcp` | Start MCP server (for AI agent integration) |
-| `gmd web search <query>` | Web search via configured search provider |
+| `gmd web search <query>` | Multi-provider web search with parallel fan-out, dedup, and optional LLM synthesis |
 | `gmd web fetch <url>` | Fetch clean content from URLs via configured browser provider |
 | `gmd web crawl <url>` | Crawl a site from seed URL via configured browser provider |
 | `gmd web agent <query>` | Multi-step LLM-orchestrated web research agent |

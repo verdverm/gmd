@@ -70,19 +70,34 @@ func getRegistry() *web.ProviderRegistry {
 	return builders.DefaultRegistry()
 }
 
-func resolveSearchProvider(webCfg config.WebConfig) (web.SearchProvider, error) {
+func resolveSearchProviders(webCfg config.WebConfig) ([]web.SearchProvider, error) {
 	r := getRegistry()
-	name := webCfg.ResolveProvider("search", webSearchProvider)
-	pc := makeProviderConfig(name, webCfg)
-	got, err := r.Resolve("search", name, pc)
-	if err != nil {
-		return nil, err
+	if webProviderGroup != "" {
+		webCfg.Group = webProviderGroup
 	}
-	sp, ok := got.(web.SearchProvider)
-	if !ok {
-		return nil, fmt.Errorf("provider %q does not implement SearchProvider", name)
+	names := webCfg.ResolveSearchProviders(webSearchProvider)
+	if len(names) == 0 {
+		return nil, fmt.Errorf("no search providers configured")
 	}
-	return sp, nil
+	seen := make(map[string]bool)
+	var providers []web.SearchProvider
+	for _, name := range names {
+		if seen[name] {
+			continue
+		}
+		seen[name] = true
+		pc := makeProviderConfig(name, webCfg)
+		got, err := r.Resolve("search", name, pc)
+		if err != nil {
+			return nil, err
+		}
+		sp, ok := got.(web.SearchProvider)
+		if !ok {
+			return nil, fmt.Errorf("provider %q does not implement SearchProvider", name)
+		}
+		providers = append(providers, sp)
+	}
+	return providers, nil
 }
 
 func resolveBrowserProvider(webCfg config.WebConfig) (web.BrowserProvider, error) {
@@ -121,7 +136,7 @@ func makeProviderConfig(name string, webCfg config.WebConfig) web.ProviderConfig
 
 func init() {
 	webCmd.PersistentFlags().StringVar(&webProviderGroup, "provider-group", "", "Provider group preset (overrides configured group)")
-	webCmd.PersistentFlags().StringVar(&webSearchProvider, "search-provider", "", "Search provider override (exa, tavily, searxng)")
+	webCmd.PersistentFlags().StringVar(&webSearchProvider, "search-provider", "", "Search provider override, comma-separated (exa, tavily, searxng)")
 	webCmd.PersistentFlags().StringVar(&webBrowserProvider, "browser-provider", "", "Browser provider override (exa, cloudflare, local)")
 
 	webCmd.AddCommand(webFetchCmd)

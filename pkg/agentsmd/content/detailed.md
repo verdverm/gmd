@@ -154,18 +154,26 @@ Tavily, SearXNG). Configure provider groups in CUE config or override per-comman
 
 | Tier | Command | Description |
 |---|---|---|
-| 1 | `gmd web search <query>` | Web search via configured search provider |
+| 1 | `gmd web search <query>` | Multi-provider web search: parallel fan-out → merge → dedup → LLM synthesis |
 | 1 | `gmd web fetch <url> [url2 ...]` | Clean content extraction from URLs |
 | 1 | `gmd web crawl <url>` | Crawl a site from seed URL (Cloudflare or local) |
 | 2 | `gmd web agent <query>` | Multi-step LLM-orchestrated research agent |
 | 3 | `gmd web research <query>` | Deep structured research pipeline (stub) |
 
+Tier 1 search runs all configured providers in parallel, merges results, deduplicates (URL-based
+or LLM), and synthesizes a cited answer via the summarizer LLM (enabled by default, disable with
+`--no-synthesize`).
+
+**Provider groups** use list syntax for search: `search: ["exa", "tavily"]`. All listed
+providers are queried in parallel. Configure dedup/synthesis defaults via `web.search`.
+
 **Credentials** (set via env vars or env files, never in CUE config): `EXA_API_KEY`,
 `TAVILY_API_KEY`, `CLOUDFLARE_API_KEY` + `CLOUDFLARE_ACCOUNT_ID`, `SEARXNG_BASE_URL`.
 SearXNG is self-hosted (no API key). Use `gmd env` to verify your resolved config.
 
-**CLI flags:** `--provider-group <name>` (select a named group), `--search-provider <name>`
-(override search role), `--browser-provider <name>` (override browser role).
+**CLI flags:** `--provider-group <name>` (select a named group), `--search-provider a,b`
+(comma-separated providers override), `--browser-provider <name>` (override browser role),
+`--dedup heuristic|llm|none`, `--synthesize` / `--no-synthesize`, `--synthesis-prompt <path>`.
 
 ### LLM Wiki
 
@@ -233,8 +241,9 @@ pkg/output/       Result formatting (CLI, JSON)
 pkg/runtime/      Runtime struct — owns Typesense client lifecycle
 pkg/wiki/         LLM Wiki: scaffold, built-in agent, graph, lint, skills
 pkg/mcp/          MCP server tools (wiki-aware tools)
-pkg/web/          Web providers: shared interfaces, registry, agent, prompts
+pkg/web/          Web providers: shared interfaces, registry, agent, prompts, fusion
 pkg/web/providers/ Provider implementations: exa, cloudflare, local, tavily, searxng
+pkg/web/fusion/    Multi-provider parallel search, dedup, LLM synthesis
 ```
 
 ## Key Design Decisions

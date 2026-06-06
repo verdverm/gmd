@@ -18,6 +18,7 @@ type SearchClient struct {
 	apiKey     string
 	baseURL    string
 	httpClient *http.Client
+	name       string
 }
 
 func NewSearchClient(cfg web.ProviderConfig) (*SearchClient, error) {
@@ -33,8 +34,11 @@ func NewSearchClient(cfg web.ProviderConfig) (*SearchClient, error) {
 		apiKey:     apiKey,
 		baseURL:    baseURL,
 		httpClient: &http.Client{Timeout: 30 * time.Second},
+		name:       cfg.Name,
 	}, nil
 }
+
+func (c *SearchClient) Name() string { return c.name }
 
 func (c *SearchClient) Search(ctx context.Context, opts web.SearchOptions) ([]web.SearchResult, error) {
 	maxResults := opts.NumResults

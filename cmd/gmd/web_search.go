@@ -6,7 +6,9 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/verdverm/gmd/pkg/llm"
 	"github.com/verdverm/gmd/pkg/web"
+	"github.com/verdverm/gmd/pkg/web/fusion"
 )
 
 var (
@@ -14,7 +16,6 @@ var (
 	webSearchType              string
 	webSearchText              bool
 	webSearchHighlights        bool
-	webSearchSummary           string
 	webSearchMaxChars          int
 	webSearchJSON              bool
 	webSearchNoAutoprompt      bool
@@ -26,26 +27,34 @@ var (
 	webSearchAdditionalQueries []string
 	webSearchSystemPrompt      string
 	webSearchNoModeration      bool
+	webSearchDedup             string
+	webSearchSynthesize        bool
+	webSearchSynthesisPrompt   string
+	webSearchNoSynthesize      bool
 )
 
 var webSearchCmd = &cobra.Command{
 	Use:   "search <query>",
-	Short: "Traditional web search",
-	Long: `Traditional web search using a configured search provider.
+	Short: "Multi-provider web search with optional AI synthesis",
+	Long: `Search the web across multiple providers in parallel. Results are merged and
+deduplicated. An optional LLM synthesis step produces a unified, cited answer.
 
 Examples:
   gmd web search "transformer architecture"
   gmd web search "golang generics" --type deep --limit 5 --text
   gmd web search "startup funding" --category company --date-start 2026-01-01
-  gmd web search "kubernetes" --domain kubernetes.io --highlights`,
+  gmd web search "kubernetes" --domain kubernetes.io --highlights
+  gmd web search "ai safety" --search-provider exa,tavily --synthesize
+  gmd web search "climate change" --dedup llm --no-synthesize`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := getConfig()
+		rt, err := getRuntime()
 		if err != nil {
 			return err
 		}
+		config := rt.Config()
 
-		sp, err := resolveSearchProvider(cfg.Web)
+		providers, err := resolveSearchProviders(config.Web)
 		if err != nil {
 			return err
 		}
@@ -85,24 +94,66 @@ Examples:
 			Extra:          extra,
 		}
 
-		results, err := sp.Search(ctx, opts)
+		searchCfg := config.Web.Search
+
+		dedup := searchCfg.Dedup
+		if cmd.Flags().Changed("dedup") {
+			dedup = webSearchDedup
+		}
+
+		synthesize := searchCfg.Synthesize
+		if cmd.Flags().Changed("synthesize") {
+			synthesize = webSearchSynthesize
+		}
+		if cmd.Flags().Changed("no-synthesize") {
+			synthesize = false
+		}
+
+		synthesisPrompt := searchCfg.SynthesisPrompt
+		if cmd.Flags().Changed("synthesis-prompt") {
+			synthesisPrompt = webSearchSynthesisPrompt
+		}
+
+		var llmClient *llm.Client
+		if synthesize || dedup == "llm" {
+			llmClient = llm.New(llmConfigFromConfig(config))
+		}
+
+		fcfg := fusion.Config{
+			Dedup:           dedup,
+			Synthesize:      synthesize,
+			SynthesisPrompt: synthesisPrompt,
+			LLMClient:       llmClient,
+		}
+
+		result, err := fusion.Run(ctx, args[0], providers, opts, fcfg)
 		if err != nil {
 			return fmt.Errorf("searching: %w", err)
 		}
 
 		if webSearchJSON {
-			data, _ := json.MarshalIndent(results, "", "  ")
+			data, _ := json.MarshalIndent(result, "", "  ")
 			fmt.Println(string(data))
-			if len(results) > 0 && results[0].Cost != nil {
-				printCost(results[0].Cost)
+			for _, c := range result.Costs {
+				printCost(&c)
 			}
 			return nil
 		}
 
-		for i, r := range results {
+		if result.Answer != "" {
+			fmt.Println(result.Answer)
+			fmt.Println()
+			fmt.Println("---")
+			fmt.Println()
+		}
+
+		for i, r := range result.Results {
 			fmt.Printf("%d. %s\n", i+1, r.Title)
 			fmt.Printf("   %s\n", r.URL)
 
+			if provider, ok := r.Extra["_provider"].(string); ok {
+				fmt.Printf("   Provider: %s\n", provider)
+			}
 			if author, ok := r.Extra["author"].(string); ok && author != "" {
 				fmt.Printf("   Author: %s\n", author)
 			}
@@ -126,24 +177,23 @@ Examples:
 				fmt.Printf("   Summary: %s\n", summary)
 			}
 
-			if i < len(results)-1 {
+			if i < len(result.Results)-1 {
 				fmt.Println()
 			}
 		}
 
-		if len(results) > 0 && results[0].Cost != nil {
-			printCost(results[0].Cost)
+		for _, c := range result.Costs {
+			printCost(&c)
 		}
 		return nil
 	},
 }
 
 func init() {
-	webSearchCmd.Flags().IntVarP(&webSearchLimit, "limit", "n", 10, "Max results")
+	webSearchCmd.Flags().IntVarP(&webSearchLimit, "limit", "n", 10, "Max results per provider")
 	webSearchCmd.Flags().StringVar(&webSearchType, "type", "auto", "Search type: auto, fast, instant, deep-lite, deep, deep-reasoning")
 	webSearchCmd.Flags().BoolVar(&webSearchText, "text", false, "Return full text content")
 	webSearchCmd.Flags().BoolVar(&webSearchHighlights, "highlights", false, "Return highlights only")
-	webSearchCmd.Flags().StringVar(&webSearchSummary, "summary", "", "LLM summary targeting query")
 	webSearchCmd.Flags().IntVar(&webSearchMaxChars, "max-chars", 5000, "Max characters when --text")
 	webSearchCmd.Flags().BoolVar(&webSearchJSON, "json", false, "Output raw JSON")
 	webSearchCmd.Flags().BoolVar(&webSearchNoAutoprompt, "no-autoprompt", false, "Disable EXA autoprompt")
@@ -155,5 +205,8 @@ func init() {
 	webSearchCmd.Flags().StringVar(&webSearchSystemPrompt, "system-prompt", "", "System prompt for EXA's LLM summarization")
 	webSearchCmd.Flags().BoolVar(&webSearchNoModeration, "no-moderation", false, "Disable content moderation")
 
-	webSearchCmd.Flags().MarkHidden("summary")
+	webSearchCmd.Flags().StringVar(&webSearchDedup, "dedup", "heuristic", "Dedup method: heuristic, llm, none")
+	webSearchCmd.Flags().BoolVar(&webSearchSynthesize, "synthesize", true, "Synthesize results via LLM")
+	webSearchCmd.Flags().StringVar(&webSearchSynthesisPrompt, "synthesis-prompt", "", "Path to custom synthesis system prompt")
+	webSearchCmd.Flags().BoolVar(&webSearchNoSynthesize, "no-synthesize", false, "Disable synthesis (overrides --synthesize)")
 }

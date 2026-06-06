@@ -1,7 +1,8 @@
 # Web Providers — Configuration Guide
 
 `gmd web` commands support multiple providers for search and content retrieval. This guide
-covers credential setup, provider group configuration, and provider-specific behavior.
+covers credential setup, provider group configuration, multi-provider parallel search,
+dedup/synthesis, and provider-specific behavior.
 
 ## Quick Start
 
@@ -50,16 +51,17 @@ Use `gmd env` to verify your resolved config — it prints all settings with API
 
 Provider groups map a preset name to `{search, browser}` role selections — similar to
 `searchDefaults` for collections and wikis. The `web.group` field selects the active group.
+The `search` field accepts a list of provider names; all are queried in parallel.
 
 ```cue
 web: {
   group: "default"
   groups: {
-    default:  { search: "exa",       browser: "exa" }
-    full:     { search: "exa",       browser: "cloudflare" }
-    offline:  { search: "searxng",   browser: "local" }
-    research: { search: "tavily",    browser: "cloudflare" }
-    quick:    { search: "exa",       browser: "exa" }
+    default:  { search: ["exa", "tavily"],        browser: "exa" }
+    full:     { search: ["exa", "tavily", "searxng"],  browser: "cloudflare" }
+    offline:  { search: ["searxng"],              browser: "local" }
+    research: { search: ["tavily", "exa"],         browser: "cloudflare" }
+    quick:    { search: ["exa"],                   browser: "exa" }
   }
 }
 ```
@@ -68,18 +70,49 @@ web: {
 
 | Group | Search | Browser | Use Case |
 |---|---|---|---|
-| `default` | exa | exa | Single-provider simplicity |
-| `full` | exa | cloudflare | Indexed search + live browser rendering |
+| `default` | exa, tavily | exa | Multi-provider breadth |
+| `full` | exa, tavily, searxng | cloudflare | Maximum coverage + live rendering |
 | `offline` | searxng | local | Self-hosted, no cloud dependencies |
-| `research` | tavily | cloudflare | Alternative index + live content for deep research |
+| `research` | tavily, exa | cloudflare | Broad index coverage for deep research |
+
+### Search Behavior
+
+When a group lists multiple search providers, `gmd web search` fans out the query to all of
+them in parallel. Results are then:
+
+1. **Merged** — collected from all providers, tagged with provider name
+2. **Deduplicated** — by URL (heuristic, default) or via LLM (`--dedup llm`)
+3. **Sorted** — by relevance score
+4. **Synthesized** — optional LLM-summarized answer with citations (`--synthesize`, default: on)
+
+Configure defaults:
+
+```cue
+web: {
+  search: {
+    dedup:      "heuristic"     // "heuristic", "llm", or "none"
+    synthesize: true            // synthesize results via LLM (summarizer model)
+    synthesis_prompt: ""        // path to custom system prompt file
+  }
+}
+```
+
+CLI overrides:
+- `--dedup heuristic|llm|none` — dedup strategy
+- `--synthesize` / `--no-synthesize` — enable/disable LLM synthesis
+- `--synthesis-prompt <path>` — custom system prompt file
+- `--search-provider a,b,c` — comma-separated providers (overrides group)
 
 ### CLI Overrides
 
 | Flag | Effect |
 |---|---|
 | `--provider-group <name>` | Use a different provider group for this command |
-| `--search-provider <name>` | Override only the search role within the active group |
+| `--search-provider <a,b,...>` | Override search providers in the active group (comma-separated) |
 | `--browser-provider <name>` | Override only the browser role within the active group |
+| `--dedup heuristic\|llm\|none` | Dedup strategy (default: config or "heuristic") |
+| `--synthesize` / `--no-synthesize` | Enable/disable LLM synthesis (default: config or true) |
+| `--synthesis-prompt <path>` | Custom system prompt for synthesis |
 
 Priority: individual role override → `--provider-group` → configured `group` → `"default"`.
 
@@ -218,12 +251,14 @@ but cannot search a web index. Local provides fetch and crawl without any cloud 
 
 | Command | Tier | Interface Used | Valid Providers |
 |---|---|---|---|
-| `gmd web search` | 1 | `SearchProvider` | exa, tavily, searxng |
+| `gmd web search` | 1 | `SearchProvider` (multi) | exa, tavily, searxng (parallel) |
 | `gmd web fetch` | 1 | `BrowserProvider.GetContent` | exa, cloudflare, local |
 | `gmd web crawl` | 1 | `BrowserProvider.Crawl` | cloudflare, local |
 | `gmd web agent` | 2 | EXA (hardcoded) | exa |
 | `gmd web research` | 3 | `SearchProvider` + `BrowserProvider` | any (stub) |
 
+Tier 1 search runs all configured search providers in parallel via the fusion engine
+(`pkg/web/fusion`), then deduplicates and optionally synthesizes via LLM.
 The agent (Tier 2) remains EXA-specific. It will adopt the provider interfaces when a second
 search provider is fully integrated.
 

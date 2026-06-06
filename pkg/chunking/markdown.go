@@ -71,12 +71,15 @@ func extractHeadings(content string) []headingInfo {
 	md := goldmark.New()
 	doc := md.Parser().Parse(reader)
 
-	ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+	_ = ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
 			return ast.WalkContinue, nil
 		}
 		if n.Kind() == ast.KindHeading {
-			h := n.(*ast.Heading)
+			h, ok := n.(*ast.Heading)
+			if !ok {
+				return ast.WalkContinue, nil
+			}
 			var buf bytes.Buffer
 			for c := n.FirstChild(); c != nil; c = c.NextSibling() {
 				if c.Kind() == ast.KindText || c.Kind() == ast.KindString {
@@ -214,7 +217,7 @@ func splitIntoSegments(lines []string, headings []headingInfo) []segment {
 		}}
 	}
 
-	var segs []segment
+	segs := make([]segment, 0, len(headings))
 	for i, h := range headings {
 		endLine := len(lines)
 		if i+1 < len(headings) {

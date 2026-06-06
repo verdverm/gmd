@@ -516,7 +516,7 @@ func TestSanitizeNode(t *testing.T) {
 }
 
 func TestFormatGraphDot(t *testing.T) {
-	g := &WikiGraph{
+	g := &Graph{
 		Nodes: []string{"a", "b"},
 		Edges: []GraphEdge{
 			{From: "a", To: "b"},
@@ -535,7 +535,7 @@ func TestFormatGraphDot(t *testing.T) {
 }
 
 func TestFormatGraphMermaid(t *testing.T) {
-	g := &WikiGraph{
+	g := &Graph{
 		Nodes: []string{"entity-foo", "concept-bar"},
 		Edges: []GraphEdge{
 			{From: "entity-foo", To: "concept-bar"},
@@ -551,7 +551,7 @@ func TestFormatGraphMermaid(t *testing.T) {
 }
 
 func TestFormatGraphJSON(t *testing.T) {
-	g := &WikiGraph{
+	g := &Graph{
 		Nodes: []string{"a", "b"},
 		Edges: []GraphEdge{
 			{From: "a", To: "b"},
@@ -573,7 +573,7 @@ func TestFormatGraphJSON(t *testing.T) {
 }
 
 func TestFormatGraphUnknownFormat(t *testing.T) {
-	g := &WikiGraph{
+	g := &Graph{
 		Nodes: []string{"a"},
 		Edges: []GraphEdge{
 			{From: "a", To: "b"},
@@ -586,7 +586,7 @@ func TestFormatGraphUnknownFormat(t *testing.T) {
 }
 
 func TestFormatGraphEmpty(t *testing.T) {
-	g := &WikiGraph{}
+	g := &Graph{}
 	got := FormatGraph(g, "dot")
 	if !strings.Contains(got, "digraph wiki") {
 		t.Errorf("expected digraph, got %q", got)

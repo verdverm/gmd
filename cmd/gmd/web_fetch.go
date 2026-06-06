@@ -94,7 +94,7 @@ Examples:
 					ext = ".txt"
 				}
 				outPath := filepath.Join(webFetchOutdir, filename+ext)
-				if err := os.WriteFile(outPath, []byte(result.Content), 0644); err != nil {
+				if err := os.WriteFile(outPath, []byte(result.Content), 0644); err != nil { //nolint:gosec // downloaded public content
 					return fmt.Errorf("writing %s: %w", outPath, err)
 				}
 				fmt.Printf("Wrote: %s\n", outPath)

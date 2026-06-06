@@ -25,7 +25,7 @@ Workflow:
 
 After adding or modifying collections, run 'gmd update' to index files.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
+		_ = cmd.Help()
 	},
 }
 

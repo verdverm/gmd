@@ -1,7 +1,6 @@
 package exa
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -19,7 +18,7 @@ func TestSearchAdapter_Search(t *testing.T) {
 		}
 
 		var req exaclient.SearchRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		_ = json.NewDecoder(r.Body).Decode(&req)
 
 		if req.Query == "" {
 			t.Error("expected non-empty query")
@@ -36,7 +35,7 @@ func TestSearchAdapter_Search(t *testing.T) {
 			},
 			CostDollars: &exaclient.CostDollars{Total: 0.0015},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer ts.Close()
 
@@ -51,7 +50,7 @@ func TestSearchAdapter_Search(t *testing.T) {
 		t.Fatalf("NewSearchAdapter: %v", err)
 	}
 
-	results, err := adapter.Search(context.Background(), web.SearchOptions{
+	results, err := adapter.Search(t.Context(), web.SearchOptions{
 		Query:          "test query",
 		NumResults:     5,
 		IncludeDomains: []string{"example.com"},
@@ -83,7 +82,7 @@ func TestSearchAdapter_Search(t *testing.T) {
 
 func TestSearchAdapter_SearchEmpty(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(exaclient.SearchResponse{})
+		_ = json.NewEncoder(w).Encode(exaclient.SearchResponse{})
 	}))
 	defer ts.Close()
 
@@ -91,7 +90,7 @@ func TestSearchAdapter_SearchEmpty(t *testing.T) {
 		Extra: map[string]any{"api_key": "k", "base_url": ts.URL},
 	})
 
-	results, err := adapter.Search(context.Background(), web.SearchOptions{Query: "q"})
+	results, err := adapter.Search(t.Context(), web.SearchOptions{Query: "q"})
 	if err != nil {
 		t.Fatalf("Search: %v", err)
 	}
@@ -104,8 +103,8 @@ func TestSearchAdapter_ExtraMapping(t *testing.T) {
 	var captured exaclient.SearchRequest
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewDecoder(r.Body).Decode(&captured)
-		json.NewEncoder(w).Encode(exaclient.SearchResponse{})
+		_ = json.NewDecoder(r.Body).Decode(&captured)
+		_ = json.NewEncoder(w).Encode(exaclient.SearchResponse{})
 	}))
 	defer ts.Close()
 
@@ -129,7 +128,7 @@ func TestSearchAdapter_ExtraMapping(t *testing.T) {
 		},
 	}
 
-	_, err := adapter.Search(context.Background(), opts)
+	_, err := adapter.Search(t.Context(), opts)
 	if err != nil {
 		t.Fatalf("Search: %v", err)
 	}
@@ -173,7 +172,7 @@ func TestSearchAdapter_ErrorPropagation(t *testing.T) {
 		Extra: map[string]any{"api_key": "k", "base_url": ts.URL},
 	})
 
-	_, err := adapter.Search(context.Background(), web.SearchOptions{Query: "q"})
+	_, err := adapter.Search(t.Context(), web.SearchOptions{Query: "q"})
 	if err == nil {
 		t.Fatal("expected error from server")
 	}
@@ -183,8 +182,8 @@ func TestSearchAdapter_HighlightsMode(t *testing.T) {
 	var captured exaclient.SearchRequest
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewDecoder(r.Body).Decode(&captured)
-		json.NewEncoder(w).Encode(exaclient.SearchResponse{})
+		_ = json.NewDecoder(r.Body).Decode(&captured)
+		_ = json.NewEncoder(w).Encode(exaclient.SearchResponse{})
 	}))
 	defer ts.Close()
 
@@ -192,7 +191,7 @@ func TestSearchAdapter_HighlightsMode(t *testing.T) {
 		Extra: map[string]any{"api_key": "k", "base_url": ts.URL},
 	})
 
-	_, _ = adapter.Search(context.Background(), web.SearchOptions{
+	_, _ = adapter.Search(t.Context(), web.SearchOptions{
 		Query: "test",
 		Extra: map[string]any{
 			"with_highlights": true,

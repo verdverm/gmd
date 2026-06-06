@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/verdverm/gmd/pkg/chunking"
 	"github.com/verdverm/gmd/pkg/config"
 	"github.com/verdverm/gmd/pkg/llm"
 	"github.com/verdverm/gmd/pkg/ts"
@@ -42,7 +41,7 @@ func (w *Watcher) Watch(ctx context.Context) error {
 			return ctx.Err()
 		case <-time.After(5 * time.Second):
 			w.checkRaw(ctx)
-			w.checkWiki(ctx)
+			w.checkWiki()
 		}
 	}
 }
@@ -78,8 +77,8 @@ func (w *Watcher) checkRaw(ctx context.Context) {
 	}
 }
 
-func (w *Watcher) checkWiki(ctx context.Context) {
-	filepath.Walk(w.wiki.WikiPath, func(path string, info os.FileInfo, err error) error {
+func (w *Watcher) checkWiki() {
+	_ = filepath.Walk(w.wiki.WikiPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil
 		}
@@ -91,58 +90,5 @@ func (w *Watcher) checkWiki(ctx context.Context) {
 		}
 
 		return nil
-	})
-}
-
-func indexFile(ctx context.Context, tsClient *ts.Client, cfg *config.Config, wikiName string, relPath string) error {
-	fullPath := filepath.Join(cfg.ProjectRoot, relPath)
-	data, err := os.ReadFile(fullPath)
-	if err != nil {
-		return fmt.Errorf("reading file: %w", err)
-	}
-
-	content := string(data)
-
-	_, stripped, _ := ParseFrontmatter(content)
-	links := chunking.ExtractWikilinks(stripped)
-	chunks := chunking.ChunkMarkdown(stripped, chunking.DefaultConfig())
-
-	for i := range chunks {
-		chunks[i].Links = links
-	}
-
-	collectionKey := cfg.CollectionKey(wikiName)
-
-	_ = tsClient.DeleteChunksByPath(ctx, relPath)
-	_ = tsClient.DeleteDocByPath(ctx, relPath)
-
-	var tsDocs []ts.ChunkDocument
-	var title string
-	for i, c := range chunks {
-		if i == 0 {
-			title = c.Title
-		}
-		tsDocs = append(tsDocs, ts.ChunkDocument{
-			Collection:  collectionKey,
-			Path:        relPath,
-			Title:       c.Title,
-			Content:     c.Content,
-			ChunkSeq:    c.ChunkSeq,
-			TotalChunks: c.TotalChunks,
-		})
-	}
-
-	if len(tsDocs) > 0 {
-		if err := tsClient.UpsertChunks(ctx, tsDocs); err != nil {
-			return err
-		}
-	}
-
-	return tsClient.UpsertDoc(ctx, ts.DocDocument{
-		Collection: collectionKey,
-		Path:       relPath,
-		Title:      title,
-		Content:    stripped,
-		Links:      links,
 	})
 }

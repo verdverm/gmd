@@ -21,7 +21,7 @@ Getting started:
   gmd query ...   full hybrid search pipeline
   gmd agentsmd    output AGENTS.md content for AI coding assistants`,
 	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
+		_ = cmd.Help()
 	},
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Skip env loading for commands that don't need runtime

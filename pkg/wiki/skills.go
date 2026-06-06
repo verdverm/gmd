@@ -19,7 +19,7 @@ func ListSkillTemplates() ([]SkillTemplate, error) {
 		return nil, fmt.Errorf("reading embedded skills: %w", err)
 	}
 
-	var templates []SkillTemplate
+	templates := make([]SkillTemplate, 0, len(entries))
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -135,7 +135,7 @@ func WriteSkills(target string) ([]string, error) {
 			return fmt.Errorf("creating directory %s: %w", dir, err)
 		}
 
-		if err := os.WriteFile(destPath, []byte(tmpl.Content), 0644); err != nil {
+		if err := os.WriteFile(destPath, []byte(tmpl.Content), 0600); err != nil {
 			return fmt.Errorf("writing %s: %w", destPath, err)
 		}
 

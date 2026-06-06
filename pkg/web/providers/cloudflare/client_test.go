@@ -22,7 +22,7 @@ func cloudflareOkServer(t *testing.T) *httptest.Server {
 			"errors":  []any{},
 			"result":  "rendered markdown content",
 		}
-		json.NewEncoder(w).Encode(body)
+		_ = json.NewEncoder(w).Encode(body)
 	}))
 }
 
@@ -73,7 +73,7 @@ func TestBrowserClient_GetContent(t *testing.T) {
 	}
 
 	t.Run("default markdown", func(t *testing.T) {
-		result, err := c.GetContent(context.Background(), "https://example.com", nil)
+		result, err := c.GetContent(t.Context(), "https://example.com", nil)
 		if err != nil {
 			t.Fatalf("GetContent: %v", err)
 		}
@@ -87,7 +87,7 @@ func TestBrowserClient_GetContent(t *testing.T) {
 	})
 
 	t.Run("text format", func(t *testing.T) {
-		result, err := c.GetContent(context.Background(), "https://example.com",
+		result, err := c.GetContent(t.Context(), "https://example.com",
 			&web.GetContentOptions{Format: "text"})
 		if err != nil {
 			t.Fatalf("GetContent: %v", err)
@@ -107,7 +107,7 @@ func TestBrowserClient_GetContentErrors(t *testing.T) {
 		defer ts.Close()
 
 		c := &BrowserClient{apiKey: "k", accountID: "a", baseURL: ts.URL, httpClient: ts.Client()}
-		_, err := c.GetContent(context.Background(), "https://example.com", nil)
+		_, err := c.GetContent(t.Context(), "https://example.com", nil)
 		if err != web.ErrRateLimited {
 			t.Errorf("expected ErrRateLimited, got %v", err)
 		}
@@ -120,7 +120,7 @@ func TestBrowserClient_GetContentErrors(t *testing.T) {
 		defer ts.Close()
 
 		c := &BrowserClient{apiKey: "k", accountID: "a", baseURL: ts.URL, httpClient: ts.Client()}
-		_, err := c.GetContent(context.Background(), "https://example.com", nil)
+		_, err := c.GetContent(t.Context(), "https://example.com", nil)
 		if err != web.ErrAuthFailed {
 			t.Errorf("expected ErrAuthFailed, got %v", err)
 		}
@@ -128,7 +128,7 @@ func TestBrowserClient_GetContentErrors(t *testing.T) {
 
 	t.Run("api error response", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(map[string]any{
+			_ = json.NewEncoder(w).Encode(map[string]any{
 				"success": false,
 				"errors":  []map[string]any{{"code": 1001, "message": "bad request"}},
 			})
@@ -136,7 +136,7 @@ func TestBrowserClient_GetContentErrors(t *testing.T) {
 		defer ts.Close()
 
 		c := &BrowserClient{apiKey: "k", accountID: "a", baseURL: ts.URL, httpClient: ts.Client()}
-		_, err := c.GetContent(context.Background(), "https://example.com", nil)
+		_, err := c.GetContent(t.Context(), "https://example.com", nil)
 		if err == nil {
 			t.Fatal("expected error")
 		}
@@ -156,7 +156,7 @@ func TestBrowserClient_Crawl(t *testing.T) {
 			"errors":  []any{},
 			"result":  "[Home](https://example.com/page1) [About](https://example.com/page2)",
 		}
-		json.NewEncoder(w).Encode(body)
+		_ = json.NewEncoder(w).Encode(body)
 	}))
 	defer ts.Close()
 
@@ -164,7 +164,7 @@ func TestBrowserClient_Crawl(t *testing.T) {
 
 	t.Run("basic crawl", func(t *testing.T) {
 		callCount = 0
-		pages, err := c.Crawl(context.Background(), "https://example.com/", &web.CrawlOptions{
+		pages, err := c.Crawl(t.Context(), "https://example.com/", &web.CrawlOptions{
 			MaxDepth:   1,
 			MaxPages:   3,
 			SameDomain: true,
@@ -184,7 +184,7 @@ func TestBrowserClient_Crawl(t *testing.T) {
 	})
 
 	t.Run("context cancelled", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		cancel()
 		_, err := c.Crawl(ctx, "https://example.com/", nil)
 		if err == nil {
@@ -195,7 +195,7 @@ func TestBrowserClient_Crawl(t *testing.T) {
 
 func TestBrowserClient_ScrapeUnsupported(t *testing.T) {
 	c := &BrowserClient{apiKey: "k", accountID: "a", baseURL: "http://localhost", httpClient: http.DefaultClient}
-	elements, err := c.Scrape(context.Background(), "https://example.com", "div")
+	elements, err := c.Scrape(t.Context(), "https://example.com", "div")
 	if err != web.ErrNotSupported {
 		t.Errorf("expected ErrNotSupported, got %v", err)
 	}

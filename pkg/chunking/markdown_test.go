@@ -168,8 +168,6 @@ func TestChunkMarkdownSplitByHeadings(t *testing.T) {
 	}
 
 	for _, c := range chunks {
-		if c.Title == "" && strings.HasPrefix(content, "#") {
-		}
 		if c.ChunkSeq < 0 || c.ChunkSeq >= c.TotalChunks {
 			t.Errorf("invalid chunk seq %d / %d", c.ChunkSeq, c.TotalChunks)
 		}

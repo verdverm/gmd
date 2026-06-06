@@ -139,7 +139,7 @@ func Dedup(ctx context.Context, results []web.SearchResult, cfg Config) ([]web.S
 
 func dedupHeuristic(results []web.SearchResult) []web.SearchResult {
 	seen := make(map[string]int)
-	var out []web.SearchResult
+	out := make([]web.SearchResult, 0, len(results))
 	for _, r := range results {
 		key := strings.TrimRight(r.URL, "/")
 		key = strings.ToLower(key)
@@ -150,7 +150,7 @@ func dedupHeuristic(results []web.SearchResult) []web.SearchResult {
 			out = append(out, r)
 			continue
 		}
-		if idx, exists := seen[key]; exists {
+		if idx, exists := seen[key]; exists && idx < len(out) {
 			if r.Score > out[idx].Score {
 				if r.Content == "" {
 					r.Content = out[idx].Content

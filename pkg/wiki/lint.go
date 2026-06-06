@@ -56,7 +56,7 @@ func (a *Agent) lintStructure(ctx context.Context, result *LintResult) {
 	allPages := make(map[string]bool)
 	wikilinks := make(map[string]int)
 
-	filepath.Walk(wikiDir, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(wikiDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil
 		}
@@ -94,7 +94,7 @@ func (a *Agent) lintStructure(ctx context.Context, result *LintResult) {
 	for target := range wikilinks {
 		if !allPages[target] {
 			var fromPages []string
-			filepath.Walk(wikiDir, func(path string, info os.FileInfo, err error) error {
+			_ = filepath.Walk(wikiDir, func(path string, info os.FileInfo, err error) error {
 				if err != nil || info.IsDir() || !strings.HasSuffix(path, ".md") {
 					return nil
 				}
@@ -145,7 +145,7 @@ func (a *Agent) lintContent(ctx context.Context, result *LintResult) {
 		content string
 	}
 
-	filepath.Walk(wikiDir, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(wikiDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".md") {
 			return nil
 		}

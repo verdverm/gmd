@@ -42,7 +42,7 @@ func NewWithServer(apiKey, baseURL string) *Client {
 
 func (c *Client) Search(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
 	var resp SearchResponse
-	err := c.do(ctx, "POST", "/search", req, &resp)
+	err := c.do(ctx, "/search", req, &resp)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func (c *Client) Search(ctx context.Context, req SearchRequest) (*SearchResponse
 
 func (c *Client) GetContents(ctx context.Context, req ContentsRequest) (*ContentsResponse, error) {
 	var resp ContentsResponse
-	err := c.do(ctx, "POST", "/contents", req, &resp)
+	err := c.do(ctx, "/contents", req, &resp)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (c *Client) GetContents(ctx context.Context, req ContentsRequest) (*Content
 
 func (c *Client) FindSimilar(ctx context.Context, req FindSimilarRequest) (*FindSimilarResponse, error) {
 	var resp FindSimilarResponse
-	err := c.do(ctx, "POST", "/findSimilar", req, &resp)
+	err := c.do(ctx, "/findSimilar", req, &resp)
 	if err != nil {
 		return nil, err
 	}
@@ -69,14 +69,14 @@ func (c *Client) FindSimilar(ctx context.Context, req FindSimilarRequest) (*Find
 
 func (c *Client) Answer(ctx context.Context, req AnswerRequest) (*AnswerResponse, error) {
 	var resp AnswerResponse
-	err := c.do(ctx, "POST", "/answer", req, &resp)
+	err := c.do(ctx, "/answer", req, &resp)
 	if err != nil {
 		return nil, err
 	}
 	return &resp, nil
 }
 
-func (c *Client) do(ctx context.Context, method, path string, body any, result any) error {
+func (c *Client) do(ctx context.Context, path string, body any, result any) error {
 	jsonBody, err := json.Marshal(body)
 	if err != nil {
 		return fmt.Errorf("marshaling request: %w", err)
@@ -95,7 +95,7 @@ func (c *Client) do(ctx context.Context, method, path string, body any, result a
 			backoff *= 2
 		}
 
-		req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, bytes.NewReader(jsonBody))
+		req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+path, bytes.NewReader(jsonBody))
 		if err != nil {
 			return fmt.Errorf("creating request: %w", err)
 		}
@@ -105,6 +105,10 @@ func (c *Client) do(ctx context.Context, method, path string, body any, result a
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("request failed: %w", err)
+			continue
+		}
+		if resp == nil {
+			lastErr = fmt.Errorf("nil response from server")
 			continue
 		}
 

@@ -204,7 +204,7 @@ func TestIntegrationNeighborsFromTS(t *testing.T) {
 }
 
 func TestIntegrationFormatGraph_Mermaid(t *testing.T) {
-	g := &WikiGraph{
+	g := &Graph{
 		Nodes: []string{"a", "b"},
 		Edges: []GraphEdge{{From: "a", To: "b"}},
 	}
@@ -218,7 +218,7 @@ func TestIntegrationFormatGraph_Mermaid(t *testing.T) {
 }
 
 func TestIntegrationFormatGraph_JSON(t *testing.T) {
-	g := &WikiGraph{
+	g := &Graph{
 		Nodes: []string{"a", "b"},
 		Edges: []GraphEdge{{From: "a", To: "b"}},
 	}
@@ -232,7 +232,7 @@ func TestIntegrationFormatGraph_JSON(t *testing.T) {
 }
 
 func TestIntegrationFormatGraph_DOT(t *testing.T) {
-	g := &WikiGraph{
+	g := &Graph{
 		Nodes: []string{"a", "b"},
 		Edges: []GraphEdge{{From: "a", To: "b"}},
 	}
@@ -246,7 +246,7 @@ func TestIntegrationFormatGraph_DOT(t *testing.T) {
 }
 
 func TestIntegrationFormatGraph_Default(t *testing.T) {
-	g := &WikiGraph{
+	g := &Graph{
 		Nodes: []string{"x", "y"},
 		Edges: []GraphEdge{{From: "x", To: "y"}},
 	}
@@ -257,7 +257,7 @@ func TestIntegrationFormatGraph_Default(t *testing.T) {
 }
 
 func TestIntegrationFormatGraph_Sanitized(t *testing.T) {
-	g := &WikiGraph{
+	g := &Graph{
 		Nodes: []string{"entities/my-page", "concepts/deep-learning"},
 		Edges: []GraphEdge{{From: "entities/my-page", To: "concepts/deep-learning"}},
 	}

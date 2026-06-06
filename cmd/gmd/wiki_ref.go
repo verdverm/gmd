@@ -15,7 +15,7 @@ Workflow:
   gmd wiki ref list mywiki
   gmd wiki ref rm mywiki docs`,
 	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
+		_ = cmd.Help()
 	},
 }
 

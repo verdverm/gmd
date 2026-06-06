@@ -5,7 +5,6 @@ import (
 )
 
 var (
-	wikiName   string
 	wikiPath   string
 	wikiTarget string
 )

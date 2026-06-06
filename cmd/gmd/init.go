@@ -55,7 +55,7 @@ then run 'gmd update' to index your files.`,
 		}
 		project := detectProjectName(dir)
 		config := strings.ReplaceAll(initConfigContent(), "{{PROJECT}}", project)
-		if err := os.WriteFile(configPath, []byte(config), 0644); err != nil {
+		if err := os.WriteFile(configPath, []byte(config), 0600); err != nil {
 			return fmt.Errorf("writing config: %w", err)
 		}
 		fmt.Printf("Created GMD config at %s\n", configPath)

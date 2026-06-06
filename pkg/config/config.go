@@ -686,64 +686,33 @@ func defaultConfig() *Config {
 
 // mergeConfigs overlays src onto dst. Non-zero fields in src take precedence.
 func mergeConfigs(dst, src *Config) {
-	if src.Project != "" {
-		dst.Project = src.Project
-	}
+	mergeStringField(&src.Project, &dst.Project)
 
 	// Merge LLM
-	if src.LLM.EmbeddingModel != "" {
-		dst.LLM.EmbeddingModel = src.LLM.EmbeddingModel
-	}
-	if src.LLM.EmbeddingBaseURL != "" {
-		dst.LLM.EmbeddingBaseURL = src.LLM.EmbeddingBaseURL
-	}
-	if src.LLM.ExpansionModel != "" {
-		dst.LLM.ExpansionModel = src.LLM.ExpansionModel
-	}
-	if src.LLM.ExpansionBaseURL != "" {
-		dst.LLM.ExpansionBaseURL = src.LLM.ExpansionBaseURL
-	}
-	if src.LLM.RerankModel != "" {
-		dst.LLM.RerankModel = src.LLM.RerankModel
-	}
-	if src.LLM.RerankBaseURL != "" {
-		dst.LLM.RerankBaseURL = src.LLM.RerankBaseURL
-	}
-	if src.LLM.SummarizingModel != "" {
-		dst.LLM.SummarizingModel = src.LLM.SummarizingModel
-	}
-	if src.LLM.SummarizingBaseURL != "" {
-		dst.LLM.SummarizingBaseURL = src.LLM.SummarizingBaseURL
-	}
-	if src.LLM.GeneralBigModel != "" {
-		dst.LLM.GeneralBigModel = src.LLM.GeneralBigModel
-	}
-	if src.LLM.GeneralBigBaseURL != "" {
-		dst.LLM.GeneralBigBaseURL = src.LLM.GeneralBigBaseURL
-	}
-	if src.LLM.GeneralMidModel != "" {
-		dst.LLM.GeneralMidModel = src.LLM.GeneralMidModel
-	}
-	if src.LLM.GeneralMidBaseURL != "" {
-		dst.LLM.GeneralMidBaseURL = src.LLM.GeneralMidBaseURL
-	}
-	if src.LLM.GeneralSmallModel != "" {
-		dst.LLM.GeneralSmallModel = src.LLM.GeneralSmallModel
-	}
-	if src.LLM.GeneralSmallBaseURL != "" {
-		dst.LLM.GeneralSmallBaseURL = src.LLM.GeneralSmallBaseURL
-	}
+	l := &src.LLM
+	d := &dst.LLM
+	mergeStringField(&l.EmbeddingModel, &d.EmbeddingModel)
+	mergeStringField(&l.EmbeddingBaseURL, &d.EmbeddingBaseURL)
+	mergeStringField(&l.ExpansionModel, &d.ExpansionModel)
+	mergeStringField(&l.ExpansionBaseURL, &d.ExpansionBaseURL)
+	mergeStringField(&l.RerankModel, &d.RerankModel)
+	mergeStringField(&l.RerankBaseURL, &d.RerankBaseURL)
+	mergeStringField(&l.SummarizingModel, &d.SummarizingModel)
+	mergeStringField(&l.SummarizingBaseURL, &d.SummarizingBaseURL)
+	mergeStringField(&l.GeneralBigModel, &d.GeneralBigModel)
+	mergeStringField(&l.GeneralBigBaseURL, &d.GeneralBigBaseURL)
+	mergeStringField(&l.GeneralMidModel, &d.GeneralMidModel)
+	mergeStringField(&l.GeneralMidBaseURL, &d.GeneralMidBaseURL)
+	mergeStringField(&l.GeneralSmallModel, &d.GeneralSmallModel)
+	mergeStringField(&l.GeneralSmallBaseURL, &d.GeneralSmallBaseURL)
 
 	// Merge Typesense
-	if src.Typesense.Host != "" {
-		dst.Typesense.Host = src.Typesense.Host
-	}
+	mergeStringField(&src.Typesense.Host, &dst.Typesense.Host)
 
 	// Merge Pipeline
 	if src.Pipeline.Chunk.TargetTokens != 0 {
 		dst.Pipeline.Chunk = src.Pipeline.Chunk
 	}
-	// ... more pipeline merge as needed
 
 	// Merge Collections
 	if src.Collections != nil {
@@ -754,7 +723,6 @@ func mergeConfigs(dst, src *Config) {
 			dst.Collections[k] = v
 		}
 	}
-
 	// Merge Wikis
 	if src.Wikis != nil {
 		if dst.Wikis == nil {
@@ -764,7 +732,6 @@ func mergeConfigs(dst, src *Config) {
 			dst.Wikis[k] = v
 		}
 	}
-
 	// Merge SearchDefaults
 	if src.SearchDefaults != nil {
 		if dst.SearchDefaults == nil {
@@ -776,9 +743,7 @@ func mergeConfigs(dst, src *Config) {
 	}
 
 	// Merge Web config
-	if src.Web.Group != "" {
-		dst.Web.Group = src.Web.Group
-	}
+	mergeStringField(&src.Web.Group, &dst.Web.Group)
 	if src.Web.Groups != nil {
 		if dst.Web.Groups == nil {
 			dst.Web.Groups = make(map[string]WebProviderGroup)
@@ -787,17 +752,17 @@ func mergeConfigs(dst, src *Config) {
 			dst.Web.Groups[k] = v
 		}
 	}
-	if src.Web.Search.Dedup != "" {
-		dst.Web.Search.Dedup = src.Web.Search.Dedup
-	}
+	mergeStringField(&src.Web.Search.Dedup, &dst.Web.Search.Dedup)
 	if src.Web.Search.Synthesize {
 		dst.Web.Search.Synthesize = src.Web.Search.Synthesize
 	}
-	if src.Web.Search.SynthesisPrompt != "" {
-		dst.Web.Search.SynthesisPrompt = src.Web.Search.SynthesisPrompt
-	}
-	if src.Web.SearXNG.BaseURL != "" {
-		dst.Web.SearXNG.BaseURL = src.Web.SearXNG.BaseURL
+	mergeStringField(&src.Web.Search.SynthesisPrompt, &dst.Web.Search.SynthesisPrompt)
+	mergeStringField(&src.Web.SearXNG.BaseURL, &dst.Web.SearXNG.BaseURL)
+}
+
+func mergeStringField(src, dst *string) {
+	if *src != "" {
+		*dst = *src
 	}
 }
 
@@ -815,7 +780,7 @@ func tryReadGlobalConfig() (string, error) {
 
 func stripPackageDecl(content string) string {
 	lines := strings.Split(content, "\n")
-	var out []string
+	out := make([]string, 0, len(lines))
 	for _, line := range lines {
 		if strings.HasPrefix(strings.TrimSpace(line), "package ") {
 			continue

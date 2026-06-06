@@ -62,10 +62,6 @@ func printCost(cost *web.CostSummary) {
 	fmt.Fprintf(os.Stderr, "\nCost: $%.6f %s (%s)\n", cost.Cost, cost.Unit, cost.Provider)
 }
 
-func boolPtr(b bool) *bool {
-	return &b
-}
-
 func getRegistry() *web.ProviderRegistry {
 	return builders.DefaultRegistry()
 }
@@ -80,7 +76,7 @@ func resolveSearchProviders(webCfg config.WebConfig) ([]web.SearchProvider, erro
 		return nil, fmt.Errorf("no search providers configured")
 	}
 	seen := make(map[string]bool)
-	var providers []web.SearchProvider
+	providers := make([]web.SearchProvider, 0, len(names))
 	for _, name := range names {
 		if seen[name] {
 			continue

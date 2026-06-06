@@ -1,5 +1,11 @@
 # SCRATCH
 
+Top priorities:
+
+- multi-llm provider / profile
+
+---
+
 - filters/facets for coll/wiki search
 - work on agent/research
     - markdown and skills, run with opencode -c (generally a configurable agent-cli)
@@ -19,7 +25,7 @@
 
 ---
 
-agent:
+agents:
 
 - gmd
 - personal

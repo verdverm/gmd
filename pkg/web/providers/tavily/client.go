@@ -41,6 +41,9 @@ func NewSearchClient(cfg web.ProviderConfig) (*SearchClient, error) {
 func (c *SearchClient) Name() string { return c.name }
 
 func (c *SearchClient) Search(ctx context.Context, opts web.SearchOptions) ([]web.SearchResult, error) {
+	if c == nil {
+		return nil, fmt.Errorf("tavily: nil client")
+	}
 	maxResults := opts.NumResults
 	if maxResults <= 0 {
 		maxResults = 10
@@ -120,6 +123,9 @@ func (c *SearchClient) do(ctx context.Context, method, reqURL string, body map[s
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	if resp == nil {
+		return nil, fmt.Errorf("nil response from server")
 	}
 	defer resp.Body.Close()
 

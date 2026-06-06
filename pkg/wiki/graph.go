@@ -17,15 +17,15 @@ type GraphEdge struct {
 	To   string
 }
 
-type WikiGraph struct {
+type Graph struct {
 	Nodes    []string
 	Edges    []GraphEdge
 	AdjList  map[string][]string
 	InDegree map[string]int
 }
 
-func (a *Agent) BuildGraph(ctx context.Context) (*WikiGraph, error) {
-	g := &WikiGraph{
+func (a *Agent) BuildGraph(ctx context.Context) (*Graph, error) {
+	g := &Graph{
 		AdjList:  make(map[string][]string),
 		InDegree: make(map[string]int),
 	}
@@ -101,7 +101,7 @@ func (a *Agent) Neighbors(ctx context.Context, page string, direction string) ([
 		}
 	}
 
-	var result []string
+	result := make([]string, 0, len(seen))
 	for k := range seen {
 		result = append(result, k)
 	}
@@ -133,7 +133,7 @@ func (a *Agent) NeighborsFromTS(ctx context.Context, page string) ([]string, err
 	return inbound, nil
 }
 
-func FormatGraph(g *WikiGraph, format string) string {
+func FormatGraph(g *Graph, format string) string {
 	switch format {
 	case "mermaid":
 		var b strings.Builder

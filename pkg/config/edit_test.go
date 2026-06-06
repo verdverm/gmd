@@ -24,7 +24,7 @@ Config: {
 	}
 }
 `
-	if err := os.WriteFile(cfgPath, []byte(initialConfig), 0644); err != nil {
+	if err := os.WriteFile(cfgPath, []byte(initialConfig), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -94,7 +94,7 @@ Config: {
 	}
 }
 `
-	if err := os.WriteFile(cfgPath, []byte(initialConfig), 0644); err != nil {
+	if err := os.WriteFile(cfgPath, []byte(initialConfig), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -153,7 +153,7 @@ Config: {
 	}
 }
 `
-	if err := os.WriteFile(cfgPath, []byte(initialConfig), 0644); err != nil {
+	if err := os.WriteFile(cfgPath, []byte(initialConfig), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -206,7 +206,7 @@ Config: {
 	}
 }
 `
-	if err := os.WriteFile(cfgPath, []byte(initialConfig), 0644); err != nil {
+	if err := os.WriteFile(cfgPath, []byte(initialConfig), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -281,7 +281,7 @@ Config: {
 	}
 }
 `
-	if err := os.WriteFile(cfgPath, []byte(initialConfig), 0644); err != nil {
+	if err := os.WriteFile(cfgPath, []byte(initialConfig), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -371,7 +371,7 @@ Config: {
 	}
 }
 `
-	if err := os.WriteFile(cfgPath, []byte(initialConfig), 0644); err != nil {
+	if err := os.WriteFile(cfgPath, []byte(initialConfig), 0600); err != nil {
 		t.Fatal(err)
 	}
 

@@ -1,7 +1,6 @@
 package ts
 
 import (
-	"context"
 	"math"
 	"strings"
 	"testing"
@@ -171,7 +170,7 @@ func TestNewClient(t *testing.T) {
 
 func TestDeleteChunksByCollection(t *testing.T) {
 	c := New(Config{Host: "http://localhost:8108", APIKey: "test-key"})
-	err := c.DeleteChunksByCollection(context.Background(), "nonexistent")
+	err := c.DeleteChunksByCollection(t.Context(), "nonexistent")
 	if err == nil {
 		t.Log("DeleteChunksByCollection with nonexistent collection returned nil (expected error on real TS, ok for unit)")
 	}

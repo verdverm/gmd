@@ -42,7 +42,7 @@ func TestMultiSearch_ParallelFanOut(t *testing.T) {
 		},
 	}
 
-	results, err := MultiSearch(context.Background(), "test query", providers, web.SearchOptions{Query: "test query"})
+	results, err := MultiSearch(t.Context(), "test query", providers, web.SearchOptions{Query: "test query"})
 	if err != nil {
 		t.Fatalf("MultiSearch failed: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestMultiSearch_PartialFailure(t *testing.T) {
 		},
 	}
 
-	results, err := MultiSearch(context.Background(), "test", providers, web.SearchOptions{Query: "test"})
+	results, err := MultiSearch(t.Context(), "test", providers, web.SearchOptions{Query: "test"})
 	if err != nil {
 		t.Fatalf("MultiSearch should tolerate partial failure: %v", err)
 	}
@@ -97,14 +97,14 @@ func TestMultiSearch_AllFail(t *testing.T) {
 		&mockSearchProvider{name: "bad2", err: errors.New("also down")},
 	}
 
-	_, err := MultiSearch(context.Background(), "test", providers, web.SearchOptions{Query: "test"})
+	_, err := MultiSearch(t.Context(), "test", providers, web.SearchOptions{Query: "test"})
 	if err == nil {
 		t.Fatal("expected error when all providers fail")
 	}
 }
 
 func TestMultiSearch_NoProviders(t *testing.T) {
-	_, err := MultiSearch(context.Background(), "test", nil, web.SearchOptions{Query: "test"})
+	_, err := MultiSearch(t.Context(), "test", nil, web.SearchOptions{Query: "test"})
 	if err == nil {
 		t.Fatal("expected error with no providers")
 	}
@@ -181,7 +181,7 @@ func TestDedup_DedupNone(t *testing.T) {
 		{Title: "B", URL: "https://example.com", Score: 0.9},
 	}
 
-	deduped, err := Dedup(context.Background(), results, Config{Dedup: "none"})
+	deduped, err := Dedup(t.Context(), results, Config{Dedup: "none"})
 	if err != nil {
 		t.Fatalf("dedup none: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestDedup_InvalidMethod(t *testing.T) {
 		{Title: "B", URL: "https://example.com", Score: 0.9},
 	}
 
-	deduped, err := Dedup(context.Background(), results, Config{Dedup: "unknown"})
+	deduped, err := Dedup(t.Context(), results, Config{Dedup: "unknown"})
 	if err != nil {
 		t.Fatalf("dedup unknown: %v", err)
 	}

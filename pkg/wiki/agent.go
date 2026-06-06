@@ -93,15 +93,9 @@ func (a *Agent) Ingest(ctx context.Context, sourcePath string, opts IngestOpts) 
 		return report, fmt.Errorf("reading source: %w", err)
 	}
 
-	existingPages, err := a.loadIndexContext(ctx)
-	if err != nil {
-		return report, fmt.Errorf("loading index context: %w", err)
-	}
+	existingPages := a.loadIndexContext()
 
-	overlap, err := a.searchOverlap(ctx, sourceContent)
-	if err != nil {
-		return report, fmt.Errorf("searching overlap: %w", err)
-	}
+	overlap := a.searchOverlap(ctx, sourceContent)
 
 	if len(overlap) > 0 {
 		for _, page := range overlap {
@@ -192,7 +186,7 @@ func (a *Agent) createWikiPage(action IngestAction) error {
 	}
 
 	content := fmt.Sprintf("---\n%s\n---\n\n%s", fmYAML, action.Content)
-	return os.WriteFile(pagePath, []byte(content), 0644)
+	return os.WriteFile(pagePath, []byte(content), 0600)
 }
 
 func (a *Agent) updateWikiPage(action IngestAction) error {
@@ -218,7 +212,7 @@ func (a *Agent) updateWikiPage(action IngestAction) error {
 		content = strings.TrimRight(content, "\n") + "\n\n" + action.AppendContent + "\n"
 	}
 
-	return os.WriteFile(pagePath, []byte(content), 0644)
+	return os.WriteFile(pagePath, []byte(content), 0600)
 }
 
 func (a *Agent) updateIndexFile(updates []struct {
@@ -272,7 +266,7 @@ func (a *Agent) updateIndexFile(updates []struct {
 		indexStr = strings.TrimRight(indexStr, "\n") + "\n\n" + updatedLine + "\n"
 	}
 
-	return os.WriteFile(indexPath, []byte(indexStr), 0644)
+	return os.WriteFile(indexPath, []byte(indexStr), 0600)
 }
 
 func (a *Agent) appendLogFile(entry string) error {
@@ -285,7 +279,7 @@ func (a *Agent) appendLogFile(entry string) error {
 		return err
 	}
 	logStr := strings.TrimRight(string(content), "\n") + "\n\n" + entry + "\n"
-	return os.WriteFile(logPath, []byte(logStr), 0644)
+	return os.WriteFile(logPath, []byte(logStr), 0600)
 }
 
 type QueryOpts struct {
@@ -318,7 +312,7 @@ func (a *Agent) Query(ctx context.Context, question string, opts QueryOpts) (*Qu
 	}
 
 	var pageContents string
-	var sources []string
+	sources := make([]string, 0, len(searchResults))
 	for _, r := range searchResults {
 		content, err := a.readWikiPage(r.Path)
 		if err != nil {
@@ -389,7 +383,7 @@ sources: [%s]
 %s
 `, strings.Join(sources, ", "), question, answer, sourceList)
 
-	return filename, os.WriteFile(pagePath, []byte(content), 0644)
+	return filename, os.WriteFile(pagePath, []byte(content), 0600)
 }
 
 func (a *Agent) readWikiPage(path string) (string, error) {
@@ -403,16 +397,16 @@ func (a *Agent) readWikiPage(path string) (string, error) {
 	return content, nil
 }
 
-func (a *Agent) loadIndexContext(ctx context.Context) (string, error) {
+func (a *Agent) loadIndexContext() string {
 	indexPath := a.wiki.IndexFilePath()
 	data, err := os.ReadFile(indexPath)
 	if err != nil {
-		return "", nil
+		return ""
 	}
-	return string(data), nil
+	return string(data)
 }
 
-func (a *Agent) searchOverlap(ctx context.Context, sourceContent string) ([]string, error) {
+func (a *Agent) searchOverlap(ctx context.Context, sourceContent string) []string {
 	terms := extractKeyTerms(sourceContent, 5)
 	var overlapping []string
 	seen := make(map[string]bool)
@@ -435,7 +429,7 @@ func (a *Agent) searchOverlap(ctx context.Context, sourceContent string) ([]stri
 			}
 		}
 	}
-	return overlapping, nil
+	return overlapping
 }
 
 func extractKeyTerms(content string, n int) []string {

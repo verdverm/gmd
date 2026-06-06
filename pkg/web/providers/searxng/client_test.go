@@ -1,7 +1,6 @@
 package searxng
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -39,7 +38,7 @@ func searxngOkServer(t *testing.T) *httptest.Server {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(body)
+		_ = json.NewEncoder(w).Encode(body)
 	}))
 }
 
@@ -72,7 +71,7 @@ func TestSearchClient_Search(t *testing.T) {
 		Extra: map[string]any{"base_url": ts.URL},
 	})
 
-	results, err := c.Search(context.Background(), web.SearchOptions{
+	results, err := c.Search(t.Context(), web.SearchOptions{
 		Query:      "test query",
 		NumResults: 5,
 		Extra: map[string]any{
@@ -105,7 +104,7 @@ func TestSearchClient_Search(t *testing.T) {
 
 func TestSearchClient_EmptyResults(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]any{"results": []any{}})
+		_ = json.NewEncoder(w).Encode(map[string]any{"results": []any{}})
 	}))
 	defer ts.Close()
 
@@ -113,7 +112,7 @@ func TestSearchClient_EmptyResults(t *testing.T) {
 		Extra: map[string]any{"base_url": ts.URL},
 	})
 
-	results, err := c.Search(context.Background(), web.SearchOptions{Query: "q"})
+	results, err := c.Search(t.Context(), web.SearchOptions{Query: "q"})
 	if err != nil {
 		t.Fatalf("Search: %v", err)
 	}
@@ -132,7 +131,7 @@ func TestSearchClient_ErrorPaths(t *testing.T) {
 		c, _ := NewSearchClient(web.ProviderConfig{
 			Extra: map[string]any{"base_url": ts.URL},
 		})
-		_, err := c.Search(context.Background(), web.SearchOptions{Query: "q"})
+		_, err := c.Search(t.Context(), web.SearchOptions{Query: "q"})
 		if err == nil {
 			t.Fatal("expected error")
 		}
@@ -140,14 +139,14 @@ func TestSearchClient_ErrorPaths(t *testing.T) {
 
 	t.Run("bad JSON response", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("not json"))
+			_, _ = w.Write([]byte("not json"))
 		}))
 		defer ts.Close()
 
 		c, _ := NewSearchClient(web.ProviderConfig{
 			Extra: map[string]any{"base_url": ts.URL},
 		})
-		_, err := c.Search(context.Background(), web.SearchOptions{Query: "q"})
+		_, err := c.Search(t.Context(), web.SearchOptions{Query: "q"})
 		if err == nil {
 			t.Fatal("expected error")
 		}

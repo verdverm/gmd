@@ -49,7 +49,7 @@ func Start(ctx context.Context, opts Options) (*Server, error) {
 	}
 
 	// Clean up any leftover container from a previous interrupted run.
-	exec.CommandContext(ctx, "docker", "rm", "-f", containerName).Run()
+	_ = exec.CommandContext(ctx, "docker", "rm", "-f", containerName).Run()
 
 	var dataDir string
 	ownTempDir := false
@@ -78,6 +78,7 @@ func Start(ctx context.Context, opts Options) (*Server, error) {
 	}
 	volMount := fmt.Sprintf("%s:/data", absDataDir)
 
+	//nolint:gosec // containerName, port, image are programmatically generated
 	cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "-d",
 		"--name", containerName,
 		"-p", port+":8108",
@@ -110,6 +111,7 @@ func (s *Server) URL() string {
 }
 
 func (s *Server) Stop(ctx context.Context) error {
+	//nolint:gosec // ContainerID is programmatically generated
 	err := exec.CommandContext(ctx, "docker", "kill", s.ContainerID).Run()
 	if err != nil {
 		return fmt.Errorf("docker kill %s: %w", s.ContainerID, err)
@@ -129,8 +131,12 @@ func (s *Server) WaitForHealth(ctx context.Context, timeout time.Duration) error
 			return ctx.Err()
 		default:
 		}
-		resp, err := http.Get(healthURL)
-		if err == nil {
+		req, err := http.NewRequestWithContext(ctx, "GET", healthURL, nil)
+		if err != nil {
+			return err
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err == nil && resp != nil {
 			resp.Body.Close()
 			if resp.StatusCode == 200 {
 				return nil
@@ -146,6 +152,7 @@ func (s *Server) WaitForHealth(ctx context.Context, timeout time.Duration) error
 }
 
 func (s *Server) logs(ctx context.Context) error {
+	//nolint:gosec // ContainerID is programmatically generated
 	out, err := exec.CommandContext(ctx, "docker", "logs", s.ContainerID).Output()
 	if err != nil {
 		return err

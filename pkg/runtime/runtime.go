@@ -92,6 +92,9 @@ func (r *Runtime) Close() error {
 
 // Config returns the runtime's configuration.
 func (r *Runtime) Config() *config.Config {
+	if r == nil {
+		return &config.Config{}
+	}
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.cfg

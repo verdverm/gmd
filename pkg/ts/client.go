@@ -525,7 +525,7 @@ func (c *Client) collectionDocCount(ctx context.Context, name string) (int64, er
 	for _, col := range collections {
 		if col.Name == name {
 			if col.NumDocuments != nil {
-				return int64(*col.NumDocuments), nil
+				return *col.NumDocuments, nil
 			}
 			return 0, nil
 		}
@@ -675,7 +675,7 @@ func (c *Client) multiSearch(ctx context.Context, params HybridSearchParams, tex
 		return nil, nil
 	}
 
-	var results []HybridSearchResult
+	results := make([]HybridSearchResult, 0, len(*resultItem.GroupedHits))
 	for _, group := range *resultItem.GroupedHits {
 		if len(group.Hits) == 0 {
 			continue
@@ -740,7 +740,7 @@ func groupedHitsToResults(resp *api.SearchResult) []HybridSearchResult {
 		return nil
 	}
 
-	var results []HybridSearchResult
+	results := make([]HybridSearchResult, 0, len(*resp.GroupedHits))
 	for _, group := range *resp.GroupedHits {
 		if len(group.Hits) == 0 {
 			continue

@@ -1,7 +1,6 @@
 package exa
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -15,7 +14,7 @@ import (
 func TestBrowserAdapter_GetContent(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req exaclient.ContentsRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		_ = json.NewDecoder(r.Body).Decode(&req)
 
 		if len(req.URLs) != 1 || req.URLs[0] != "https://example.com/article" {
 			t.Errorf("unexpected URLs: %v", req.URLs)
@@ -27,7 +26,7 @@ func TestBrowserAdapter_GetContent(t *testing.T) {
 			},
 			CostDollars: &exaclient.CostDollars{Total: 0.001},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer ts.Close()
 
@@ -35,7 +34,7 @@ func TestBrowserAdapter_GetContent(t *testing.T) {
 		Extra: map[string]any{"api_key": "k", "base_url": ts.URL},
 	})
 
-	result, err := adapter.GetContent(context.Background(), "https://example.com/article", nil)
+	result, err := adapter.GetContent(t.Context(), "https://example.com/article", nil)
 	if err != nil {
 		t.Fatalf("GetContent: %v", err)
 	}
@@ -54,8 +53,8 @@ func TestBrowserAdapter_GetContentWithOptions(t *testing.T) {
 	var captured exaclient.ContentsRequest
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewDecoder(r.Body).Decode(&captured)
-		json.NewEncoder(w).Encode(exaclient.ContentsResponse{Results: []exaclient.SearchResult{{}}})
+		_ = json.NewDecoder(r.Body).Decode(&captured)
+		_ = json.NewEncoder(w).Encode(exaclient.ContentsResponse{Results: []exaclient.SearchResult{{}}})
 	}))
 	defer ts.Close()
 
@@ -68,7 +67,7 @@ func TestBrowserAdapter_GetContentWithOptions(t *testing.T) {
 		MaxAge:   24 * time.Hour,
 	}
 
-	_, err := adapter.GetContent(context.Background(), "https://example.com", opts)
+	_, err := adapter.GetContent(t.Context(), "https://example.com", opts)
 	if err != nil {
 		t.Fatalf("GetContent: %v", err)
 	}
@@ -86,7 +85,7 @@ func TestBrowserAdapter_GetContentWithOptions(t *testing.T) {
 
 func TestBrowserAdapter_GetContentEmpty(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(exaclient.ContentsResponse{})
+		_ = json.NewEncoder(w).Encode(exaclient.ContentsResponse{})
 	}))
 	defer ts.Close()
 
@@ -94,7 +93,7 @@ func TestBrowserAdapter_GetContentEmpty(t *testing.T) {
 		Extra: map[string]any{"api_key": "k", "base_url": ts.URL},
 	})
 
-	result, err := adapter.GetContent(context.Background(), "https://example.com", nil)
+	result, err := adapter.GetContent(t.Context(), "https://example.com", nil)
 	if err != nil {
 		t.Fatalf("GetContent: %v", err)
 	}
@@ -108,7 +107,7 @@ func TestBrowserAdapter_CrawlUnsupported(t *testing.T) {
 		Extra: map[string]any{"api_key": "k", "base_url": "http://localhost"},
 	})
 
-	pages, err := adapter.Crawl(context.Background(), "https://example.com", nil)
+	pages, err := adapter.Crawl(t.Context(), "https://example.com", nil)
 	if err != web.ErrNotSupported {
 		t.Errorf("expected ErrNotSupported, got %v", err)
 	}
@@ -120,7 +119,7 @@ func TestBrowserAdapter_CrawlUnsupported(t *testing.T) {
 func TestBrowserAdapter_ScrapeUnsupported(t *testing.T) {
 	adapter, _ := NewBrowserAdapter(web.ProviderConfig{Extra: map[string]any{"api_key": "k"}})
 
-	elements, err := adapter.Scrape(context.Background(), "https://example.com", "div")
+	elements, err := adapter.Scrape(t.Context(), "https://example.com", "div")
 	if err != web.ErrNotSupported {
 		t.Errorf("expected ErrNotSupported, got %v", err)
 	}
@@ -157,7 +156,7 @@ func TestBrowserAdapter_ErrorPropagation(t *testing.T) {
 		Extra: map[string]any{"api_key": "k", "base_url": ts.URL},
 	})
 
-	_, err := adapter.GetContent(context.Background(), "https://example.com", nil)
+	_, err := adapter.GetContent(t.Context(), "https://example.com", nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}

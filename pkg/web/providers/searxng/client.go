@@ -35,6 +35,9 @@ func NewSearchClient(cfg web.ProviderConfig) (*SearchClient, error) {
 func (c *SearchClient) Name() string { return c.name }
 
 func (c *SearchClient) Search(ctx context.Context, opts web.SearchOptions) ([]web.SearchResult, error) {
+	if c == nil {
+		return nil, fmt.Errorf("searxng: nil client")
+	}
 	params := url.Values{}
 	params.Set("q", opts.Query)
 	params.Set("format", "json")
@@ -101,6 +104,9 @@ func (c *SearchClient) do(ctx context.Context, reqURL string) ([]byte, error) {
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	if resp == nil {
+		return nil, fmt.Errorf("nil response from server")
 	}
 	defer resp.Body.Close()
 

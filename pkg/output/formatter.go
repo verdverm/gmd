@@ -79,6 +79,9 @@ func FormatLS(results []ts.HybridSearchResult) string {
 	var b strings.Builder
 	for _, col := range colOrder {
 		g := byCol[col]
+		if g == nil {
+			continue
+		}
 		sort.Strings(g.paths)
 		b.WriteString(col + ":\n")
 		for _, p := range g.paths {

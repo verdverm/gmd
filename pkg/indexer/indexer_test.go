@@ -267,7 +267,7 @@ func TestUpdateCollectionErrors(t *testing.T) {
 		col.Path = "/nonexistent"
 		cfg.Collections["test"] = col
 		idx := New(cfg, nil, nil).WithFS(fsys)
-		result := idx.updateCollection(context.Background(), "test", col.SourceConfig, "/", nil)
+		result := idx.updateCollection(t.Context(), "test", col.SourceConfig, "/", nil)
 		if len(result.Errors) == 0 {
 			t.Error("expected errors for nonexistent directory")
 		}
@@ -278,7 +278,7 @@ func TestUpdateCollectionErrors(t *testing.T) {
 			"docs/a.md": {Data: []byte("# A\ncontent here.")},
 			"docs/b.md": {Data: []byte("# B\ncontent here.")},
 		}
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		cancel()
 		cfg := testConfig(t)
 		idx := New(cfg, nil, nil).WithFS(fsys)
@@ -309,13 +309,13 @@ func TestFileHash(t *testing.T) {
 
 func TestScanFilesFSWithTempDir(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "test.md"), []byte("# test"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "test.md"), []byte("# test"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.MkdirAll(filepath.Join(dir, "sub"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "sub", "other.md"), []byte("# other"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "sub", "other.md"), []byte("# other"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -332,7 +332,7 @@ func TestScanFilesFSWithTempDir(t *testing.T) {
 func TestFileHashWithTempDir(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.md")
-	if err := os.WriteFile(path, []byte("# Hello\nWorld"), 0644); err != nil {
+	if err := os.WriteFile(path, []byte("# Hello\nWorld"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -341,7 +341,7 @@ func TestFileHashWithTempDir(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(path, []byte("# Hello\nWorld"), 0644); err != nil {
+	if err := os.WriteFile(path, []byte("# Hello\nWorld"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -354,7 +354,7 @@ func TestFileHashWithTempDir(t *testing.T) {
 		t.Errorf("same content should produce same hash:\na=%s\nb=%s", h1, h2)
 	}
 
-	if err := os.WriteFile(path, []byte("different content"), 0644); err != nil {
+	if err := os.WriteFile(path, []byte("different content"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	h3, err := fileHash(path)
@@ -403,25 +403,6 @@ func testConfig(t *testing.T) *config.Config {
 		"test": {
 			SourceConfig: config.SourceConfig{
 				Path:     "/docs",
-				Patterns: []string{"**/*.md"},
-			},
-		},
-	})
-}
-
-// testMultiConfig creates a config with multiple collections for testing.
-func testMultiConfig(t *testing.T) *config.Config {
-	t.Helper()
-	return testConfigWithCollections(t, map[string]config.CollectionConfig{
-		"docs": {
-			SourceConfig: config.SourceConfig{
-				Path:     "/docs",
-				Patterns: []string{"**/*.md"},
-			},
-		},
-		"notes": {
-			SourceConfig: config.SourceConfig{
-				Path:     "/notes",
 				Patterns: []string{"**/*.md"},
 			},
 		},
@@ -486,7 +467,7 @@ func TestStalePaths(t *testing.T) {
 
 	// Create a file that exists on disk
 	existing := filepath.Join(dir, "existing.md")
-	if err := os.WriteFile(existing, []byte("# Existing"), 0644); err != nil {
+	if err := os.WriteFile(existing, []byte("# Existing"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -513,7 +494,7 @@ func TestStalePaths(t *testing.T) {
 	idx.ts = mockTS
 
 	t.Run("finds stale paths", func(t *testing.T) {
-		stale, err := idx.StalePaths(context.Background(), "test")
+		stale, err := idx.StalePaths(t.Context(), "test")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -523,7 +504,7 @@ func TestStalePaths(t *testing.T) {
 	})
 
 	t.Run("non-existent collection returns error", func(t *testing.T) {
-		_, err := idx.StalePaths(context.Background(), "nonexistent")
+		_, err := idx.StalePaths(t.Context(), "nonexistent")
 		if err == nil {
 			t.Fatal("expected error")
 		}
@@ -534,7 +515,7 @@ func TestCleanupDeleted(t *testing.T) {
 	dir := t.TempDir()
 
 	existing := filepath.Join(dir, "keep.md")
-	if err := os.WriteFile(existing, []byte("# Keep"), 0644); err != nil {
+	if err := os.WriteFile(existing, []byte("# Keep"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -558,7 +539,7 @@ func TestCleanupDeleted(t *testing.T) {
 	}
 
 	t.Run("deletes stale chunks", func(t *testing.T) {
-		deleted, err := idx.CleanupDeleted(context.Background(), "test")
+		deleted, err := idx.CleanupDeleted(t.Context(), "test")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -571,7 +552,7 @@ func TestCleanupDeleted(t *testing.T) {
 func TestCleanupAllCollections(t *testing.T) {
 	dir := t.TempDir()
 
-	if err := os.WriteFile(filepath.Join(dir, "a.md"), []byte("# A"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "a.md"), []byte("# A"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -591,7 +572,7 @@ func TestCleanupAllCollections(t *testing.T) {
 		},
 	}
 
-	results := idx.CleanupAllCollections(context.Background(), nil)
+	results := idx.CleanupAllCollections(t.Context(), nil)
 	if results["notes"] != 1 {
 		t.Errorf("expected 1 stale in notes, got %d", results["notes"])
 	}
@@ -602,7 +583,7 @@ func TestCleanupAllCollections(t *testing.T) {
 
 func TestStalePathsNonexistentCollection(t *testing.T) {
 	idx := New(&config.Config{}, nil, nil)
-	_, err := idx.StalePaths(context.Background(), "nonexistent")
+	_, err := idx.StalePaths(t.Context(), "nonexistent")
 	if err == nil {
 		t.Fatal("expected error for nonexistent collection")
 	}

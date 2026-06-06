@@ -20,7 +20,7 @@ var (
 	searchPreset      string
 )
 
-func searchRun(args []string, mode search.SearchMode) error {
+func searchRun(args []string, mode search.Mode) error {
 	r, err := getRuntime()
 	if err != nil {
 		return err
@@ -66,7 +66,7 @@ func searchRun(args []string, mode search.SearchMode) error {
 		}
 	}
 
-	params := search.SearchParams{
+	params := search.Params{
 		Query:       args[0],
 		Collections: expandedCollections,
 		Limit:       searchLimit,

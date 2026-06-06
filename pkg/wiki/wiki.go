@@ -56,7 +56,7 @@ func (w *Wiki) Init() error {
 	indexPath := filepath.Join(w.WikiPath, w.WikiConfig.IndexFile)
 	if _, err := os.Stat(indexPath); os.IsNotExist(err) {
 		content := "# Wiki Index\n\n## Entities\n\n## Concepts\n\n## Comparisons\n\n## Sources\n\n## Last Updated\n\n"
-		if err := os.WriteFile(indexPath, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(indexPath, []byte(content), 0600); err != nil {
 			return fmt.Errorf("writing index file: %w", err)
 		}
 	}
@@ -64,7 +64,7 @@ func (w *Wiki) Init() error {
 	logPath := filepath.Join(w.WikiPath, w.WikiConfig.LogFile)
 	if _, err := os.Stat(logPath); os.IsNotExist(err) {
 		content := "# Wiki Log\n\n"
-		if err := os.WriteFile(logPath, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(logPath, []byte(content), 0600); err != nil {
 			return fmt.Errorf("writing log file: %w", err)
 		}
 	}
@@ -73,7 +73,7 @@ func (w *Wiki) Init() error {
 	if _, err := os.Stat(schemaPath); os.IsNotExist(err) {
 		tmpl, err := GetSkillTemplate("WIKI_SCHEMA.md")
 		if err == nil {
-			if err := os.WriteFile(schemaPath, []byte(tmpl.Content), 0644); err != nil {
+			if err := os.WriteFile(schemaPath, []byte(tmpl.Content), 0600); err != nil {
 				return fmt.Errorf("writing schema file: %w", err)
 			}
 		}

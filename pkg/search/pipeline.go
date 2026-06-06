@@ -20,15 +20,15 @@ func expansionPrompt() string {
 	return string(data)
 }
 
-type SearchMode int
+type Mode int
 
 const (
-	ModeText SearchMode = iota
+	ModeText Mode = iota
 	ModeVector
 	ModeHybrid
 )
 
-type SearchParams struct {
+type Params struct {
 	Query       string
 	Collections []string
 	Limit       int
@@ -54,7 +54,7 @@ func New(cfg *config.Config, tsClient *ts.Client, llmClient *llm.Client) *Pipeli
 	return &Pipeline{cfg: cfg, ts: tsClient, llm: llmClient}
 }
 
-func (p *Pipeline) Search(ctx context.Context, params SearchParams, mode SearchMode) ([]Result, error) {
+func (p *Pipeline) Search(ctx context.Context, params Params, mode Mode) ([]Result, error) {
 	switch mode {
 	case ModeText:
 		return p.textSearch(ctx, params)
@@ -67,7 +67,7 @@ func (p *Pipeline) Search(ctx context.Context, params SearchParams, mode SearchM
 	}
 }
 
-func (p *Pipeline) textSearch(ctx context.Context, params SearchParams) ([]Result, error) {
+func (p *Pipeline) textSearch(ctx context.Context, params Params) ([]Result, error) {
 	limit := params.Limit
 	if limit <= 0 {
 		limit = p.cfg.Pipeline.Output.MaxResults
@@ -84,7 +84,7 @@ func (p *Pipeline) textSearch(ctx context.Context, params SearchParams) ([]Resul
 	return tsResultsToResults(results), nil
 }
 
-func (p *Pipeline) vectorSearch(ctx context.Context, params SearchParams) ([]Result, error) {
+func (p *Pipeline) vectorSearch(ctx context.Context, params Params) ([]Result, error) {
 	limit := params.Limit
 	if limit <= 0 {
 		limit = p.cfg.Pipeline.Output.MaxResults
@@ -105,7 +105,7 @@ func (p *Pipeline) vectorSearch(ctx context.Context, params SearchParams) ([]Res
 	return tsResultsToResults(results), nil
 }
 
-func (p *Pipeline) fullPipeline(ctx context.Context, params SearchParams) ([]Result, error) {
+func (p *Pipeline) fullPipeline(ctx context.Context, params Params) ([]Result, error) {
 	limit := params.Limit
 	if limit <= 0 {
 		limit = p.cfg.Pipeline.Output.MaxResults
@@ -330,7 +330,7 @@ func (p *Pipeline) rrfFuse(variantResults []variantResult, k int) []fusedDoc {
 		}
 	}
 
-	var fused []fusedDoc
+	fused := make([]fusedDoc, 0, len(docMap))
 	for key, entry := range docMap {
 		var score float64
 		hasTopRank := false

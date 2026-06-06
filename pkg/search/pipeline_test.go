@@ -9,9 +9,9 @@ import (
 	"github.com/verdverm/gmd/pkg/ts"
 )
 
-func makeResult(collection, path string, score float64) ts.HybridSearchResult {
+func makeResult(path string, score float64) ts.HybridSearchResult {
 	return ts.HybridSearchResult{
-		Collection: collection,
+		Collection: "docs",
 		Path:       path,
 		Title:      "title",
 		Content:    "content",
@@ -25,8 +25,8 @@ func TestRRFFuse(t *testing.T) {
 		results := []variantResult{{
 			weight: 1.0,
 			results: []ts.HybridSearchResult{
-				makeResult("docs", "a.md", 0.9),
-				makeResult("docs", "b.md", 0.8),
+				makeResult("a.md", 0.9),
+				makeResult("b.md", 0.8),
 			},
 		}}
 		var p *Pipeline
@@ -41,12 +41,12 @@ func TestRRFFuse(t *testing.T) {
 
 	t.Run("multiple variants with weights", func(t *testing.T) {
 		list1 := []ts.HybridSearchResult{
-			makeResult("docs", "a.md", 0.92),
-			makeResult("docs", "b.md", 0.81),
+			makeResult("a.md", 0.92),
+			makeResult("b.md", 0.81),
 		}
 		list2 := []ts.HybridSearchResult{
-			makeResult("docs", "b.md", 0.77),
-			makeResult("docs", "a.md", 0.65),
+			makeResult("b.md", 0.77),
+			makeResult("a.md", 0.65),
 		}
 		results := []variantResult{
 			{weight: 2.0, results: list1},
@@ -90,9 +90,9 @@ func TestRRFFuse(t *testing.T) {
 
 	t.Run("top-rank bonus applied", func(t *testing.T) {
 		list1 := []ts.HybridSearchResult{
-			makeResult("docs", "a.md", 0.9),
-			makeResult("docs", "b.md", 0.8),
-			makeResult("docs", "c.md", 0.7),
+			makeResult("a.md", 0.9),
+			makeResult("b.md", 0.8),
+			makeResult("c.md", 0.7),
 		}
 		results := []variantResult{{weight: 1.0, results: list1}}
 		var p *Pipeline
@@ -115,8 +115,8 @@ func TestRRFFuse(t *testing.T) {
 
 	t.Run("different k values", func(t *testing.T) {
 		list1 := []ts.HybridSearchResult{
-			makeResult("docs", "a.md", 0.9),
-			makeResult("docs", "b.md", 0.8),
+			makeResult("a.md", 0.9),
+			makeResult("b.md", 0.8),
 		}
 		results := []variantResult{{weight: 1.0, results: list1}}
 		var p *Pipeline
@@ -132,10 +132,10 @@ func TestRRFFuse(t *testing.T) {
 
 	t.Run("shared result appears in multiple variant lists", func(t *testing.T) {
 		list1 := []ts.HybridSearchResult{
-			makeResult("docs", "a.md", 0.9),
+			makeResult("a.md", 0.9),
 		}
 		list2 := []ts.HybridSearchResult{
-			makeResult("docs", "a.md", 0.85),
+			makeResult("a.md", 0.85),
 		}
 		results := []variantResult{
 			{weight: 1.0, results: list1},
@@ -159,7 +159,7 @@ func TestBlend(t *testing.T) {
 	makeFused := func(rrfScore, rerankScore float64) fusedDoc {
 		return fusedDoc{
 			key:         "docs:test.md",
-			result:      makeResult("docs", "test.md", 0.8),
+			result:      makeResult("test.md", 0.8),
 			rrfScore:    rrfScore,
 			rerankScore: rerankScore,
 		}
@@ -407,8 +407,6 @@ func TestStrongSignalThresholds(t *testing.T) {
 	})
 
 	t.Run("less than 2 results is weak", func(t *testing.T) {
-		if len([]int{1}) < 2 {
-		}
 	})
 }
 
@@ -436,7 +434,7 @@ func TestGenerateVariantsStrongSignal(t *testing.T) {
 	}
 	p := &Pipeline{cfg: cfg}
 
-	variants, err := p.generateVariants(nil, "test query", true)
+	variants, err := p.generateVariants(t.Context(), "test query", true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

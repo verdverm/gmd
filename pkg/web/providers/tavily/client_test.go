@@ -1,7 +1,6 @@
 package tavily
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -30,7 +29,7 @@ func tavilyOkServer(t *testing.T) *httptest.Server {
 				},
 			},
 		}
-		json.NewEncoder(w).Encode(body)
+		_ = json.NewEncoder(w).Encode(body)
 	}))
 }
 
@@ -78,7 +77,7 @@ func TestSearchClient_Search(t *testing.T) {
 		Extra: map[string]any{"api_key": "test-key", "base_url": ts.URL},
 	})
 
-	results, err := c.Search(context.Background(), web.SearchOptions{
+	results, err := c.Search(t.Context(), web.SearchOptions{
 		Query:      "test query",
 		NumResults: 5,
 	})
@@ -108,8 +107,8 @@ func TestSearchClient_ExtraOptions(t *testing.T) {
 	var captured map[string]any
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewDecoder(r.Body).Decode(&captured)
-		json.NewEncoder(w).Encode(map[string]any{"results": []any{}})
+		_ = json.NewDecoder(r.Body).Decode(&captured)
+		_ = json.NewEncoder(w).Encode(map[string]any{"results": []any{}})
 	}))
 	defer ts.Close()
 
@@ -129,7 +128,7 @@ func TestSearchClient_ExtraOptions(t *testing.T) {
 		},
 	}
 
-	_, err := c.Search(context.Background(), opts)
+	_, err := c.Search(t.Context(), opts)
 	if err != nil {
 		t.Fatalf("Search: %v", err)
 	}
@@ -158,7 +157,7 @@ func TestSearchClient_ErrorPaths(t *testing.T) {
 		c, _ := NewSearchClient(web.ProviderConfig{
 			Extra: map[string]any{"api_key": "k", "base_url": ts.URL},
 		})
-		_, err := c.Search(context.Background(), web.SearchOptions{Query: "q"})
+		_, err := c.Search(t.Context(), web.SearchOptions{Query: "q"})
 		if !errorsIs(err, web.ErrRateLimited) {
 			t.Errorf("expected ErrRateLimited, got %v", err)
 		}
@@ -173,7 +172,7 @@ func TestSearchClient_ErrorPaths(t *testing.T) {
 		c, _ := NewSearchClient(web.ProviderConfig{
 			Extra: map[string]any{"api_key": "k", "base_url": ts.URL},
 		})
-		_, err := c.Search(context.Background(), web.SearchOptions{Query: "q"})
+		_, err := c.Search(t.Context(), web.SearchOptions{Query: "q"})
 		if !errorsIs(err, web.ErrAuthFailed) {
 			t.Errorf("expected ErrAuthFailed, got %v", err)
 		}
@@ -181,14 +180,14 @@ func TestSearchClient_ErrorPaths(t *testing.T) {
 
 	t.Run("bad JSON response", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("not json"))
+			_, _ = w.Write([]byte("not json"))
 		}))
 		defer ts.Close()
 
 		c, _ := NewSearchClient(web.ProviderConfig{
 			Extra: map[string]any{"api_key": "k", "base_url": ts.URL},
 		})
-		_, err := c.Search(context.Background(), web.SearchOptions{Query: "q"})
+		_, err := c.Search(t.Context(), web.SearchOptions{Query: "q"})
 		if err == nil {
 			t.Fatal("expected error")
 		}

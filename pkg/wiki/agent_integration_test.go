@@ -79,11 +79,7 @@ func TestIntegrationReadWikiPage_NoFrontmatter(t *testing.T) {
 
 func TestIntegrationLoadIndexContext_Exists(t *testing.T) {
 	_, agent := newTestWikiAgent(t)
-	// Init already created the index file
-	content, err := agent.loadIndexContext(context.Background())
-	if err != nil {
-		t.Fatalf("loadIndexContext error: %v", err)
-	}
+	content := agent.loadIndexContext()
 	if content == "" {
 		t.Error("expected non-empty index content")
 	}
@@ -94,13 +90,9 @@ func TestIntegrationLoadIndexContext_Exists(t *testing.T) {
 
 func TestIntegrationLoadIndexContext_MissingFile(t *testing.T) {
 	w, agent := newTestWikiAgent(t)
-	// Remove the index file
 	os.Remove(w.IndexFilePath())
 
-	content, err := agent.loadIndexContext(context.Background())
-	if err != nil {
-		t.Fatalf("loadIndexContext error: %v", err)
-	}
+	content := agent.loadIndexContext()
 	if content != "" {
 		t.Errorf("expected empty content for missing index, got %q", content)
 	}
@@ -455,10 +447,7 @@ func TestIntegrationSearchOverlap_WithResults(t *testing.T) {
 	}
 
 	// Search for overlapping content — the indexed content matches these terms
-	overlap, err := agent.searchOverlap(ctx, "machine learning artificial intelligence")
-	if err != nil {
-		t.Fatalf("searchOverlap error: %v", err)
-	}
+	overlap := agent.searchOverlap(ctx, "machine learning artificial intelligence")
 
 	if len(overlap) == 0 {
 		t.Fatal("expected at least 1 overlapping page, got 0")

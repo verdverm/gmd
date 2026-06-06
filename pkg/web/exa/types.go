@@ -57,7 +57,7 @@ type ContentsRequest struct {
 
 type ContentsText struct {
 	MaxCharacters   int  `json:"maxCharacters,omitempty"`
-	IncludeHtmlTags bool `json:"includeHtmlTags,omitempty"`
+	IncludeHTMLTags bool `json:"includeHtmlTags,omitempty"`
 }
 
 type HighlightOpts struct {

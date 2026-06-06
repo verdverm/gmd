@@ -190,6 +190,9 @@ func (c *BrowserClient) do(ctx context.Context, method, reqURL string, body any)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
+	if resp == nil {
+		return nil, fmt.Errorf("nil response from server")
+	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)

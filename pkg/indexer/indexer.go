@@ -56,21 +56,6 @@ func (idx *Indexer) rootFS() fs.FS {
 	return os.DirFS("/")
 }
 
-type fileStatus int
-
-const (
-	statusNew fileStatus = iota
-	statusChanged
-	statusUnchanged
-)
-
-type fileInfo struct {
-	path    string
-	relPath string
-	hash    string
-	status  fileStatus
-}
-
 type IndexResult struct {
 	Collection string
 	TotalFiles int

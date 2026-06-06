@@ -158,7 +158,7 @@ func (c *Client) Embed(ctx context.Context, text string) ([]float64, error) {
 func (c *Client) EmbedWithModel(ctx context.Context, text, model string) ([]float64, error) {
 	client := c.clientForEmbed()
 	resp, err := client.Embeddings.New(ctx, openai.EmbeddingNewParams{
-		Model: openai.EmbeddingModel(model),
+		Model: model,
 		Input: openai.EmbeddingNewParamsInputUnion{
 			OfString: param.NewOpt(text),
 		},
@@ -166,7 +166,7 @@ func (c *Client) EmbedWithModel(ctx context.Context, text, model string) ([]floa
 	if err != nil {
 		return nil, fmt.Errorf("embedding: %w", err)
 	}
-	if len(resp.Data) == 0 {
+	if resp == nil || len(resp.Data) == 0 {
 		return nil, fmt.Errorf("embedding: no data")
 	}
 	return resp.Data[0].Embedding, nil
@@ -175,13 +175,16 @@ func (c *Client) EmbedWithModel(ctx context.Context, text, model string) ([]floa
 func (c *Client) EmbedBatch(ctx context.Context, texts []string) ([][]float64, error) {
 	client := c.clientForEmbed()
 	resp, err := client.Embeddings.New(ctx, openai.EmbeddingNewParams{
-		Model: openai.EmbeddingModel(c.embeddingModel),
+		Model: c.embeddingModel,
 		Input: openai.EmbeddingNewParamsInputUnion{
 			OfArrayOfStrings: texts,
 		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("batch embedding: %w", err)
+	}
+	if resp == nil || len(resp.Data) == 0 {
+		return nil, fmt.Errorf("batch embedding: no data")
 	}
 	results := make([][]float64, len(resp.Data))
 	for i, d := range resp.Data {
@@ -211,13 +214,13 @@ func (c *Client) chatWithClient(ctx context.Context, messages []ChatMessage, mod
 	}
 
 	resp, err := client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
-		Model:    shared.ChatModel(model),
+		Model:    shared.ChatModel(model), //nolint:unconvert // required for string→ChatModel conversion
 		Messages: chatMsgs,
 	})
 	if err != nil {
 		return "", fmt.Errorf("chat: %w", err)
 	}
-	if len(resp.Choices) == 0 {
+	if resp == nil || len(resp.Choices) == 0 {
 		return "", fmt.Errorf("chat: no choices")
 	}
 	return resp.Choices[0].Message.Content, nil
@@ -282,6 +285,10 @@ func (c *Client) CheckEndpoint(ctx context.Context, label, baseURL, model string
 		s.Err = err.Error()
 		return s
 	}
+	if page == nil {
+		s.Err = "no data from models endpoint"
+		return s
+	}
 	s.OK = true
 	for _, m := range page.Data {
 		s.Models = append(s.Models, m.ID)
@@ -317,7 +324,7 @@ func (c *Client) CheckAll(ctx context.Context) []EndpointStatus {
 		{"general_small", c.generalSmallURL, c.generalSmallModel},
 	}
 
-	var results []EndpointStatus
+	results := make([]EndpointStatus, 0, len(endpoints))
 	for _, ep := range endpoints {
 		s := c.CheckEndpoint(ctx, ep.label, ep.url, ep.model)
 		results = append(results, s)

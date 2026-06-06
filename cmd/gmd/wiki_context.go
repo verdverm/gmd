@@ -15,7 +15,7 @@ Workflow:
   gmd wiki context list
   gmd wiki context rm mywiki`,
 	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
+		_ = cmd.Help()
 	},
 }
 

@@ -19,6 +19,6 @@ Workflow:
   gmd context list
   gmd context rm docs`,
 	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
+		_ = cmd.Help()
 	},
 }

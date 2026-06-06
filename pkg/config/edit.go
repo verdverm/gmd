@@ -32,7 +32,7 @@ func writeConfigFile(path string, f *ast.File) error {
 	if err != nil {
 		return fmt.Errorf("formatting config: %w", err)
 	}
-	return os.WriteFile(path, src, 0644)
+	return os.WriteFile(path, src, 0600)
 }
 
 func fieldLabel(f *ast.Field) string {
@@ -100,23 +100,16 @@ func strListField(name string, values []string) *ast.Field {
 	}
 }
 
-func boolField(name string, value bool) *ast.Field {
-	return &ast.Field{
-		Label: ast.NewIdent(name),
-		Value: ast.NewBool(value),
-	}
-}
-
 // sourceMapField resolves a name to the correct CUE map ("collections" or "wikis")
 // and returns the struct field containing the inner struct. Returns "", nil if not found.
-func sourceMapField(cfg *Config, cs *ast.StructLit, name string) (string, *ast.Field, *ast.StructLit) {
+func sourceMapField(cfg *Config, cs *ast.StructLit, name string) (string, *ast.StructLit) {
 	// Check collections
 	if _, ok := cfg.Collections[name]; ok {
 		cols := findFieldInStruct(cs, "collections")
 		if cols != nil {
 			if colSt, ok := cols.Value.(*ast.StructLit); ok {
 				if f := findFieldInStruct(colSt, name); f != nil {
-					return "collections", cols, colSt
+					return "collections", colSt
 				}
 			}
 		}
@@ -127,17 +120,17 @@ func sourceMapField(cfg *Config, cs *ast.StructLit, name string) (string, *ast.F
 		if wikis != nil {
 			if wikiSt, ok := wikis.Value.(*ast.StructLit); ok {
 				if f := findFieldInStruct(wikiSt, name); f != nil {
-					return "wikis", wikis, wikiSt
+					return "wikis", wikiSt
 				}
 			}
 		}
 	}
-	return "", nil, nil
+	return "", nil
 }
 
 // getSourceInner returns the AST inner struct for a named source (collection or wiki).
 func getSourceInner(cfg *Config, cs *ast.StructLit, name string) (*ast.StructLit, error) {
-	_, _, parentSt := sourceMapField(cfg, cs, name)
+	_, parentSt := sourceMapField(cfg, cs, name)
 	if parentSt == nil {
 		return nil, fmt.Errorf("source %q not found in config", name)
 	}
@@ -229,7 +222,7 @@ func RemoveCollection(cfg *Config, name string) error {
 		return fmt.Errorf("no Config block found in %s", cfgPath)
 	}
 
-	mapKey, _, parentSt := sourceMapField(cfg, cs, name)
+	mapKey, parentSt := sourceMapField(cfg, cs, name)
 	if parentSt == nil {
 		return fmt.Errorf("source %q not found in config", name)
 	}
@@ -283,7 +276,7 @@ func RenameCollection(cfg *Config, oldName, newName string) error {
 		return fmt.Errorf("no Config block found in %s", cfgPath)
 	}
 
-	mapKey, _, parentSt := sourceMapField(cfg, cs, oldName)
+	mapKey, parentSt := sourceMapField(cfg, cs, oldName)
 	if parentSt == nil {
 		return fmt.Errorf("source %q not found in config", oldName)
 	}
@@ -384,11 +377,7 @@ func AddCollectionPatterns(cfg *Config, name string, patterns []string, replaceA
 		appendSourcePatterns(cfg, name, patterns)
 	}
 
-	if err := writeConfigFile(cfgPath, f); err != nil {
-		return err
-	}
-
-	return nil
+	return writeConfigFile(cfgPath, f)
 }
 
 func updateSourcePatterns(cfg *Config, name string, patterns []string) {
@@ -498,11 +487,7 @@ func AddIgnorePatterns(cfg *Config, name string, patterns []string, replaceAll b
 		appendSourceIgnore(cfg, name, patterns)
 	}
 
-	if err := writeConfigFile(cfgPath, f); err != nil {
-		return err
-	}
-
-	return nil
+	return writeConfigFile(cfgPath, f)
 }
 
 func updateSourceIgnore(cfg *Config, name string, patterns []string) {

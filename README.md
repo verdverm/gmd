@@ -5,7 +5,8 @@ full-text, vector, or hybrid search - backed by [Typesense](https://typesense.or
 and any OpenAI-compatible LLM. Build compounding LLM wikis that ingest source
 documents, extract knowledge, and link pages via `[[wikilinks]]`. Run web searches,
 fetch clean content from URLs, or crawl sites through a multi-provider architecture
-(EXA, Tavily, SearXNG, Cloudflare) with an LLM-orchestrated research agent.
+(EXA, Tavily, SearXNG, Cloudflare). Agent-orchestrated workflows, instructions,
+skills, and harness configurations are exportable for use in your tools.
 
 ```
 gmd init                        # scaffold .gmd/config.cue

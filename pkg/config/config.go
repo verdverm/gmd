@@ -541,8 +541,8 @@ var cueSchema embed.FS
 
 // Load loads and validates the unified configuration.
 // It embeds the built-in schema, loads optional global config (UserConfigDir/gmd/config.cue),
-// detects the project root, loads optional project-local config, unifies them,
-// validates against the schema, and exports to a Go struct.
+// detects the project root, loads optional project-local config, merges project over global,
+// and exports to a Go struct. Project values take precedence over global values.
 func Load(cwd string) (*Config, error) {
 	ctx := cuecontext.New()
 
@@ -566,44 +566,47 @@ func Load(cwd string) (*Config, error) {
 		allCUEContent += content + "\n"
 	}
 
-	val := ctx.CompileString(allCUEContent)
-	if val.Err() != nil {
-		return nil, fmt.Errorf("compiling embedded schema: %w", val.Err())
-	}
-
-	if data, err := tryReadGlobalConfig(); err == nil {
-		gv := ctx.CompileString(data)
-		if gv.Err() != nil {
-			return nil, fmt.Errorf("compiling global config: %w", gv.Err())
-		}
-		val = val.Unify(gv)
+	decodeCUE := func(cueData string) (*Config, error) {
+		data := stripPackageDecl(cueData)
+		full := allCUEContent + "\n" + data
+		val := ctx.CompileString(full)
 		if val.Err() != nil {
-			return nil, fmt.Errorf("unifying global config: %w", val.Err())
+			return nil, val.Err()
 		}
+		configVal := val.LookupPath(cue.ParsePath("Config"))
+		if configVal.Err() != nil {
+			return nil, configVal.Err()
+		}
+		var decoded Config
+		if err := configVal.Decode(&decoded); err != nil {
+			return nil, err
+		}
+		return &decoded, nil
 	}
 
 	projectRoot := FindProjectRoot(cwd)
+
+	// Start with sensible defaults (used when no global or project config)
+	cfg := defaultConfig()
+
+	// Load global config
+	if data, err := tryReadGlobalConfig(); err == nil {
+		globalCfg, err := decodeCUE(data)
+		if err != nil {
+			return nil, fmt.Errorf("loading global config: %w", err)
+		}
+		mergeConfigs(cfg, globalCfg)
+	}
+
+	// Load project config and overlay on top (project takes precedence)
 	if projectRoot != "" {
 		if data, err := tryReadProjectConfig(projectRoot); err == nil {
-			pv := ctx.CompileString(data)
-			if pv.Err() != nil {
-				return nil, fmt.Errorf("compiling project config: %w", pv.Err())
+			projCfg, err := decodeCUE(data)
+			if err != nil {
+				return nil, fmt.Errorf("loading project config: %w", err)
 			}
-			val = val.Unify(pv)
-			if val.Err() != nil {
-				return nil, fmt.Errorf("unifying project config: %w", val.Err())
-			}
+			mergeConfigs(cfg, projCfg)
 		}
-	}
-
-	configVal := val.LookupPath(cue.ParsePath("Config"))
-	if configVal.Err() != nil {
-		return nil, fmt.Errorf("lookup Config: %w", configVal.Err())
-	}
-
-	var cfg Config
-	if err := configVal.Decode(&cfg); err != nil {
-		return nil, fmt.Errorf("decoding config: %w", err)
 	}
 
 	// Apply defaults for wikiDir/rawDir if CUE defaults didn't survive decode
@@ -623,6 +626,7 @@ func Load(cwd string) (*Config, error) {
 		cfg.Wikis[name] = wc
 	}
 
+	// Apply API keys from env vars
 	cfg.LLM.APIKey = os.Getenv("OPENAI_API_KEY")
 	cfg.LLM.EmbeddingAPIKey = envOrFallback("GMD_EMBEDDING_API_KEY", cfg.LLM.APIKey)
 	cfg.LLM.ExpansionAPIKey = envOrFallback("GMD_EXPANSION_API_KEY", cfg.LLM.APIKey)
@@ -653,7 +657,148 @@ func Load(cwd string) (*Config, error) {
 		cfg.Project = filepath.Base(projectRoot)
 	}
 
-	return &cfg, nil
+	return cfg, nil
+}
+
+// defaultConfig returns sensible defaults for when no global config exists.
+func defaultConfig() *Config {
+	return &Config{
+		LLM: LLMConfig{
+			EmbeddingModel:      "google/embeddinggemma-300m",
+			EmbeddingBaseURL:    "http://localhost:8001/v1",
+			ExpansionModel:      "Qwen/Qwen3-1.7B",
+			ExpansionBaseURL:    "http://localhost:8002/v1",
+			RerankModel:         "Qwen/Qwen3-Reranker-0.6B",
+			RerankBaseURL:       "http://localhost:8003/v1",
+			SummarizingBaseURL:  "http://localhost:8000/v1",
+			GeneralBigBaseURL:   "http://localhost:8000/v1",
+			GeneralMidBaseURL:   "http://localhost:8000/v1",
+			GeneralSmallBaseURL: "http://localhost:8000/v1",
+		},
+		Typesense: TypesenseConfig{
+			Host: "http://localhost:8108",
+		},
+		Collections:    make(map[string]CollectionConfig),
+		Wikis:          make(map[string]WikiConfig),
+		SearchDefaults: make(map[string][]string),
+	}
+}
+
+// mergeConfigs overlays src onto dst. Non-zero fields in src take precedence.
+func mergeConfigs(dst, src *Config) {
+	if src.Project != "" {
+		dst.Project = src.Project
+	}
+
+	// Merge LLM
+	if src.LLM.EmbeddingModel != "" {
+		dst.LLM.EmbeddingModel = src.LLM.EmbeddingModel
+	}
+	if src.LLM.EmbeddingBaseURL != "" {
+		dst.LLM.EmbeddingBaseURL = src.LLM.EmbeddingBaseURL
+	}
+	if src.LLM.ExpansionModel != "" {
+		dst.LLM.ExpansionModel = src.LLM.ExpansionModel
+	}
+	if src.LLM.ExpansionBaseURL != "" {
+		dst.LLM.ExpansionBaseURL = src.LLM.ExpansionBaseURL
+	}
+	if src.LLM.RerankModel != "" {
+		dst.LLM.RerankModel = src.LLM.RerankModel
+	}
+	if src.LLM.RerankBaseURL != "" {
+		dst.LLM.RerankBaseURL = src.LLM.RerankBaseURL
+	}
+	if src.LLM.SummarizingModel != "" {
+		dst.LLM.SummarizingModel = src.LLM.SummarizingModel
+	}
+	if src.LLM.SummarizingBaseURL != "" {
+		dst.LLM.SummarizingBaseURL = src.LLM.SummarizingBaseURL
+	}
+	if src.LLM.GeneralBigModel != "" {
+		dst.LLM.GeneralBigModel = src.LLM.GeneralBigModel
+	}
+	if src.LLM.GeneralBigBaseURL != "" {
+		dst.LLM.GeneralBigBaseURL = src.LLM.GeneralBigBaseURL
+	}
+	if src.LLM.GeneralMidModel != "" {
+		dst.LLM.GeneralMidModel = src.LLM.GeneralMidModel
+	}
+	if src.LLM.GeneralMidBaseURL != "" {
+		dst.LLM.GeneralMidBaseURL = src.LLM.GeneralMidBaseURL
+	}
+	if src.LLM.GeneralSmallModel != "" {
+		dst.LLM.GeneralSmallModel = src.LLM.GeneralSmallModel
+	}
+	if src.LLM.GeneralSmallBaseURL != "" {
+		dst.LLM.GeneralSmallBaseURL = src.LLM.GeneralSmallBaseURL
+	}
+
+	// Merge Typesense
+	if src.Typesense.Host != "" {
+		dst.Typesense.Host = src.Typesense.Host
+	}
+
+	// Merge Pipeline
+	if src.Pipeline.Chunk.TargetTokens != 0 {
+		dst.Pipeline.Chunk = src.Pipeline.Chunk
+	}
+	// ... more pipeline merge as needed
+
+	// Merge Collections
+	if src.Collections != nil {
+		if dst.Collections == nil {
+			dst.Collections = make(map[string]CollectionConfig)
+		}
+		for k, v := range src.Collections {
+			dst.Collections[k] = v
+		}
+	}
+
+	// Merge Wikis
+	if src.Wikis != nil {
+		if dst.Wikis == nil {
+			dst.Wikis = make(map[string]WikiConfig)
+		}
+		for k, v := range src.Wikis {
+			dst.Wikis[k] = v
+		}
+	}
+
+	// Merge SearchDefaults
+	if src.SearchDefaults != nil {
+		if dst.SearchDefaults == nil {
+			dst.SearchDefaults = make(map[string][]string)
+		}
+		for k, v := range src.SearchDefaults {
+			dst.SearchDefaults[k] = v
+		}
+	}
+
+	// Merge Web config
+	if src.Web.Group != "" {
+		dst.Web.Group = src.Web.Group
+	}
+	if src.Web.Groups != nil {
+		if dst.Web.Groups == nil {
+			dst.Web.Groups = make(map[string]WebProviderGroup)
+		}
+		for k, v := range src.Web.Groups {
+			dst.Web.Groups[k] = v
+		}
+	}
+	if src.Web.Search.Dedup != "" {
+		dst.Web.Search.Dedup = src.Web.Search.Dedup
+	}
+	if src.Web.Search.Synthesize {
+		dst.Web.Search.Synthesize = src.Web.Search.Synthesize
+	}
+	if src.Web.Search.SynthesisPrompt != "" {
+		dst.Web.Search.SynthesisPrompt = src.Web.Search.SynthesisPrompt
+	}
+	if src.Web.SearXNG.BaseURL != "" {
+		dst.Web.SearXNG.BaseURL = src.Web.SearXNG.BaseURL
+	}
 }
 
 func tryReadGlobalConfig() (string, error) {

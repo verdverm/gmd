@@ -741,7 +741,7 @@ func ListContextDocs(cfg *Config) map[string]string {
 
 // CreateWiki adds a new wiki to the project config file and initializes
 // in-memory config. Validates name uniqueness but not path conflicts or cycles.
-func CreateWiki(cfg *Config, name, path string, patterns []string, wikiDir, rawDir string) error {
+func CreateWiki(cfg *Config, name, path string, patterns []string, wikiDir, rawDir string, sourceRefs []string) error {
 	if cfg.SourceExists(name) {
 		return fmt.Errorf("source %q already exists", name)
 	}
@@ -777,6 +777,9 @@ func CreateWiki(cfg *Config, name, path string, patterns []string, wikiDir, rawD
 	if rawDir != "" && rawDir != "raw" {
 		wikiStruct.Elts = append(wikiStruct.Elts, strField("rawDir", rawDir))
 	}
+	if len(sourceRefs) > 0 {
+		wikiStruct.Elts = append(wikiStruct.Elts, strListField("sourceRefs", sourceRefs))
+	}
 
 	wikis.Elts = append(wikis.Elts, &ast.Field{
 		Label: ast.NewIdent(name),
@@ -804,8 +807,9 @@ func CreateWiki(cfg *Config, name, path string, patterns []string, wikiDir, rawD
 			Path:     path,
 			Patterns: patterns,
 		},
-		WikiDir: wd,
-		RawDir:  rd,
+		WikiDir:    wd,
+		RawDir:     rd,
+		SourceRefs: sourceRefs,
 	}
 
 	return nil

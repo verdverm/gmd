@@ -4,38 +4,38 @@ package gmd
 // Each model role has its own endpoint URL (vLLM needs separate servers per model).
 // API keys are read from environment variables per role, falling back to OPENAI_API_KEY.
 LLMConfig: {
-	embedding_model:      string | *"google/embeddinggemma-300m"
-	embedding_base_url:   string
-	embedding_api_key:    string | *""
+	embedding_model?:      string
+	embedding_base_url?:   string
+	embedding_api_key:     string | *""
 
-	expansion_model:      string | *"Qwen/Qwen3-1.7B"
-	expansion_base_url:   string
-	expansion_api_key:    string | *""
+	expansion_model?:      string
+	expansion_base_url?:   string
+	expansion_api_key:     string | *""
 
-	rerank_model:         string | *"Qwen/Qwen3-Reranker-0.6B"
-	rerank_base_url:      string
-	rerank_api_key:       string | *""
+	rerank_model?:         string
+	rerank_base_url?:      string
+	rerank_api_key:        string | *""
 
-	summarizing_model:    string
-	summarizing_base_url: string
-	summarizing_api_key:  string | *""
+	summarizing_model?:    string
+	summarizing_base_url?: string
+	summarizing_api_key:   string | *""
 
-	general_big_model:    string
-	general_big_base_url: string
-	general_big_api_key:  string | *""
+	general_big_model?:    string
+	general_big_base_url?: string
+	general_big_api_key:   string | *""
 
-	general_mid_model:    string
-	general_mid_base_url: string
-	general_mid_api_key:  string | *""
+	general_mid_model?:    string
+	general_mid_base_url?: string
+	general_mid_api_key:   string | *""
 
-	general_small_model:    string
-	general_small_base_url: string
-	general_small_api_key:  string | *""
+	general_small_model?:    string
+	general_small_base_url?: string
+	general_small_api_key:   string | *""
 }
 
 // TypesenseConfig defines the search engine connection settings.
 TypesenseConfig: {
-	host:    string
+	host?:    string
 }
 
 // ChunkConfig defines heading-aware chunking parameters.
@@ -221,8 +221,8 @@ WebConfig: {
 // ProjectConfig is the root configuration object.
 ProjectConfig: {
 	project?:    string
-	llm:         LLMConfig
-	typesense:   TypesenseConfig
+	llm?:        LLMConfig
+	typesense?:  TypesenseConfig
 	web?:        WebConfig
 	pipeline?:   PipelineConfig
 	collections: [string]: CollectionConfig

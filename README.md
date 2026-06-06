@@ -9,11 +9,19 @@ fetch clean content from URLs, or crawl sites through a multi-provider architect
 
 ```
 gmd init                        # scaffold .gmd/config.cue
+gmd agentsmd summary            # get AGENTS.md for AI assistants
+
+gmd collection create docs --path ./guide --pattern "**/*.md"
 gmd update                      # index your markdown files
+
 gmd query "how do I deploy?"    # full hybrid search
 gmd search "error X"            # fast text-only search
 gmd status                      # see what's indexed
-gmd agentsmd summary            # get AGENTS.md for AI assistants
+
+gmd web search "topic"          # multi-provider web search
+gmd wiki create <name> --from docs
+gmd wiki ingest                 # ingest source into wiki
+gmd wiki lint                   # health checks
 ```
 
 ## Features

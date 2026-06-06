@@ -11,9 +11,10 @@ import (
 
 var wikiCreateWikiDir string
 var wikiCreateRawDir string
+var wikiCreateFrom []string
 
 var wikiCreateCmd = &cobra.Command{
-	Use:   "create <name> [--path <path>] [--wiki-dir <dir>] [--raw-dir <dir>] [--skills]",
+	Use:   "create <name> [--path <path>] [--wiki-dir <dir>] [--raw-dir <dir>] [--skills] [--from <source>]",
 	Short: "Create a new wiki with directory structure and config",
 	Long: `Scaffolds a wiki directory with a standard layout (wiki/, raw/) and adds
 a wiki entry to the project config.
@@ -63,21 +64,31 @@ Example:
 			return fmt.Errorf("wikiDir and rawDir must be different (both are %q)", wd)
 		}
 
+		// Validate --from sources
+		var sourceRefs []string
+		for _, src := range wikiCreateFrom {
+			if !cfg.SourceExists(src) {
+				return fmt.Errorf("source %q not found in collections or wikis", src)
+			}
+			sourceRefs = append(sourceRefs, src)
+		}
+
 		wcfg := &config.WikiConfig{
 			SourceConfig: config.SourceConfig{
 				Path:     wikiPathStr,
 				Patterns: []string{wd + "/**/*.md", rd + "/**/*.md"},
 				Ignore:   []string{wd + "/_index.md", wd + "/_log.md"},
 			},
-			WikiDir: wd,
-			RawDir:  rd,
+			WikiDir:    wd,
+			RawDir:     rd,
+			SourceRefs: sourceRefs,
 		}
 
 		if err := wiki.InitWiki(name, wikiPathStr, wcfg); err != nil {
 			return fmt.Errorf("initializing wiki: %w", err)
 		}
 
-		if err := config.CreateWiki(cfg, name, wikiPathStr, wcfg.Patterns, wd, rd); err != nil {
+		if err := config.CreateWiki(cfg, name, wikiPathStr, wcfg.Patterns, wd, rd, sourceRefs); err != nil {
 			return fmt.Errorf("updating config: %w", err)
 		}
 
@@ -111,5 +122,6 @@ func init() {
 	wikiCreateCmd.Flags().Bool("skills", false, "Also write skill templates for agent discovery")
 	wikiCreateCmd.Flags().StringVar(&wikiCreateWikiDir, "wiki-dir", "", "Wiki pages subdirectory (default: wiki)")
 	wikiCreateCmd.Flags().StringVar(&wikiCreateRawDir, "raw-dir", "", "Raw source material subdirectory (default: raw)")
+	wikiCreateCmd.Flags().StringSliceVar(&wikiCreateFrom, "from", nil, "Add source reference to collection or wiki")
 	wikiCmd.AddCommand(wikiCreateCmd)
 }

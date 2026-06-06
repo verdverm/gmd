@@ -15,16 +15,6 @@
 - support more llm providers? at least anthropic style endpoints because models...
     - ideally, we call an underlying harness like scion
     - we could even recommend scion
-
----
-
-In @README.md there are sections
-- Index and search
-- Web search...
-- LLM Wiki
-- Quick start > Configure
-
-1. Only web search has a partial config example
-2. Put the Web search... section after LLM Wiki, this should make the three core features consistent order everywhere
-3. Add another docker run ... example in Quick start > Start /Typesense/Containers/ for searxng
-4. There are a pair of bullets for web/wiki that also need to swap order
+- 'gmd init' should write a global config if global dir not found
+- 'gmd find ...' ?
+- record some integration (real) results and save them for better regular tests

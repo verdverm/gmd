@@ -11,10 +11,16 @@ const (
 	globalConfigFile = "config.cue"
 )
 
-// GlobalConfigDir returns the platform-appropriate global config directory for gmd.
-// Uses os.UserConfigDir() which respects XDG (Linux), Library/Application Support (macOS), etc.
-// Falls back to ~/.config/gmd if UserConfigDir/gmd does not exist (backward compat on macOS).
+// GlobalConfigDir returns the global config directory for gmd.
+// Order of precedence:
+//  1. GMD_GLOBAL_CONFIG_DIR env var (if set)
+//  2. os.UserConfigDir()/gmd (e.g. ~/.config/gmd on Linux, ~/Library/Application Support/gmd on macOS)
+//  3. ~/.config/gmd (backward compat fallback if that directory exists)
 func GlobalConfigDir() (string, error) {
+	if env := os.Getenv("GMD_GLOBAL_CONFIG_DIR"); env != "" {
+		return env, nil
+	}
+
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return "", err

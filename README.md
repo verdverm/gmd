@@ -24,9 +24,9 @@ gmd agentsmd summary            # get AGENTS.md for AI assistants
   (`.gmd/config.cue`); merge is automatic, project values take precedence
 - **Multi-collection projects** - index separate doc sets (e.g. user guide, dev API) as distinct
   collections within the same project, search across all or target one
-- **Web search, fetch, crawl, research** - `gmd web` subcommands with multi-provider support (EXA, Cloudflare, Tavily, SearXNG). Parallel fan-out across providers with dedup and LLM synthesis.
 - **LLM Wiki** - compounding Karpathy-style knowledge base with built-in agent for ingest,
     search-powered query, graph, and lint
+- **Web search, fetch, crawl, research** - `gmd web` subcommands with multi-provider support (EXA, Cloudflare, Tavily, SearXNG). Parallel fan-out across providers with dedup and LLM synthesis.
 - **MCP + REST API** - wiki-aware MCP tools for AI agents (`gmd mcp`); HTTP endpoints for search,
   status, and indexing (`gmd serve`) - see [docs/rest-api.md](docs/rest-api.md)
 - **agentsmd** - output AGENTS.md instructions for AI assistants working with gmd
@@ -54,6 +54,24 @@ other tools can search your docs, query wikis, and browse indexed content.
 
 ## Index and search
 
+```cue
+collections: {
+  userdocs: {
+    path:    "docs/user-guide"
+    pattern: "**/*.md"
+    context: "MyApp user documentation"
+  }
+  devdocs: {
+    path:    "docs/dev-api"
+    pattern: "**/*.{md,mdx}"
+    ignore:  ["_drafts/**"]
+    context: "MyApp developer API reference"
+  }
+}
+```
+
+See the [Configure](#3-configure) section for `typesense` and `llm` model settings.
+
 ```bash
 gmd init                        # scaffold .gmd/config.cue
 gmd collection create docs --path ./guide --patterns "**/*.md"
@@ -80,6 +98,35 @@ gmd doctor                      # diagnostics
 Run `gmd query` from within a project directory and the matching collection is selected
 automatically. Use `-c` to target specific collections.
 
+## LLM Wiki
+
+gmd can maintain a Karpathy-style compounding knowledge base. The built-in LLM agent
+reads sources, extracts entities/concepts/claims, writes interlinked wiki pages, and keeps
+everything searchable.
+
+```cue
+wikis: {
+  research: {
+    path:    "wiki/research"
+    pattern: "**/*.md"
+    context: "Compounding research wiki - agent-generated notes with citations"
+    sourceRefs: ["devdocs"]
+  }
+}
+```
+
+```bash
+gmd wiki init --name myresearch      # scaffold wiki directory + config
+gmd wiki ingest paper.md             # LLM reads paper, creates/updates wiki pages
+gmd wiki query "what is..."          # search → LLM synthesis with [[citations]]
+gmd wiki lint                        # health checks (orphans, broken links)
+gmd wiki doctor                      # diagnostics + auto-configure agent MCP
+gmd wiki graph                       # export wikilink graph (dot/mermaid/json)
+gmd wiki skills write --target all   # install skill templates for AI agents
+```
+
+See wiki skill templates with `gmd wiki skills list` and `WIKI_SCHEMA.md` for conventions.
+
 ## Web search, fetch, crawl, research
 
 Multi-provider web access with EXA, Tavily, SearXNG, and Cloudflare. Credentials come from
@@ -91,8 +138,8 @@ in parallel with automatic dedup and optional LLM synthesis.
 web: {
   group: "default"
   groups: {
-    default:  { search: ["exa", "tavily"], browser: "exa" }
-    full:     { search: ["exa", "tavily", "searxng"], browser: "cloudflare" }
+    default:  { search: ["searxng", "exa"], browser: "cloudflare" }
+    full:     { search: ["searxng", "exa", "tavily"], browser: "cloudflare" }
     custom:   { search: ["tavily"],  browser: "cloudflare" }
     offline:  { search: ["searxng"], browser: "local" }
   }
@@ -100,7 +147,7 @@ web: {
     dedup:      "heuristic"   // "heuristic", "llm", or "none"
     synthesize: true          // synthesize results via LLM (summarizer model)
   }
-  searxng: { base_url: "" }     // or SEARXNG_BASE_URL env var
+  searxng: { base_url: "http://localhost:8080" }
   local:   { no_browser: false, cache_enabled: true }
 }
 ```
@@ -130,26 +177,9 @@ gmd web agent "latest Go 1.24 developments" --steps 5 --text
 The agent mode chains multiple searches: the LLM analyzes results, decides what to search next, and
 synthesizes a final answer. Use `--save` to persist results to a wiki.
 
-## LLM Wiki
-
-gmd can maintain a Karpathy-style compounding knowledge base. The built-in LLM agent
-reads sources, extracts entities/concepts/claims, writes interlinked wiki pages, and keeps
-everything searchable.
-
-```bash
-gmd wiki init --name myresearch      # scaffold wiki directory + config
-gmd wiki ingest paper.md             # LLM reads paper, creates/updates wiki pages
-gmd wiki query "what is..."          # search → LLM synthesis with [[citations]]
-gmd wiki lint                        # health checks (orphans, broken links)
-gmd wiki doctor                      # diagnostics + auto-configure agent MCP
-gmd wiki graph                       # export wikilink graph (dot/mermaid/json)
-gmd wiki skills write --target all   # install skill templates for AI agents
-```
-
-See wiki skill templates with `gmd wiki skills list` and `WIKI_SCHEMA.md` for conventions.
-
 ## Requirements
 
+- **Docker** - helpful for running Typesense and SearXNG locally and the easiest way to get started
 - **Typesense** - must be running (Docker, Kubernetes, or cloud)
 - **OpenAI-compatible LLM API** - vLLM, Ollama, or any provider via `base_url`. Seven model roles
   (embedding, expansion, rerank, summarizing, general-big/mid/small). See
@@ -177,9 +207,9 @@ make build
 ./bin/gmd
 ```
 
-### 2. Start Typesense
+### 2. Start containers
 
-**Option A - local (Docker):**
+**Typesense (Docker):**
 
 ```bash
 docker run -p 8108:8108 \
@@ -188,9 +218,18 @@ docker run -p 8108:8108 \
   typesense/typesense:30.2
 ```
 
-**Option B - Kubernetes:** apply the manifest in `k8s/typesense.yaml`.
+**SearXNG (Docker):**
 
-**Option C - Typesense Cloud:** sign up at [cloud.typesense.org](https://cloud.typesense.org).
+```bash
+docker run -p 8080:8080 \
+  searxng/searxng
+```
+
+Set `SEARXNG_BASE_URL` in env or config.
+
+**Kubernetes:** apply the manifest in `k8s/typesense.yaml`.
+
+**Typesense Cloud:** sign up at [cloud.typesense.org](https://cloud.typesense.org).
 
 ### 3. Configure
 
@@ -232,8 +271,8 @@ Config: {
   web: {
     group: "default"
     groups: {
-      default:  { search: ["exa", "tavily"], browser: "exa" }
-      full:     { search: ["exa", "tavily", "searxng"], browser: "cloudflare" }
+      default:  { search: ["searxng", "exa"], browser: "cloudflare" }
+      full:     { search: ["searxng", "exa", "tavily"], browser: "cloudflare" }
       custom:   { search: ["tavily"],  browser: "cloudflare" }
       offline:  { search: ["searxng"], browser: "local" }
     }
@@ -243,7 +282,7 @@ Config: {
     }
     // API keys (exa, tavily, cloudflare) are env-var-only - never in CUE
     // Non-secret settings can go here:
-    //   searxng: { base_url: "https://searx.example.com" }
+    searxng: { base_url: "http://localhost:8080" }
     //   local:   { no_browser: false, cache_enabled: true }
   }
 

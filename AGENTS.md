@@ -1,7 +1,65 @@
 # GMD — Markdown Search Engine (Go port of QMD)
 
-Go rewrite of [qmd](./qmd/) with Typesense as the backing search engine and an
-OpenAI-compatible LLM API for embeddings, query expansion, and reranking.
+**gmd** indexes collections of local markdown files and lets you search them with
+full-text, vector, or hybrid search - backed by [Typesense](https://typesense.org)
+and any OpenAI-compatible LLM. Build compounding LLM wikis that ingest source
+documents, extract knowledge, and link pages via `[[wikilinks]]`. Run web searches,
+fetch clean content from URLs, or crawl sites through a multi-provider architecture
+(EXA, Tavily, SearXNG, Cloudflare). Agent-orchestrated workflows, instructions,
+skills, and harness configurations are exportable for use in your tools.
+
+```
+gmd init                        # scaffold .gmd/config.cue
+gmd agentsmd summary            # get AGENTS.md for AI assistants
+
+gmd collection create docs --path ./guide --pattern "**/*.md"
+gmd update                      # index your markdown files
+
+gmd query "how do I deploy?"    # full hybrid search
+gmd search "error X"            # fast text-only search
+gmd status                      # see what's indexed
+
+gmd web search "topic"          # multi-provider web search
+gmd wiki create <name> --from docs
+gmd wiki ingest                 # ingest source into wiki
+gmd wiki lint                   # health checks
+```
+
+## Features
+
+- **Full hybrid search pipeline** - `gmd search` (text), `gmd vsearch` (vector), and
+  `gmd query` (expansion + hybrid + RRF fusion + LLM reranking + position blending)
+- **Global + project collections** - define collections globally (OS config dir) or per-project
+  (`.gmd/config.cue`); merge is automatic, project values take precedence
+- **Multi-collection projects** - index separate doc sets (e.g. user guide, dev API) as distinct
+  collections within the same project, search across all or target one
+- **LLM Wiki** - compounding Karpathy-style knowledge base with built-in agent for ingest,
+    search-powered query, graph, and lint
+- **Web search, fetch, crawl, research** - `gmd web` subcommands with multi-provider support (EXA, Cloudflare, Tavily, SearXNG). Parallel fan-out across providers with dedup and LLM synthesis.
+- **MCP + REST API** - wiki-aware MCP tools for AI agents (`gmd mcp`); HTTP endpoints for search,
+  status, and indexing (`gmd serve`) - see [docs/rest-api.md](docs/rest-api.md)
+- **agentsmd** - output AGENTS.md instructions for AI assistants working with gmd
+
+## How it works
+
+**Search** (`gmd query`) expands your query via LLM, searches Typesense with text and vector
+similarity, fuses results with RRF, optionally reranks with an LLM, and blends by chunk position.
+You get the most relevant chunks ranked intelligently - no manual query tuning needed.
+See [docs/search-pipeline.md](docs/search-pipeline.md) for the full pipeline diagram.
+
+**Wiki** (`gmd wiki`) maintains a compounding knowledge base of interlinked markdown pages. The
+built-in LLM agent reads source documents, extracts entities and claims, writes or updates wiki
+pages, and links them via `[[wikilinks]]`. Querying the wiki uses the same Typesense-backed search pipeline: retrieve relevant pages,
+synthesize an answer with inline `[[citations]]`.
+
+**Web** (`gmd web`) lets you search the web, fetch clean content from URLs, crawl sites, or run a
+multi-step LLM-orchestrated research agent that searches, reads, and synthesizes across multiple
+rounds. Backed by a multi-provider architecture (EXA, Cloudflare, Tavily, SearXNG) with configurable
+provider groups. `gmd web search` fans out queries to all configured search providers in parallel,
+merges and deduplicates results, and optionally synthesizes a unified cited answer via LLM.
+
+**Deploy** (`gmd serve` / `gmd mcp`) exposes gmd over HTTP and/or MCP so AI coding assistants and
+other tools can search your docs, query wikis, and browse indexed content.
 
 ## Commands
 
@@ -174,3 +232,4 @@ Includes all Go Report Card checks (gofmt excluded, handled natively):
   when CLI commands or architecture change, but keep content focused on usage, not development.
 - Never commit `bin/` or `qmd/` (both in .gitignore).
 - Always include `.sessions/` when making commits.
+- The project is still in alpha / just-me state, we do not need to worry about backwards compatibility.

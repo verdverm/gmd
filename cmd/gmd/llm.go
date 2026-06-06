@@ -141,7 +141,7 @@ func printRole(label string, rc *config.LLMRoleConfig) {
 	if rc == nil || rc.Model == "" {
 		return
 	}
-	fmt.Printf("  %-15s provider=%-15s model=%s\n", label, rc.Provider, rc.Model)
+	fmt.Printf("    %-17s provider=%-15s model=%s\n", label, rc.Provider, rc.Model)
 }
 
 var llmProfileShowCmd = &cobra.Command{

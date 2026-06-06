@@ -17,11 +17,11 @@ gmd agentsmd summary            # get AGENTS.md for AI assistants
 
 - **Full hybrid search pipeline** — `gmd search` (text), `gmd vsearch` (vector), and
   `gmd query` (expansion + hybrid + RRF fusion + LLM reranking + position blending)
-- **Global + project collections** — define collections globally (`~/.config/gmd/`) or per-project
+- **Global + project collections** — define collections globally (OS config dir) or per-project
   (`.gmd/config.cue`); merge is automatic, project values take precedence
 - **Multi-collection projects** — index separate doc sets (e.g. user guide, dev API) as distinct
   collections within the same project, search across all or target one
-- **Web search, fetch, crawl, research** — `gmd web` subcommands powered by the EXA API
+- **Web search, fetch, crawl, research** — `gmd web` subcommands with multi-provider support (EXA, Cloudflare, Tavily, SearXNG)
 - **LLM Wiki** — compounding Karpathy-style knowledge base with built-in agent for ingest,
     search-powered query, graph, and lint
 - **MCP + REST API** — wiki-aware MCP tools for AI agents (`gmd mcp`); HTTP endpoints for search,
@@ -40,9 +40,10 @@ built-in LLM agent reads source documents, extracts entities and claims, writes 
 pages, and links them via `[[wikilinks]]`. Querying the wiki uses the same Typesense-backed search pipeline: retrieve relevant pages,
 synthesize an answer with inline `[[citations]]`.
 
-**Web** (`gmd web`) lets you search the web, fetch clean content from URLs, or run a multi-step
-LLM-orchestrated research agent that searches, reads, and synthesizes across multiple rounds — all
-powered by the EXA API.
+**Web** (`gmd web`) lets you search the web, fetch clean content from URLs, crawl sites, or run a
+multi-step LLM-orchestrated research agent that searches, reads, and synthesizes across multiple
+rounds. Backed by a multi-provider architecture (EXA, Cloudflare, Tavily, SearXNG) with configurable
+provider groups.
 
 **Deploy** (`gmd serve` / `gmd mcp`) exposes gmd over HTTP and/or MCP so AI coding assistants and
 other tools can search your docs, query wikis, and browse indexed content.
@@ -77,18 +78,39 @@ automatically. Use `-c` to target specific collections.
 
 ## Web search, fetch, crawl, research
 
-Powered by the [EXA](https://exa.ai) API (web search, content fetch, crawling). Requires `EXA_API_KEY`.
+Multi-provider web access with EXA, Tavily, SearXNG, and Cloudflare. Credentials come from
+environment variables (env files or exported shell vars). Select which provider handles each
+role (search, browser) via provider groups in CUE config.
+
+```cue
+web: {
+  group: "default"
+  groups: {
+    default:  { search: "exa",     browser: "exa" }
+    full:     { search: "exa",     browser: "cloudflare" }
+    custom:   { search: "tavily",  browser: "cloudflare" }
+    offline:  { search: "searxng", browser: "local" }
+  }
+  // Non-secret settings (api keys are env-var-only)
+  searxng: { base_url: "" }     // or SEARXNG_BASE_URL env var
+  local:   { no_browser: false, cache_enabled: true }
+}
+```
 
 ```bash
-# Semantic web search
+# Semantic web search (--search-provider overrides the configured default)
 gmd web search "transformer architecture"
-gmd web search "golang generics" --type deep --limit 5 --text
+gmd web search "golang generics" --search-provider tavily --limit 5
 gmd web search "kubernetes" --domain kubernetes.io --date-start 2026-01-01
 
-# Fetch clean content from URLs
+# Fetch clean content from URLs (--browser-provider overrides the configured default)
 gmd web fetch https://example.com/article
 gmd web fetch https://a.com https://b.com --max-chars 2000
 gmd web fetch https://example.com --output file -o ./fetched/
+
+# Crawl a site (Cloudflare or Local browser provider required)
+gmd web crawl https://example.com/docs --depth 2 --max-pages 20
+gmd web crawl https://blog.example.com --browser-provider cloudflare
 
 # Multi-step LLM-orchestrated research agent
 gmd web agent "compare Nuxt 4 vs Next.js 16" --depth deep --save
@@ -122,7 +144,10 @@ See wiki skill templates with `gmd wiki skills list` and `WIKI_SCHEMA.md` for co
 - **OpenAI-compatible LLM API** — vLLM, Ollama, or any provider via `base_url`. Seven model roles
   (embedding, expansion, rerank, summarizing, general-big/mid/small). See
   [`models/`](models/) for vLLM serve scripts.
-- **EXA API key** — required only for `gmd web` commands
+- **Web provider credentials** — EXA (`EXA_API_KEY`), Tavily (`TAVILY_API_KEY`),
+  Cloudflare (`CLOUDFLARE_API_KEY` + `CLOUDFLARE_ACCOUNT_ID`), or
+  SearXNG (`SEARXNG_BASE_URL`, self-hosted or public instance).
+  Only needed for the providers you configure.
 - **Go 1.25+** — to build from source
 
 ## Quick start
@@ -165,7 +190,10 @@ Create a `.gmd/config.cue` in your project root (`gmd init` does this automatica
 package gmd
 
 Config: {
+  // Project name used for Typesense collection prefix
   project: "myapp"
+
+  // Indexed markdown collections (chunked, embedded, searchable)
   collections: {
     userdocs: {
       path:    "docs/user-guide"
@@ -179,6 +207,38 @@ Config: {
       context: "MyApp developer API reference"
     }
   }
+
+  // LLM wikis — compounding knowledge bases with agent-driven content
+  wikis: {
+    research: {
+      path:    "wiki/research"
+      pattern: "**/*.md"
+      context: "Compounding research wiki — agent-generated notes with citations"
+      sourceRefs: ["devdocs"]
+    }
+  }
+
+  // Web search & content retrieval — multi-provider with configurable groups
+  web: {
+    group: "default"
+    groups: {
+      default:  { search: "exa",     browser: "exa" }
+      full:     { search: "exa",     browser: "cloudflare" }
+      custom:   { search: "tavily",  browser: "cloudflare" }
+      offline:  { search: "searxng", browser: "local" }
+    }
+    // API keys (exa, tavily, cloudflare) are env-var-only — never in CUE
+    // Non-secret settings can go here:
+    //   searxng: { base_url: "https://searx.example.com" }
+    //   local:   { no_browser: false, cache_enabled: true }
+  }
+
+  // Typesense search backend connection
+  typesense: {
+    host: "http://localhost:8108"
+  }
+
+  // LLM models for embeddings, query expansion, reranking, and summarization
   llm: {
     embedding_model:      "google/embeddinggemma-300m"
     embedding_base_url:   "http://localhost:8001/v1"
@@ -189,9 +249,6 @@ Config: {
     summarizing_model:    "Qwen/Qwen3.6-27B-FP8"
     summarizing_base_url: "http://localhost:8000/v1"
   }
-  typesense: {
-    host: "http://localhost:8108"
-  }
 }
 ```
 
@@ -199,8 +256,19 @@ Config: {
 `GMD_TYPESENSE_API_KEY` for Typesense. Per-role overrides exist if needed
 (`GMD_EMBEDDING_API_KEY`, `GMD_EXPANSION_API_KEY`, etc.) — see
 [docs/configuration.md](docs/configuration.md) for the full reference.
+For `gmd web` commands, set `EXA_API_KEY`, `TAVILY_API_KEY`, `CLOUDFLARE_API_KEY`,
+`CLOUDFLARE_ACCOUNT_ID`, and/or `SEARXNG_BASE_URL` depending on which providers you use
+(see [docs/web-providers.md](docs/web-providers.md)).
 
-**Global config.** Put shared LLM and Typesense settings in `~/.config/gmd/config.cue`.
+**Env files.** Place `default.env` / `secret.env` in the global config dir (`<UserConfigDir>/gmd/`) and/or
+`.gmd/` (project-local) to auto-load credentials. `default.env` is for non-sensitive defaults (can be committed),
+`secret.env` is for API keys and secrets (never committed). Use `--env VAR=VAL` and `--secret VAR=VAL`
+flags for inline overrides (highest precedence). Project `.gmd/secret.env` is git-ignored. See
+[docs/configuration.md#environment-files](docs/configuration.md#environment-files) for full precedence
+and file format.
+
+**Global config.** Put shared LLM and Typesense settings in the global config file
+(`<UserConfigDir>/gmd/config.cue` — `~/.config/gmd/config.cue` on Linux, `~/Library/Application Support/gmd/config.cue` on macOS).
 Project and global configs merge automatically, with project values taking precedence.
 
 ## Commands
@@ -225,14 +293,16 @@ Project and global configs merge automatically, with project values taking prece
 | `gmd collection rename <old> <new>` | Rename a collection |
 | `gmd collection remove <name>` | Remove a collection |
 | `gmd doctor` | Run diagnostics |
+| `gmd env` | Print resolved config with secrets masked |
 | `gmd cleanup` | Remove stale chunks for deleted files |
 | `gmd context add <collection> "text"` | Set context for a collection |
 | `gmd context list` | List all collection contexts |
 | `gmd context rm <collection>` | Remove context from a collection |
 | `gmd serve` | Start REST API server |
 | `gmd mcp` | Start MCP server (for AI agent integration) |
-| `gmd web search <query>` | Semantic web search via EXA |
-| `gmd web fetch <url>` | Fetch clean content from URLs via EXA |
+| `gmd web search <query>` | Web search via configured search provider |
+| `gmd web fetch <url>` | Fetch clean content from URLs via configured browser provider |
+| `gmd web crawl <url>` | Crawl a site from seed URL via configured browser provider |
 | `gmd web agent <query>` | Multi-step LLM-orchestrated web research agent |
 | `gmd wiki init` | Scaffold wiki directory + CUE config |
 | `gmd wiki ingest <src>` | Ingest a source into the wiki using built-in LLM agent |

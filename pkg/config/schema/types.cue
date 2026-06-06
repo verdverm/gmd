@@ -162,10 +162,52 @@ EXAConfig: {
 	api_key: string | *"" // from EXA_API_KEY env var
 }
 
+// TavilyConfig defines the Tavily search API settings.
+TavilyConfig: {
+	api_key: string | *"" // from TAVILY_API_KEY env var
+}
+
+// SearXNGConfig defines the SearXNG search API settings.
+SearXNGConfig: {
+	base_url: string | *"" // from SEARXNG_BASE_URL env var
+	engines?:  string | *"" // comma-separated engine list (e.g. "google,bing")
+}
+
+// LocalConfig defines local execution settings.
+LocalConfig: {
+	chromium_path?: string | *""
+	no_browser?:    bool   | *false
+	html_max_size?: int    | *10485760
+	crawl_delay_ms?: int | *1000
+	max_concurrent_domains?: int | *2
+	max_pages_per_domain?: int | *200
+	cache_enabled?:  bool   | *false
+	cache_dir?:      string | *"~/.cache/gmd/web"
+	cache_max_size?: int    | *536870912
+	cache_ttl?:      string | *"24h"
+}
+
+// CloudflareConfig defines Cloudflare Browser Run settings.
+CloudflareConfig: {
+	api_key:    string | *"" // from CLOUDFLARE_API_KEY env var
+	account_id: string | *"" // from CLOUDFLARE_ACCOUNT_ID env var
+}
+
+// WebProviderGroup maps a preset name to search/browser provider selections.
+WebProviderGroup: {
+	search?:  string
+	browser?: string
+}
+
 // WebConfig groups all web search provider configurations.
 WebConfig: {
-	provider?: string | *"exa" // active provider: exa, tavily, searxng, ...
-	exa?:      EXAConfig
+	group?:  string | *"default"
+	groups?: [string]: WebProviderGroup
+	exa?:       EXAConfig
+	tavily?:    TavilyConfig
+	searxng?:   SearXNGConfig
+	local?:     LocalConfig
+	cloudflare?: CloudflareConfig
 }
 
 // ProjectConfig is the root configuration object.

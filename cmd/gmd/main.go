@@ -23,9 +23,38 @@ Getting started:
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Skip env loading for commands that don't need runtime
+		// (help/completion are handled by cobra natively)
+		cwd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("getting cwd: %w", err)
+		}
+		projectRoot := config.FindProjectRoot(cwd)
+		return config.LoadEnvFiles(projectRoot, envFlag, secretFlag)
+	},
 }
 
 var globalRuntime *runtime.Runtime
+var globalConfig *config.Config
+
+var envFlag, secretFlag []string
+
+func getConfig() (*config.Config, error) {
+	if globalConfig != nil {
+		return globalConfig, nil
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("getting cwd: %w", err)
+	}
+	cfg, err := config.Load(cwd)
+	if err != nil {
+		return nil, fmt.Errorf("loading config: %w", err)
+	}
+	globalConfig = cfg
+	return cfg, nil
+}
 
 func getRuntime() (*runtime.Runtime, error) {
 	if globalRuntime != nil {
@@ -48,6 +77,9 @@ func getRuntime() (*runtime.Runtime, error) {
 }
 
 func init() {
+	rootCmd.PersistentFlags().StringArrayVar(&envFlag, "env", nil, "Extra env VAR=VAL (processed before --secret, can be repeated)")
+	rootCmd.PersistentFlags().StringArrayVar(&secretFlag, "secret", nil, "Extra secret VAR=VAL (processed after --env, highest precedence, can be repeated)")
+
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(updateCmd)

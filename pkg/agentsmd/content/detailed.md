@@ -40,7 +40,7 @@ gmd query "your question"   # search
 Config is in CUE format. Three layers, merged at load time (later layers override earlier):
 
 1. **Embedded schema** in the binary — provides all defaults
-2. **Global config** at `~/.config/gmd/config.cue` — shared across projects
+2. **Global config** at `<UserConfigDir>/gmd/config.cue` — shared across projects
 3. **Project config** at `<project-root>/.gmd/config.cue` — project-specific settings
 
 Project root is detected by walking up from CWD looking for a `.gmd/` directory.
@@ -144,21 +144,28 @@ Search flags:
 | `gmd serve [--port] [--host]` | Start REST API server (default: `:8181`) |
 | `gmd mcp [--http]` | Start MCP server for AI agent integration |
 | `gmd doctor` | Run system diagnostics |
+| `gmd env` | Print resolved config with secrets masked |
 | `gmd agentsmd [oneline|summary|detailed|full]` | Output AGENTS.md content for AI coding assistants |
 
 ### Web Search
 
-Three-tier spectrum for searching the live web:
+Three-tier spectrum for searching the live web via multiple providers (EXA, Cloudflare,
+Tavily, SearXNG). Configure provider groups in CUE config or override per-command:
 
 | Tier | Command | Description |
 |---|---|---|
-| 1 | `gmd web search <query>` | Traditional web search (no LLM) |
+| 1 | `gmd web search <query>` | Web search via configured search provider |
 | 1 | `gmd web fetch <url> [url2 ...]` | Clean content extraction from URLs |
-| 1 | `gmd web crawl <url>` | Discover + fetch linked pages (stub) |
+| 1 | `gmd web crawl <url>` | Crawl a site from seed URL (Cloudflare or local) |
 | 2 | `gmd web agent <query>` | Multi-step LLM-orchestrated research agent |
 | 3 | `gmd web research <query>` | Deep structured research pipeline (stub) |
 
-Requires `EXA_API_KEY` (or other provider credentials). See `gmd web --help`.
+**Credentials** (set via env vars or env files, never in CUE config): `EXA_API_KEY`,
+`TAVILY_API_KEY`, `CLOUDFLARE_API_KEY` + `CLOUDFLARE_ACCOUNT_ID`, `SEARXNG_BASE_URL`.
+SearXNG is self-hosted (no API key). Use `gmd env` to verify your resolved config.
+
+**CLI flags:** `--provider-group <name>` (select a named group), `--search-provider <name>`
+(override search role), `--browser-provider <name>` (override browser role).
 
 ### LLM Wiki
 

@@ -4,10 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/verdverm/gmd/pkg/web/exa"
+	"github.com/verdverm/gmd/pkg/web"
 )
 
 var (
@@ -31,11 +30,8 @@ var (
 
 var webSearchCmd = &cobra.Command{
 	Use:   "search <query>",
-	Short: "Traditional web search via EXA",
-	Long: `Traditional web search using the EXA search API.
-
-EXA indexes and embeds the entire web. Searches are semantic and rank results
-by relevance rather than keyword matching.
+	Short: "Traditional web search",
+	Long: `Traditional web search using a configured search provider.
 
 Examples:
   gmd web search "transformer architecture"
@@ -44,131 +40,100 @@ Examples:
   gmd web search "kubernetes" --domain kubernetes.io --highlights`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := getRuntime()
+		cfg, err := getConfig()
 		if err != nil {
 			return err
 		}
 
-		if cfg.Config().Web.EXA.APIKey == "" {
-			return fmt.Errorf("EXA_API_KEY environment variable is not set")
+		sp, err := resolveSearchProvider(cfg.Web)
+		if err != nil {
+			return err
 		}
 
-		client := exa.New(cfg.Config().Web.EXA.APIKey)
 		ctx := context.Background()
 
-		req := exa.SearchRequest{
-			Query:      args[0],
-			Type:       webSearchType,
-			NumResults: webSearchLimit,
-			Category:   webSearchCategory,
-		}
-
-		if len(webSearchDomains) > 0 {
-			req.IncludeDomains = webSearchDomains
-		}
-		if len(webSearchExcludeDom) > 0 {
-			req.ExcludeDomains = webSearchExcludeDom
+		extra := map[string]any{
+			"search_type":     webSearchType,
+			"use_autoprompt":  !webSearchNoAutoprompt,
+			"category":        webSearchCategory,
+			"with_text":       webSearchText,
+			"with_highlights": webSearchHighlights,
+			"max_chars":       webSearchMaxChars,
 		}
 
 		if webSearchDateStart != "" {
-			t, err := time.Parse("2006-01-02", webSearchDateStart)
-			if err != nil {
-				return fmt.Errorf("invalid date-start: %w", err)
-			}
-			req.StartPublishedDate = &t
+			extra["start_published_date"] = webSearchDateStart
 		}
 		if webSearchDateEnd != "" {
-			t, err := time.Parse("2006-01-02", webSearchDateEnd)
-			if err != nil {
-				return fmt.Errorf("invalid date-end: %w", err)
-			}
-			req.EndPublishedDate = &t
-		}
-
-		if !webSearchNoAutoprompt {
-			req.UseAutoprompt = boolPtr(true)
-		}
-
-		if len(webSearchAdditionalQueries) > 0 {
-			req.AdditionalQueries = webSearchAdditionalQueries
+			extra["end_published_date"] = webSearchDateEnd
 		}
 		if webSearchSystemPrompt != "" {
-			req.SystemPrompt = webSearchSystemPrompt
+			extra["system_prompt"] = webSearchSystemPrompt
 		}
 		if !webSearchNoModeration {
-			req.Moderation = boolPtr(true)
+			extra["moderation"] = true
+		}
+		if len(webSearchAdditionalQueries) > 0 {
+			extra["additional_queries"] = webSearchAdditionalQueries
 		}
 
-		if webSearchText {
-			req.Contents = &exa.ContentsOptions{
-				Text: &exa.ContentsText{
-					MaxCharacters: webSearchMaxChars,
-				},
-			}
-		} else if webSearchHighlights {
-			req.Contents = &exa.ContentsOptions{
-				Highlights: &exa.HighlightOpts{},
-			}
-		} else if webSearchSummary != "" {
-			req.Contents = &exa.ContentsOptions{
-				Summary: &exa.SummaryOpts{
-					Query: webSearchSummary,
-				},
-			}
-		} else {
-			req.Contents = &exa.ContentsOptions{
-				Highlights: &exa.HighlightOpts{},
-			}
+		opts := web.SearchOptions{
+			Query:          args[0],
+			NumResults:     webSearchLimit,
+			IncludeDomains: webSearchDomains,
+			ExcludeDomains: webSearchExcludeDom,
+			Extra:          extra,
 		}
 
-		resp, err := client.Search(ctx, req)
+		results, err := sp.Search(ctx, opts)
 		if err != nil {
 			return fmt.Errorf("searching: %w", err)
 		}
 
 		if webSearchJSON {
-			data, _ := json.MarshalIndent(resp, "", "  ")
+			data, _ := json.MarshalIndent(results, "", "  ")
 			fmt.Println(string(data))
-			printCost(resp.CostDollars)
+			if len(results) > 0 && results[0].Cost != nil {
+				printCost(results[0].Cost)
+			}
 			return nil
 		}
 
-		if resp.AutopromptString != "" {
-			fmt.Printf("Autoprompt: %s\n\n", resp.AutopromptString)
-		}
-
-		for i, r := range resp.Results {
+		for i, r := range results {
 			fmt.Printf("%d. %s\n", i+1, r.Title)
 			fmt.Printf("   %s\n", r.URL)
-			if r.Author != "" {
-				fmt.Printf("   Author: %s\n", r.Author)
+
+			if author, ok := r.Extra["author"].(string); ok && author != "" {
+				fmt.Printf("   Author: %s\n", author)
 			}
-			if r.PublishedDate != nil {
-				fmt.Printf("   Date: %s\n", r.PublishedDate.Format("2006-01-02"))
+			if date, ok := r.Extra["published_date"].(string); ok && date != "" {
+				fmt.Printf("   Date: %s\n", date)
 			}
-			if r.Score != nil {
-				fmt.Printf("   Score: %.4f\n", *r.Score)
+			if r.Score > 0 {
+				fmt.Printf("   Score: %.4f\n", r.Score)
 			}
 
-			if r.Text != "" {
-				fmt.Printf("\n%s\n", r.Text)
+			if r.Content != "" {
+				fmt.Printf("\n%s\n", r.Content)
 			}
-			if len(r.Highlights) > 0 {
+			if highlights, ok := r.Extra["highlights"].([]string); ok && len(highlights) > 0 {
 				fmt.Println("   Highlights:")
-				for _, h := range r.Highlights {
+				for _, h := range highlights {
 					fmt.Printf("     - %s\n", h)
 				}
 			}
-			if r.Summary != "" {
-				fmt.Printf("   Summary: %s\n", r.Summary)
+			if summary, ok := r.Extra["summary"].(string); ok && summary != "" {
+				fmt.Printf("   Summary: %s\n", summary)
 			}
 
-			if i < len(resp.Results)-1 {
+			if i < len(results)-1 {
 				fmt.Println()
 			}
 		}
 
-		printCost(resp.CostDollars)
+		if len(results) > 0 && results[0].Cost != nil {
+			printCost(results[0].Cost)
+		}
 		return nil
 	},
 }

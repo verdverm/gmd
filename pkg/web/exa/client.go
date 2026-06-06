@@ -30,6 +30,16 @@ func New(apiKey string) *Client {
 	}
 }
 
+func NewWithServer(apiKey, baseURL string) *Client {
+	return &Client{
+		apiKey:  apiKey,
+		baseURL: baseURL,
+		httpClient: &http.Client{
+			Timeout: defaultTimeout,
+		},
+	}
+}
+
 func (c *Client) Search(ctx context.Context, req SearchRequest) (*SearchResponse, error) {
 	var resp SearchResponse
 	err := c.do(ctx, "POST", "/search", req, &resp)

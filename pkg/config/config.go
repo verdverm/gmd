@@ -34,13 +34,85 @@ type Config struct {
 
 // WebConfig groups all web search provider configurations.
 type WebConfig struct {
-	Provider string    `json:"provider"`
-	EXA      EXAConfig `json:"exa,omitempty"`
+	Group      string                      `json:"group"`
+	Groups     map[string]WebProviderGroup `json:"groups,omitempty"`
+	EXA        EXAConfig                   `json:"exa,omitempty"`
+	Tavily     TavilyConfig                `json:"tavily,omitempty"`
+	SearXNG    SearXNGConfig               `json:"searxng,omitempty"`
+	Local      LocalConfig                 `json:"local,omitempty"`
+	Cloudflare CloudflareConfig            `json:"cloudflare,omitempty"`
 }
 
 // EXAConfig maps from the CUE EXAConfig schema.
 type EXAConfig struct {
 	APIKey string `json:"-"`
+}
+
+// LocalConfig maps from the CUE LocalConfig schema.
+type LocalConfig struct {
+	ChromiumPath         string `json:"chromium_path,omitempty"`
+	NoBrowser            bool   `json:"no_browser,omitempty"`
+	HTMLMaxSize          int    `json:"html_max_size,omitempty"`
+	CrawlDelayMs         int    `json:"crawl_delay_ms,omitempty"`
+	MaxConcurrentDomains int    `json:"max_concurrent_domains,omitempty"`
+	MaxPagesPerDomain    int    `json:"max_pages_per_domain,omitempty"`
+	CacheEnabled         bool   `json:"cache_enabled,omitempty"`
+	CacheDir             string `json:"cache_dir,omitempty"`
+	CacheMaxSize         int    `json:"cache_max_size,omitempty"`
+	CacheTTL             string `json:"cache_ttl,omitempty"`
+}
+
+// CloudflareConfig maps from the CUE CloudflareConfig schema.
+type CloudflareConfig struct {
+	APIKey    string `json:"-"`
+	AccountID string `json:"-"`
+}
+
+// TavilyConfig maps from the CUE TavilyConfig schema.
+type TavilyConfig struct {
+	APIKey string `json:"-"`
+}
+
+// SearXNGConfig maps from the CUE SearXNGConfig schema.
+type SearXNGConfig struct {
+	BaseURL string `json:"base_url,omitempty"`
+}
+
+// WebProviderGroup maps a preset name to search/browser provider selections.
+type WebProviderGroup struct {
+	Search  string `json:"search,omitempty"`
+	Browser string `json:"browser,omitempty"`
+}
+
+// ResolveProvider resolves the provider name for a given role using the active group
+// or defaults. role is "search" or "browser".
+func (w WebConfig) ResolveProvider(role string, cmdOverride string) string {
+	if cmdOverride != "" {
+		return cmdOverride
+	}
+	groupName := w.Group
+	if groupName == "" {
+		groupName = "default"
+	}
+	if g, ok := w.Groups[groupName]; ok {
+		switch role {
+		case "search":
+			if g.Search != "" {
+				return g.Search
+			}
+		case "browser":
+			if g.Browser != "" {
+				return g.Browser
+			}
+		}
+	}
+	switch role {
+	case "search":
+		return "exa"
+	case "browser":
+		return "exa"
+	}
+	return ""
 }
 
 // CollectionKey returns the project-prefixed key for a collection name.
@@ -427,7 +499,7 @@ type CollectionConfig struct {
 var cueSchema embed.FS
 
 // Load loads and validates the unified configuration.
-// It embeds the built-in schema, loads optional global config (~/.config/gmd/config.cue),
+// It embeds the built-in schema, loads optional global config (UserConfigDir/gmd/config.cue),
 // detects the project root, loads optional project-local config, unifies them,
 // validates against the schema, and exports to a Go struct.
 func Load(cwd string) (*Config, error) {
@@ -521,6 +593,18 @@ func Load(cwd string) (*Config, error) {
 	cfg.Typesense.APIKey = os.Getenv("GMD_TYPESENSE_API_KEY")
 	if v := os.Getenv("EXA_API_KEY"); v != "" {
 		cfg.Web.EXA.APIKey = v
+	}
+	if v := os.Getenv("CLOUDFLARE_API_KEY"); v != "" {
+		cfg.Web.Cloudflare.APIKey = v
+	}
+	if v := os.Getenv("CLOUDFLARE_ACCOUNT_ID"); v != "" {
+		cfg.Web.Cloudflare.AccountID = v
+	}
+	if v := os.Getenv("TAVILY_API_KEY"); v != "" {
+		cfg.Web.Tavily.APIKey = v
+	}
+	if v := os.Getenv("SEARXNG_BASE_URL"); v != "" {
+		cfg.Web.SearXNG.BaseURL = v
 	}
 
 	cfg.ProjectRoot = projectRoot

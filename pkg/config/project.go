@@ -8,9 +8,34 @@ import (
 
 const (
 	sentinelDir      = ".gmd"
-	globalConfigDir  = ".config/gmd"
 	globalConfigFile = "config.cue"
 )
+
+// GlobalConfigDir returns the platform-appropriate global config directory for gmd.
+// Uses os.UserConfigDir() which respects XDG (Linux), Library/Application Support (macOS), etc.
+// Falls back to ~/.config/gmd if UserConfigDir/gmd does not exist (backward compat on macOS).
+func GlobalConfigDir() (string, error) {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	primary := filepath.Join(dir, "gmd")
+	if info, err := os.Stat(primary); err == nil && info.IsDir() {
+		return primary, nil
+	}
+
+	// Fallback to ~/.config/gmd for backward compatibility
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return primary, nil
+	}
+	fallback := filepath.Join(home, ".config", "gmd")
+	if info, err := os.Stat(fallback); err == nil && info.IsDir() {
+		return fallback, nil
+	}
+
+	return primary, nil
+}
 
 // FindProjectRoot walks up from start looking for a .gmd/ directory.
 // Returns the absolute path to the project root, or empty string if not found.
@@ -33,13 +58,14 @@ func FindProjectRoot(start string) string {
 	}
 }
 
-// GlobalConfigPath returns the path to the global config file (~/.config/gmd/config.cue).
+// GlobalConfigPath returns the path to the global CUE config file.
+// Uses os.UserConfigDir() (e.g. ~/.config/gmd/config.cue on Linux, ~/Library/Application Support/gmd/config.cue on macOS).
 func GlobalConfigPath() (string, error) {
-	home, err := os.UserHomeDir()
+	dir, err := GlobalConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, globalConfigDir, globalConfigFile), nil
+	return filepath.Join(dir, globalConfigFile), nil
 }
 
 // MatchSourcesByCWD returns the names of sources (collections and wikis) whose path encompasses cwd.

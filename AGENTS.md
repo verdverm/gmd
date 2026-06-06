@@ -42,10 +42,11 @@ gmd context add <source> "text"
 gmd context list
 gmd context rm <source>
 gmd doctor                             # Diagnostics (collections + wikis)
+gmd env                                # Print resolved config with secrets masked
 gmd cleanup                            # Remove stale chunks for deleted files
 gmd web search <query>                  # Tier 1: Web search (no LLM)
 gmd web fetch <url> [url2 ...]           # Tier 1: Fetch clean content from URLs
-gmd web crawl <url> [--depth] [--max-pages] # Tier 1: Crawl from seed URL (stub)
+gmd web crawl <url> [--depth] [--max-pages] # Tier 1: Crawl from seed URL
 gmd web agent <query> [--steps] [--save] # Tier 2: LLM-orchestrated research agent
 gmd web research <query> [--depth]       # Tier 3: Deep structured research (stub)
 gmd serve [--port] [--host]              # REST API server (stub, Phase 5)
@@ -114,7 +115,7 @@ api/              Reserved for REST API (empty)
 ## Config
 
 CUE schema lives in `pkg/config/schema/` (embedded via `//go:embed`).
-Global: `~/.config/gmd/config.cue`. Project: `<root>/.gmd/config.cue`.
+Global: `<UserConfigDir>/gmd/config.cue`. Project: `<root>/.gmd/config.cue`.
 Both are optional; defaults come from the embedded schema + `pipeline.cue`.
 Project root detected by walking up from CWD looking for `.gmd/` sentinel.
 

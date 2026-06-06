@@ -27,6 +27,9 @@ go.work.sum
 # env file
 .env
 
+# Project secret env (credentials)
+.gmd/secret.env
+
 # Editor/IDE
 # .idea/
 # .vscode/

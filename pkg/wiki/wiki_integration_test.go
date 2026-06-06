@@ -52,6 +52,7 @@ func TestMain(m *testing.M) {
 		}
 	}
 
+	config.LoadEnvFiles(config.FindProjectRoot("."), nil, nil)
 	cfg, err := config.Load(".")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "wiki integration: FATAL: LLM config load failed (%v)\n", err)

@@ -84,7 +84,7 @@ Config: {
 }
 ```
 
-For shared settings across projects, create `~/.config/gmd/config.cue` with the same structure — project and global configs are merged automatically, with project values taking precedence.
+For shared settings across projects, create `<UserConfigDir>/gmd/config.cue` with the same structure — project and global configs are merged automatically, with project values taking precedence.
 
 ### 4. Index and search
 
@@ -101,7 +101,7 @@ Run `gmd query` from within `myproject/docs/` and the `myapp` collection is sele
 Config is in CUE format. Three layers, merged at load time (later layers override earlier):
 
 1. **Embedded schema** in the binary (`pkg/config/schema/`) — provides all defaults
-2. **Global config** at `~/.config/gmd/config.cue` — shared across projects (optional)
+2. **Global config** at `<UserConfigDir>/gmd/config.cue` — shared across projects (optional)
 3. **Project config** at `<project-root>/.gmd/config.cue` — project-specific settings (optional)
 
 Project root is detected by walking up from CWD looking for a `.gmd/` directory.
@@ -222,17 +222,18 @@ Search flags:
 | `gmd serve [--port] [--host]` | Start REST API server (default: `:8181`) |
 | `gmd mcp [--http]` | Start MCP server for AI agent integration |
 | `gmd doctor` | Run system diagnostics |
+| `gmd env` | Print resolved config with secrets masked |
 | `gmd agentsmd [oneline|summary|detailed|full]` | Output AGENTS.md content for AI coding assistants |
 
 ### Web Search
 
-Three-tier command spectrum for searching the live web:
+Three-tier command spectrum for searching the live web via multiple providers:
 
 | Tier | Command | Description |
 |---|---|---|
-| 1 | `gmd web search <query>` | Traditional web search (no LLM) |
+| 1 | `gmd web search <query>` | Web search via configured search provider |
 | 1 | `gmd web fetch <url> [url2 ...]` | Clean content extraction from URLs |
-| 1 | `gmd web crawl <url>` | Discover + fetch linked pages (stub) |
+| 1 | `gmd web crawl <url>` | Crawl a site from seed URL (Cloudflare or local) |
 | 2 | `gmd web agent <query>` | Multi-step LLM-orchestrated research agent |
 | 3 | `gmd web research <query>` | Deep structured research pipeline (stub) |
 
@@ -240,8 +241,18 @@ Tier 1 commands are deterministic API calls. Tier 2 adds LLM-driven iteration.
 Tier 3 builds on Tier 2 with structured phases (decompose, cross-reference, validate).
 Each tier builds on the prior.
 
-Currently backed by EXA. Multi-provider support (Cloudflare, Tavily, SearXNG, Local)
-is in progress. Requires `EXA_API_KEY` environment variable.
+**Multi-provider architecture.** EXA, Cloudflare, Tavily, and SearXNG providers are selectable
+via named provider groups in CUE config. Use `--provider-group`, `--search-provider`, and
+`--browser-provider` flags to override per-command.
+
+**Credentials** (environment variables or env files, never in CUE files):
+- `EXA_API_KEY` — EXA search + cached content
+- `TAVILY_API_KEY` — Tavily web search
+- `CLOUDFLARE_API_KEY` + `CLOUDFLARE_ACCOUNT_ID` — Cloudflare browser rendering + crawl
+- `SEARXNG_BASE_URL` — SearXNG instance URL (self-hosted, no API key)
+- Use `gmd env` to verify your resolved config
+
+See [docs/web-providers.md](docs/web-providers.md) for provider configuration details.
 
 ### LLM Wiki
 

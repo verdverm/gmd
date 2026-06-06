@@ -1,6 +1,6 @@
 # Web Providers — Multi-Provider Architecture for `gmd web`
 
-**Status: Proposal** — 2025-06-05
+**Phases 1–3: Complete** — 2025-06-05 / **Phase 4: In Progress**
 
 GMD is expanding from a single EXA-backed web search tool into a multi-provider
 system spanning search/discovery and content retrieval. The first pass focuses on
@@ -736,7 +736,7 @@ WebConfig: {
 }
 ```
 
-Proposed:
+Proposed (now implemented):
 ```cue
 WebConfig: {
     group?:  string | *"default"  // active provider group
@@ -744,7 +744,9 @@ WebConfig: {
 
     local?:      LocalConfig
     exa?:        EXAConfig
+    tavily?:     TavilyConfig
     cloudflare?: CloudflareConfig
+    searxng?:    SearXNGConfig
 }
 
 WebProviderGroup: {
@@ -752,38 +754,39 @@ WebProviderGroup: {
     browser?: string  // provider name for browser role (exa, cloudflare, local)
 }
 
+EXAConfig: {
+    // api_key from EXA_API_KEY env var — never here (json:"-")
+}
+
+TavilyConfig: {
+    // api_key from TAVILY_API_KEY env var — never here (json:"-")
+}
+
+SearXNGConfig: {
+    base_url: string | *""    // from CUE or SEARXNG_BASE_URL env var
+    engines?:  string | *""   // comma-separated engine list
+}
+
 LocalConfig: {
     chromium_path?: string | *""
-
-    // Disable browser automation (static fetch + HTML→MD only)
-    no_browser?:    bool   | *false
-
-    // Maximum bytes for static HTTP fetch (default: 10MB)
-    html_max_size?: int    | *10485760
-
-    // Crawl tuning: minimum delay between requests to the same domain (ms)
-    crawl_delay_ms?: int | *1000
-
-    // Maximum number of domains crawled concurrently
-    max_concurrent_domains?: int | *2
-
-    // Maximum pages to fetch per domain during a crawl
-    max_pages_per_domain?: int | *200
-
-    // Cache tuning
-    cache_enabled?:  bool   | *false
-    cache_dir?:      string | *"~/.cache/gmd/web"
-    cache_max_size?: int    | *536870912   // 512 MB
-    cache_ttl?:      string | *"24h"
+    no_browser?:           bool   | *false
+    html_max_size?:        int    | *10485760
+    crawl_delay_ms?:       int    | *1000
+    max_concurrent_domains?: int  | *2
+    max_pages_per_domain?: int    | *200
+    cache_enabled?:        bool   | *false
+    cache_dir?:            string | *"~/.cache/gmd/web"
+    cache_max_size?:       int    | *536870912
+    cache_ttl?:            string | *"24h"
 }
 
 CloudflareConfig: {
-    api_key:    string | *""   // from CLOUDFLARE_API_KEY env var
-    account_id: string | *""   // from CLOUDFLARE_ACCOUNT_ID env var
+    // api_key    from CLOUDFLARE_API_KEY env var — never here (json:"-")
+    // account_id from CLOUDFLARE_ACCOUNT_ID env var — never here (json:"-")
 }
 ```
 
-Go-side struct:
+Go-side struct (implemented):
 
 ```go
 type WebConfig struct {
@@ -791,12 +794,31 @@ type WebConfig struct {
     Groups     map[string]WebProviderGroup   `json:"groups,omitempty"`
     Local      LocalConfig                   `json:"local,omitempty"`
     EXA        EXAConfig                     `json:"exa,omitempty"`
+    Tavily     TavilyConfig                  `json:"tavily,omitempty"`
+    SearXNG    SearXNGConfig                 `json:"searxng,omitempty"`
     Cloudflare CloudflareConfig              `json:"cloudflare,omitempty"`
 }
 
 type WebProviderGroup struct {
     Search  string `json:"search,omitempty"`
     Browser string `json:"browser,omitempty"`
+}
+
+type EXAConfig struct {
+    APIKey string `json:"-"`  // from EXA_API_KEY env var
+}
+
+type TavilyConfig struct {
+    APIKey string `json:"-"`  // from TAVILY_API_KEY env var
+}
+
+type SearXNGConfig struct {
+    BaseURL string `json:"base_url,omitempty"`  // from CUE or SEARXNG_BASE_URL env var
+}
+
+type CloudflareConfig struct {
+    APIKey    string `json:"-"`  // from CLOUDFLARE_API_KEY env var
+    AccountID string `json:"-"`  // from CLOUDFLARE_ACCOUNT_ID env var
 }
 ```
 
@@ -851,13 +873,13 @@ multi-provider architecture lands (see Agent Refactoring below).
 
 ## CLI Command Mapping
 
-| `gmd web` Subcommand | Tier | Interface Needed | Local | EXA | Cloudflare | Status |
-|---|---|---|---|---|---|---|
-| `gmd web search` | 1 | `SearchProvider` | no | yes | no | existing |
-| `gmd web fetch` | 1 | `BrowserProvider.GetContent` | yes static | yes cached | yes /content | existing (EXA only) |
-| `gmd web crawl` | 1 | `BrowserProvider.Crawl` | yes | no | yes | new |
-| `gmd web agent` | 2 | `SearchProvider` + LLM | no | yes (hardcoded) | no | existing (will refactor) |
-| `gmd web research` | 3 | `SearchProvider` + `BrowserProvider` + LLM | search: no, browser: yes | yes | planned | new |
+| `gmd web` Subcommand | Tier | Interface Needed | Local | EXA | Cloudflare | Tavily | SearXNG | Status |
+|---|---|---|---|---|---|---|---|---|---|
+| `gmd web search` | 1 | `SearchProvider` | no | yes | no | yes | yes | implemented |
+| `gmd web fetch` | 1 | `BrowserProvider.GetContent` | no | yes (cached) | yes (/content) | no | no | implemented |
+| `gmd web crawl` | 1 | `BrowserProvider.Crawl` | no | no | yes | no | no | implemented |
+| `gmd web agent` | 2 | `SearchProvider` + LLM | no | yes (hardcoded) | no | no | no | existing (will refactor) |
+| `gmd web research` | 3 | `SearchProvider` + `BrowserProvider` + LLM | no | planned | planned | planned | planned | new |
 
 ### Fetch vs. Crawl
 
@@ -938,30 +960,30 @@ Supported provider names: `exa`, `tavily`, `searxng`, `cloudflare`, `local`.
 
 ## Implementation Phases
 
-### Phase 1: Interface Refinement & Foundations
+### Phase 1: Interface Refinement & Foundations ✅ Complete
 
 Goal: split the single `Provider` interface, build the registry, wire EXA as the
 first adapter for both roles, and update CLI commands without breaking existing
 functionality.
 
-- [ ] Deprecate `Provider`; define `SearchProvider` (search-only) and `BrowserProvider` (GetContent, Crawl, Scrape, Capabilities)
-- [ ] Add `Extra map[string]any` to `SearchResult` and `SearchOptions`
-- [ ] Define `GetContentOptions` struct (Format, MaxChars, MaxAge, Extra)
-- [ ] Define `BrowserCapabilities` struct (GetContent, Crawl, Scrape, SelfHost, LocalBrowser, LocalHTML, LocalCrawl, Features)
-- [ ] Define `CrawlOptions`, `Page`, `Element` types
-- [ ] Implement provider registry (`pkg/web/registry.go`) — explicit map, no `init()`
-- [ ] Define error taxonomy sentinels (`pkg/web/errors.go`)
-- [ ] Implement `ProviderError` wrapping in command dispatch — wrap provider errors before user display so messages always include the provider name
-- [ ] Implement `CostSummary` return from providers (providers return cost alongside results)
-- [ ] Add generic cost display in CLI output (`pkg/output/`) — replaces EXA-specific `printCost`
-- [ ] Create EXA search adapter (`pkg/web/providers/exa/search.go`) implementing `SearchProvider` over `*exa.Client`
-- [ ] Create EXA browser adapter (`pkg/web/providers/exa/browser.go`) implementing `BrowserProvider` over `*exa.Client` (GetContent only; Crawl/Scrape return ErrNotSupported)
-- [ ] Update CLI commands (`cmd/gmd/web_*.go`) to use typed provider interfaces
-- [ ] Wire `gmd web fetch` to use `BrowserProvider.GetContent` instead of direct EXA client
-- [ ] Add `Capabilities()` check before dispatching to Crawl/Scrape
-- [ ] Update CUE schema with `WebProviderGroup` and `WebConfig.groups`; add Go-side struct
-- [ ] Add `--provider-group`, `--search-provider`, `--browser-provider` flags
-- [ ] Keep `pkg/web/agent.go` EXA-specific (option A)
+- [x] Deprecate `Provider`; define `SearchProvider` (search-only) and `BrowserProvider` (GetContent, Crawl, Scrape, Capabilities)
+- [x] Add `Extra map[string]any` to `SearchResult` and `SearchOptions`
+- [x] Define `GetContentOptions` struct (Format, MaxChars, MaxAge, Extra)
+- [x] Define `BrowserCapabilities` struct (GetContent, Crawl, Scrape, SelfHost, LocalBrowser, LocalHTML, LocalCrawl, Features)
+- [x] Define `CrawlOptions`, `Page`, `Element` types
+- [x] Implement provider registry (`pkg/web/registry.go`) — explicit map, no `init()`
+- [x] Define error taxonomy sentinels (`pkg/web/errors.go`)
+- [x] Implement `ProviderError` wrapping in command dispatch — wrap provider errors before user display so messages always include the provider name
+- [x] Implement `CostSummary` return from providers (providers return cost alongside results)
+- [x] Add generic cost display in CLI output (`pkg/output/`) — replaces EXA-specific `printCost`
+- [x] Create EXA search adapter (`pkg/web/providers/exa/search.go`) implementing `SearchProvider` over `*exa.Client`
+- [x] Create EXA browser adapter (`pkg/web/providers/exa/browser.go`) implementing `BrowserProvider` over `*exa.Client` (GetContent only; Crawl/Scrape return ErrNotSupported)
+- [x] Update CLI commands (`cmd/gmd/web_*.go`) to use typed provider interfaces
+- [x] Wire `gmd web fetch` to use `BrowserProvider.GetContent` instead of direct EXA client
+- [x] Add `Capabilities()` check before dispatching to Crawl/Scrape
+- [x] Update CUE schema with `WebProviderGroup` and `WebConfig.groups`; add Go-side struct
+- [x] Add `--provider-group`, `--search-provider`, `--browser-provider` flags
+- [x] Keep `pkg/web/agent.go` EXA-specific (option A)
 
 **Testing:**
 - Compile-time interface assertions: `var _ SearchProvider = (*exa.SearchAdapter)(nil)`, `var _ BrowserProvider = (*exa.BrowserAdapter)(nil)`
@@ -969,32 +991,32 @@ functionality.
 - `httptest.Server` mocks for EXA search and contents adapters with recorded API response fixtures
 - CLI integration: existing `gmd web search/fetch/agent` commands continue to work
 
-### Phase 2: Cloudflare Provider
+### Phase 2: Cloudflare Provider ✅ Complete
 
 Goal: implement Cloudflare Browser Run as a `BrowserProvider` (GetContent,
 Crawl). Cloudflare is the first new provider after EXA, proving the
 multi-provider architecture works end-to-end.
 
-- [ ] Create `pkg/web/providers/cloudflare/client.go` — thin HTTP wrapper over Quick Actions REST API
-- [ ] Implement `BrowserProvider.GetContent` via `/content` and `/markdown`
-- [ ] Implement `BrowserProvider.Crawl`
-- [ ] Add `gmd web crawl` command
-- [ ] Register `cloudflare` in the `browser` role only
+- [x] Create `pkg/web/providers/cloudflare/client.go` — thin HTTP wrapper over Quick Actions REST API
+- [x] Implement `BrowserProvider.GetContent` via `/content` and `/markdown`
+- [x] Implement `BrowserProvider.Crawl`
+- [x] Add `gmd web crawl` command
+- [x] Register `cloudflare` in the `browser` role only
 
 **Testing:**
 - Unit: `httptest.Server` mocks with recorded Cloudflare API response fixtures
 - Integration (`//go:build integration`): live smoke test, skipped if `CLOUDFLARE_API_KEY` unset
 - Contract: `var _ BrowserProvider = (*cloudflare.BrowserClient)(nil)`
 
-### Phase 3: Additional Search Providers (Tavily, SearXNG)
+### Phase 3: Additional Search Providers (Tavily, SearXNG) ✅ Complete
 
 Goal: expand search provider coverage. Tavily and SearXNG are both pure search
 providers — they implement `SearchProvider` only, adding choice without
 introducing new interface shapes.
 
-- [ ] Tavily provider (`pkg/web/providers/tavily/`) — `SearchProvider`
-- [ ] SearXNG provider (`pkg/web/providers/searxng/`) — `SearchProvider`
-- [ ] Register both in the `search` role
+- [x] Tavily provider (`pkg/web/providers/tavily/`) — `SearchProvider`
+- [x] SearXNG provider (`pkg/web/providers/searxng/`) — `SearchProvider`
+- [x] Register both in the `search` role
 
 **Testing:**
 - Unit: `httptest.Server` mocks with recorded API response fixtures
@@ -1077,6 +1099,137 @@ dispatch as other commands.
 **Testing:**
 - Unit: mock providers for research agent workflow tests
 - Integration: live research runs against EXA, skipped if `EXA_API_KEY` unset
+
+## Completed Phases — Implementation Notes
+
+### Phase 1 Complete — Interface Refinement & Foundations
+
+All items implemented. Key departures from the proposal:
+
+- **`pkg/web/builders/` sub-package** — Provider constructors are wired in
+  `pkg/web/builders/builders.go` via `DefaultRegistry()` to avoid an import
+  cycle: `pkg/web/` defines the registry interface, provider packages implement
+  it, and `builders/` imports both to wire them together. This is an additional
+  package not in the original `pkg/web/registry.go` plan.
+- **`ProviderConfig.Extra` holds credentials** — API keys (`EXA_API_KEY`),
+  base URLs (`searxng.base_url`), and account IDs flow through
+  `ProviderConfig.Extra`. The CLI's `makeProviderConfig()` populates this from
+  the resolved `WebConfig`, pulling env-var-injected values from `config.Load`.
+- **CLI web commands use `getConfig()` not `getRuntime()`** — Tier 1 commands
+  (search, fetch, crawl) don't need Typesense. A new `getConfig()` function in
+  `cmd/gmd/main.go` loads CUE config without opening a runtime. Tier 2+ (agent,
+  research) still use `getRuntime()`.
+- **`gmd env` command** — Prints the fully resolved config (global + project
+  CUE + env vars) with all API key values masked as `*****`. Helps users
+  debug config loading issues (wrong nesting, missing fields).
+- **Env file loading** — `config.LoadEnvFiles()` loads `default.env` and
+  `secret.env` from both global (`<UserConfigDir>/gmd/`) and project
+  (`.gmd/`) directories. `--env VAR=VAL` and `--secret VAR=VAL` CLI flags
+  provide per-invocation overrides. Loaded in `PersistentPreRunE` before any
+  command runs.
+- **Config dir fallback on macOS** — `GlobalConfigDir()` uses
+  `os.UserConfigDir()` (XDG-compliant) but falls back to `~/.config/gmd/` if
+  that directory exists, matching existing macOS setups.
+- **EXA `NewWithServer(baseURL)`** — Added to `pkg/web/exa/client.go` for
+  test injection. Search/browser adapters check `ProviderConfig.Extra["base_url"]`
+  and use `NewWithServer` when present.
+- **Error taxonomy** — All 9 sentinel errors implemented in `pkg/web/errors.go`
+  plus `ProviderError` wrapping with `Unwrap()`. EXA-specific helpers
+  (`IsRateLimit`, `IsAuthError`) stay in the `exa` package.
+- **Cost display** — `CostSummary` returned by all providers; generic
+  `printCost()` in `cmd/gmd/web.go` replaces EXA-specific pattern.
+
+### Phase 2 Complete — Cloudflare Provider
+
+All items implemented:
+
+- `pkg/web/providers/cloudflare/client.go` — thin HTTP wrapper with `net/http`,
+  no Go SDK (Cloudflare doesn't offer one for Browser Run REST API).
+- `GetContent` via `/markdown` and `/content` endpoints, `Crawl` via
+  link extraction from markdown response.
+- Unit tests with `httptest.Server` mocks; integration tests skip if
+  `CLOUDFLARE_API_KEY` unset (`GMD_WEB_INTEGRATION_FAIL=1` to fail instead).
+- Crawl uses regex-based `[...](url)` extraction from `/markdown` responses.
+  Same-domain filtering and depth limiting applied client-side.
+
+### Phase 3 Complete — Tavily + SearXNG
+
+All items implemented:
+
+- **Tavily** (`pkg/web/providers/tavily/`) — `POST https://api.tavily.com/search`,
+  `Authorization: Bearer` header. `TAVILY_API_KEY` env var only (`json:"-"`).
+  Extra options: `search_depth`, `include_answer`, `include_raw_content`.
+- **SearXNG** (`pkg/web/providers/searxng/`) — `GET {base_url}/search?format=json&q=...`,
+  no auth. `base_url` configurable via CUE (`json:"base_url,omitempty"`) or
+  `SEARXNG_BASE_URL` env var (env overrides CUE). Extra options: `categories`,
+  `engines`, `language`.
+- Both registered in `search` role only.
+- Unit tests with `httptest.Server` mocks; integration tests skip if credentials
+  absent.
+- **CUE schema** extended with `TavilyConfig` and `SearXNGConfig` in
+  `pkg/config/schema/types.cue`. `SEARXNG_BASE_URL` and `TAVILY_API_KEY` env
+  vars injected in `config.Load`.
+
+### SearXNG Docker Setup
+
+Public SearXNG instances aggressively rate-limit or block automated access
+(403/429). Running your own instance is recommended for reliable API access:
+
+```bash
+# Start SearXNG (no volumes needed for basic use)
+docker run --rm -d --name searxng -p 8080:8080 searxng/searxng
+
+# Write a minimal settings.yml enabling JSON API format
+cat > /tmp/searxng-settings.yml << 'EOF'
+use_default_settings: true
+search:
+  formats:
+    - html
+    - json
+server:
+  secret_key: "replace-with-random-string"
+  limiter: false
+EOF
+
+# Copy settings into container and restart
+docker cp /tmp/searxng-settings.yml searxng:/etc/searxng/settings.yml
+docker restart searxng
+```
+
+Then configure: `searxng: base_url: "http://localhost:8080"` in CUE config.
+
+The `json` format is disabled by default (SearXNG only enables `html`). The
+`use_default_settings: true` line loads all defaults, then your overrides
+merge on top — without it, many required settings are missing and SearXNG
+returns 500.
+
+### Integration Test Conventions
+
+All provider integration tests follow a consistent pattern:
+
+- **Build tag:** `//go:build integration` — excluded from `make test`
+- **`TestMain`:** Calls `config.LoadEnvFiles(config.FindProjectRoot("."), nil, nil)`
+  then `config.Load(".")` — loads both env files AND CUE config so tests
+  work whether credentials come from env vars, env files, or CUE config.
+  Env vars override CUE values (enforced by `config.Load`).
+- **Skip by default:** Tests skip if required credentials are unset.
+  `GMD_WEB_INTEGRATION_FAIL=1` makes missing credentials a hard failure (for CI).
+- **Mock tests always run:** Unit tests use `httptest.Server` and require no
+  external services.
+
+### Config Loading Architecture
+
+The Go config structs for web providers use two patterns for credential flow:
+
+| Pattern | Fields | Source |
+|---|---|---|
+| `json:"-"` | `EXAConfig.APIKey`, `TavilyConfig.APIKey`, `CloudflareConfig.APIKey`, `CloudflareConfig.AccountID`, `Typesense.APIKey`, `LLMConfig.APIKey` | Env var only (set in `config.Load` after CUE decode) |
+| `json:"base_url,omitempty"` | `SearXNGConfig.BaseURL` | CUE config first, then env var `SEARXNG_BASE_URL` overrides |
+| `json:"embedding_api_key"` etc. | LLM per-role API keys | CUE config or env var (env overrides in `config.Load`) |
+
+The `json:"-"` fields never appear in JSON output (e.g. `gmd env` shows them in a
+separate "secret env vars" section). Fields with json tags appear in JSON output
+but values are masked with `*****` when the key name matches `*_api_key*`.
 
 ### Test Fixtures Structure
 

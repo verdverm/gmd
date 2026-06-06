@@ -30,7 +30,7 @@ gmd wiki query "<q>"          # RAG search → LLM synthesis with [[page]] citat
 
 - **Auto-detect collection:** `gmd query` run from inside a collection's path automatically selects that collection. Use `-c` to specify explicitly.
 - **Content-addressable dedup:** Unchanged files skip re-chunking and re-embedding on subsequent `gmd update` runs. Only modified files are re-processed.
-- **Config:** CUE format. Global config at `~/.config/gmd/config.cue`, project config at `<root>/.gmd/config.cue`. Both are optional.
+- **Config:** CUE format. Global config at `<UserConfigDir>/gmd/config.cue`, project config at `<root>/.gmd/config.cue`. Both are optional.
 - **Search pipeline** (`gmd query`): Detects strong signals (scores ≥0.85 with gap ≥0.15) and uses query directly if found; otherwise expands the query via LLM, runs hybrid search for each variant, fuses results with RRF, reranks, and blends by position tier.
 - **Output formats:** `cli` (default, human-readable) or `json`. Use `-f json` for machine-readable output.
 - **Results limit:** Default 5. Use `-n` to change (e.g., `-n 10`).
@@ -47,19 +47,19 @@ gmd wiki query "<q>"          # RAG search → LLM synthesis with [[page]] citat
 
 ## Web Search
 
-GMD can search the live web via multiple providers (EXA, Cloudflare, Tavily, SearXNG):
+GMD can search the live web via multiple providers (EXA, Tavily, SearXNG, Cloudflare):
 
 ```sh
-gmd web search "<query>"       # Traditional web search (no LLM)
+gmd web search "<query>"       # Web search via configured search provider
 gmd web fetch <url>            # Clean content extraction from URLs
-gmd web crawl <url>            # Discover + fetch linked pages (stub)
+gmd web crawl <url>            # Crawl a site from seed URL (Cloudflare)
 gmd web agent "<question>"     # Multi-step LLM-orchestrated research
 gmd web research "<topic>"     # Deep structured research pipeline (stub)
 ```
 
 Commands fall on a three-tier spectrum: deterministic (search/fetch/crawl) → conversational agent → deep research. Each tier builds on the prior.
 
-Requires `EXA_API_KEY` (or other provider credentials). See `gmd web --help` for flags.
+Select providers via named groups in config, or override per-command with `--search-provider` / `--browser-provider`. Set credentials via env vars or env files: `EXA_API_KEY`, `TAVILY_API_KEY`, `CLOUDFLARE_API_KEY` + `CLOUDFLARE_ACCOUNT_ID`, `SEARXNG_BASE_URL`. SearXNG is self-hosted (no API key). Use `gmd env` to verify your resolved config. See [docs/web-providers.md](docs/web-providers.md) for details.
 
 ## LLM Wiki
 

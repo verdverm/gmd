@@ -7,10 +7,67 @@ gmd uses [CUE](https://cuelang.org) for configuration. There is no YAML fallback
 Configuration is loaded in three layers and unified at runtime (later layers override earlier):
 
 1. **Embedded schema** — built into the binary (`pkg/config/schema/*.cue`), provides all defaults
-2. **Global** — `~/.config/gmd/config.cue` (optional), shared across all projects
+2. **Global** — `$UserConfigDir/gmd/config.cue` (optional), shared across all projects
 3. **Project** — `<project-root>/.gmd/config.cue` (optional), project-specific overrides
 
 The project root is detected by walking up from the current working directory looking for a `.gmd/` directory. Create one with `gmd init`.
+
+## Environment files
+
+In addition to CUE config, gmd loads environment variables from `.env` files on every
+invocation. This lets you keep credentials out of the CUE config tree.
+
+### File locations and precedence
+
+Files are loaded in this order (later files overwrite earlier keys):
+
+| Precedence | File | Git-safe? |
+|---|---|---|
+| 1 (lowest) | `<UserConfigDir>/gmd/default.env` | yes (global) |
+| 2 | `<UserConfigDir>/gmd/secret.env` | yes (global) |
+| 3 | `<project>/.gmd/default.env` | yes |
+| 4 | `<project>/.gmd/secret.env` | git-ignored by default |
+| 5 | `--env VAR=VAL` flag | CLI only |
+| 6 (highest) | `--secret VAR=VAL` flag | CLI only |
+
+Missing files are silently skipped — none are required.
+
+### File format
+
+Standard `KEY=VALUE` format, one per line. Blank lines and lines starting with `#` are ignored.
+
+```bash
+# <UserConfigDir>/gmd/default.env — non-sensitive defaults (can be committed)
+TYPESENSE_HOST=http://localhost:8108
+# <UserConfigDir>/gmd/secret.env — shared secrets (never committed)
+OPENAI_API_KEY=sk-...
+GMD_TYPESENSE_API_KEY=ts-...
+EXA_API_KEY=exa-...
+TAVILY_API_KEY=tvly-...
+CLOUDFLARE_API_KEY=cf-...
+CLOUDFLARE_ACCOUNT_ID=abc123...
+```
+
+```bash
+# .gmd/default.env — project-specific defaults (can be committed)
+# .gmd/secret.env — project-specific overrides (git-ignored)
+```
+
+### CLI flags
+
+```bash
+# Inline overrides (highest precedence)
+gmd update --env GMD_TYPESENSE_API_KEY=ts-temp --secret EXA_API_KEY=exa-rotated
+
+# Both flags are repeatable
+gmd search "query" --env FOO=bar --env BAZ=qux
+```
+
+### When it runs
+
+Env file loading happens in `PersistentPreRunE` on the root command — before `config.Load`
+reads OS environment variables. This means values from env files behave identically to
+exported shell variables.
 
 ## Global config
 
@@ -155,3 +212,136 @@ All parameters have sensible defaults — you only need to set what you want to 
 | `pipeline.blending.weights.bottom` | 0.40 | RRF weight in bottom tier |
 | `pipeline.output.defaultFormat` | `cli` | Output format |
 | `pipeline.output.maxResults` | 5 | Default result count |
+
+## Web Search Configuration
+
+`gmd web` commands use a multi-provider architecture. Credentials come from environment
+variables (env files or exported shell vars); provider selection and non-secret settings
+live in CUE config.
+
+### Credentials
+
+| Provider | Env Vars | Purpose |
+|---|---|---|
+| **EXA** | `EXA_API_KEY` | Web search + cached content retrieval |
+| **Tavily** | `TAVILY_API_KEY` | Web search |
+| **SearXNG** | `SEARXNG_BASE_URL` | Self-hosted web search |
+| **Cloudflare** | `CLOUDFLARE_API_KEY`, `CLOUDFLARE_ACCOUNT_ID` | Browser rendering + crawl |
+| **Local** | none | Local browser-based fetch/crawl |
+
+API keys (`EXA_API_KEY`, `TAVILY_API_KEY`, `CLOUDFLARE_API_KEY`) are **never** stored in CUE files —
+they come from environment variables only. Non-secret values (`SEARXNG_BASE_URL`, `CLOUDFLARE_ACCOUNT_ID`)
+can be set in either CUE config or environment variables.
+
+Example `secret.env` with all provider credentials:
+
+```bash
+# <UserConfigDir>/gmd/secret.env
+
+# Search providers
+EXA_API_KEY=exa-...
+TAVILY_API_KEY=tvly-...
+
+# SearXNG — self-hosted, URL to your or a public instance
+SEARXNG_BASE_URL=https://searx.example.com
+
+# Cloudflare browser rendering
+CLOUDFLARE_API_KEY=cf-...
+CLOUDFLARE_ACCOUNT_ID=abc123...
+```
+
+### Provider Groups
+
+Provider groups map a preset name to `{search, browser}` role selections. The `group` field
+sets the active group; `--provider-group` overrides per-command.
+
+```cue
+web: {
+  group: "default"              // active provider group
+
+  groups: {
+    default:    { search: "exa",     browser: "exa" }
+    full:       { search: "exa",     browser: "cloudflare" }
+    custom:     { search: "tavily",  browser: "cloudflare" }
+    offline:    { search: "searxng", browser: "local" }
+  }
+
+  // Provider-specific config (optional — only needed to override defaults)
+  //
+  // Keys (api_key, account_id) are env-var-only and cannot be set here.
+  // Non-secret fields (base_url, engines, etc.) can be set here or via env var.
+
+  // EXA — api_key from EXA_API_KEY env var only
+  exa: {}
+
+  // Tavily — api_key from TAVILY_API_KEY env var only
+  tavily: {}
+
+  // SearXNG — base URL to your instance (or public one like https://searx.tuxcloud.net)
+  // Can be set here OR via SEARXNG_BASE_URL env var.
+  searxng: {
+    base_url: ""                 // optional: "https://searx.example.com"
+    engines:  ""                 // optional: "google,bing" (specific engines)
+  }
+
+  // Cloudflare — api_key + account_id from env vars only
+  cloudflare: {}
+
+  // Local browser — Phase 4 (not yet implemented)
+  local: {
+    no_browser: false            // true = only raw HTTP fetch, no headless browser
+    chromium_path: ""            // custom Chromium binary path
+    crawl_delay_ms: 1000         // delay between page fetches (ms)
+    cache_enabled: true          // cache fetched pages to disk
+    cache_dir: ""                // defaults to ~/Library/Caches/gmd/web
+    cache_ttl: "24h"             // cache entry lifetime
+  }
+}
+```
+
+### Provider Roles
+
+| Role | Interface | Providers |
+|---|---|---|
+| **search** | `SearchProvider` — query web indexes, return ranked results | `exa`, `tavily`, `searxng` |
+| **browser** | `BrowserProvider` — retrieve/render content, crawl, scrape | `exa`, `cloudflare`, `local` |
+
+EXA is the only provider registered in both roles: it implements `SearchProvider` via its
+`/search` endpoint and `BrowserProvider.GetContent` via its `/contents` endpoint.
+
+### CLI Flags
+
+| Flag | Scope | Description |
+|---|---|---|
+| `--provider-group <name>` | Persistent | Override the configured active group for this command |
+| `--search-provider <name>` | Persistent | Override only the search role within the active group |
+| `--browser-provider <name>` | Persistent | Override only the browser role within the active group |
+
+Priority order: individual role override → `--provider-group` → configured `group` → `"default"`.
+
+### Examples
+
+```bash
+# Search with default provider group
+gmd web search "transformer architecture"
+
+# Search with a specific provider
+gmd web search "golang generics" --search-provider tavily
+
+# Fetch a page (uses browser provider from active group)
+gmd web fetch https://example.com
+
+# Search via self-hosted SearXNG
+gmd web search "kubernetes pods" --provider-group offline
+
+# Override inline with env/secrets
+gmd web search "AI trends" --secret TAVILY_API_KEY=tvly-temp
+```
+
+For per-provider API details and tuning, see [docs/web-providers.md](web-providers.md).
+
+### Verifying your config
+
+Run `gmd env` to print the fully resolved configuration (global + project CUE +
+env vars) with all API keys masked as `*****`. This is useful for verifying that
+credentials and provider settings are being loaded correctly.

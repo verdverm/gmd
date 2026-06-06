@@ -13,7 +13,7 @@ GMD indexes local markdown files and provides full-text, vector, and hybrid sear
   | expansion | Generates query variants (lexical, vector, HyDE) | `Qwen/Qwen3-1.7B` |
   | rerank | Re-scores search results for relevance | `Qwen/Qwen3-Reranker-0.6B` |
 
-- API keys: `OPENAI_API_KEY` for LLM endpoints (per-role overrides: `GMD_EMBEDDING_API_KEY`, `GMD_EXPANSION_API_KEY`, `GMD_RERANK_API_KEY`, `GMD_SUMMARIZING_API_KEY`, `GMD_GENERAL_BIG_API_KEY`, `GMD_GENERAL_MID_API_KEY`, `GMD_GENERAL_SMALL_API_KEY`), `GMD_TYPESENSE_API_KEY` for Typesense (both read from environment)
+- API keys: LLM provider auth resolved by provider type — `OPENAI_API_KEY` (openai), `ANTHROPIC_API_KEY` (anthropic), `OPENCODE_API_KEY` (opencode), `GMD_LLM_API_KEY` (custom). Use `auth: "none"` for local servers with no key. `GMD_TYPESENSE_API_KEY` for Typesense (read from environment)
 
 ## Quick Start
 
@@ -53,12 +53,18 @@ package gmd
 Config: {
   project:  "myapp"
   llm: {
-    embedding_base_url:  "http://localhost:8001/v1"
-    expansion_base_url:  "http://localhost:8002/v1"
-    rerank_base_url:     "http://localhost:8003/v1"
-    embedding_model:     "google/embeddinggemma-300m"
-    expansion_model:     "Qwen/Qwen3-1.7B"
-    rerank_model:        "Qwen/Qwen3-Reranker-0.6B"
+    providers: {
+      embedder: { provider: "openai", base_url: "http://localhost:8001/v1", auth: "apikey", features: { embed: true, chat: false, rerank: false } }
+      small:    { provider: "openai", base_url: "http://localhost:8002/v1", auth: "apikey", features: { embed: false, chat: true, rerank: false } }
+      local:    { provider: "openai", base_url: "http://localhost:8003/v1", auth: "none",    features: { embed: false, chat: false, rerank: true } }
+    }
+    profiles: {
+      default: {
+        embedding:   { provider: "embedder", model: "google/embeddinggemma-300m" }
+        expansion:   { provider: "small",    model: "Qwen/Qwen3-1.7B" }
+        rerank:      { provider: "local",    model: "Qwen/Qwen3-Reranker-0.6B" }
+      }
+    }
   }
   typesense: {
     host:    "http://localhost:8108"
@@ -136,6 +142,16 @@ Search flags:
 | `gmd context add <collection> "text"` | Add a context document to a collection |
 | `gmd context list` | List all context documents |
 | `gmd context rm <collection>` | Remove context documents for a collection |
+
+### LLM Providers & Profiles
+
+| Command | Description |
+|---|---|
+| `gmd llm status` | Health check all LLM providers and roles |
+| `gmd llm providers` | List configured LLM providers |
+| `gmd llm profiles` | List configured LLM profiles |
+| `gmd llm show <name>` | Show role→provider mappings for a profile |
+| `gmd llm test <provider>` | Quick chat test against a provider |
 
 ### Servers & Diagnostics
 

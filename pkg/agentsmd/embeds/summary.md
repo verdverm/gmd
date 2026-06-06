@@ -17,12 +17,13 @@ gmd agentsmd [name]          # Output AGENTS.md content for AI assistants (oneli
 gmd wiki init [--name]        # Create a Karpathy-style LLM Wiki
 gmd wiki ingest <src>         # LLM agent reads source, creates/updates wiki pages
 gmd wiki query "<q>"          # RAG search → LLM synthesis with [[page]] citations
+gmd llm status                # Health check all LLM providers and roles
 ```
 
 ## Setup
 
 1. **Typesense must be running** (default: `http://localhost:8108`). Set `GMD_TYPESENSE_API_KEY` if auth is enabled.
-2. **Three LLM endpoints are needed** (embedding, expansion, rerank). Set `OPENAI_API_KEY` env var (or per-role overrides: `GMD_EMBEDDING_API_KEY`, `GMD_EXPANSION_API_KEY`, `GMD_RERANK_API_KEY`, `GMD_SUMMARIZING_API_KEY`, `GMD_GENERAL_BIG_API_KEY`, `GMD_GENERAL_MID_API_KEY`, `GMD_GENERAL_SMALL_API_KEY`). Any OpenAI-compatible API works (vLLM, Ollama, etc.).
+2. **Configure LLM providers and profiles** in CUE (see `gmd init` scaffold). Named providers with provider type (openai, anthropic, vertex, opencode, custom), base_url, and auth method (none, apikey, service-account). Profiles map roles (embedding, expansion, rerank, summarizing, general_big/mid/small) to provider+model pairs. API keys are resolved from env vars by provider type: `OPENAI_API_KEY` (openai), `ANTHROPIC_API_KEY` (anthropic), `OPENCODE_API_KEY` (opencode), `GMD_LLM_API_KEY` (custom). Use `gmd llm status` to test connectivity.
 3. **Run `gmd init`** in your project root to create `.gmd/config.cue`. Edit it to set your LLM endpoints and configure which files to index.
 4. **Run `gmd update`** to scan, chunk, embed, and index all configured collections.
 

@@ -190,9 +190,10 @@ synthesizes a final answer. Use `--save` to persist results to a wiki.
 
 - **Docker** - helpful for running Typesense and SearXNG locally and the easiest way to get started
 - **Typesense** - must be running (Docker, Kubernetes, or cloud)
-- **OpenAI-compatible LLM API** - vLLM, Ollama, or any provider via `base_url`. Seven model roles
-  (embedding, expansion, rerank, summarizing, general-big/mid/small). See
-  [`models/`](models/) for vLLM serve scripts.
+- **OpenAI-compatible LLM API** - vLLM, Ollama, or any provider via `base_url`. Named providers
+  are mapped to roles through profiles (embedding, expansion, rerank, summarizing,
+  general-big/mid/small). Supports openai, anthropic, vertex, opencode, and custom providers.
+  See [`models/`](models/) for vLLM serve scripts.
 - **Web provider credentials** - EXA (`EXA_API_KEY`), Tavily (`TAVILY_API_KEY`),
   Cloudflare (`CLOUDFLARE_API_KEY` + `CLOUDFLARE_ACCOUNT_ID`), or
   SearXNG (`SEARXNG_BASE_URL`, self-hosted or public instance).
@@ -300,24 +301,54 @@ Config: {
     host: "http://localhost:8108"
   }
 
-  // LLM models for embeddings, query expansion, reranking, and summarization
+  // LLM providers (named endpoints) and profiles (role→provider+model mappings)
   llm: {
-    embedding_model:      "google/embeddinggemma-300m"
-    embedding_base_url:   "http://localhost:8001/v1"
-    expansion_model:      "Qwen/Qwen3-1.7B"
-    expansion_base_url:   "http://localhost:8002/v1"
-    rerank_model:         "Qwen/Qwen3-Reranker-0.6B"
-    rerank_base_url:      "http://localhost:8003/v1"
-    summarizing_model:    "Qwen/Qwen3.6-27B-FP8"
-    summarizing_base_url: "http://localhost:8000/v1"
+    providers: {
+      embedder: {
+        provider: "openai"
+        base_url: "http://localhost:8001/v1"
+        auth:     "apikey"
+        features: { embed: true, chat: false, rerank: false }
+      }
+      small: {
+        provider: "openai"
+        base_url: "http://localhost:8002/v1"
+        auth:     "apikey"
+        features: { embed: false, chat: true, rerank: false }
+      }
+      reranker: {
+        provider: "openai"
+        base_url: "http://localhost:8003/v1"
+        auth:     "apikey"
+        features: { embed: false, chat: false, rerank: true }
+      }
+      default: {
+        provider: "openai"
+        base_url: "http://localhost:8000/v1"
+        auth:     "apikey"
+        features: { embed: false, chat: true, rerank: false }
+      }
+    }
+    profiles: {
+      default: {
+        embedding:    { provider: "embedder", model: "google/embeddinggemma-300m" }
+        expansion:    { provider: "small",    model: "Qwen/Qwen3-1.7B" }
+        rerank:       { provider: "reranker", model: "Qwen/Qwen3-Reranker-0.6B" }
+        summarizing:  { provider: "default" }
+        general_big:  { provider: "default" }
+        general_mid:  { provider: "default" }
+        general_small:{ provider: "default" }
+      }
+    }
   }
 }
 ```
 
-**API keys.** Set `OPENAI_API_KEY` (default for all LLM roles) and
-`GMD_TYPESENSE_API_KEY` for Typesense. Per-role overrides exist if needed
-(`GMD_EMBEDDING_API_KEY`, `GMD_EXPANSION_API_KEY`, etc.) - see
-[docs/configuration.md](docs/configuration.md) for the full reference.
+**API keys.** LLM provider auth is resolved by provider type: `OPENAI_API_KEY` (openai),
+`ANTHROPIC_API_KEY` (anthropic), `OPENCODE_API_KEY` (opencode), or `GMD_LLM_API_KEY`
+(custom providers). Set `GMD_TYPESENSE_API_KEY` for Typesense. Providers can use `auth: "none"`
+for local servers with no key. See [docs/configuration.md](docs/configuration.md) for the
+full reference.
 For `gmd web` commands, set `EXA_API_KEY`, `TAVILY_API_KEY`, `CLOUDFLARE_API_KEY`,
 `CLOUDFLARE_ACCOUNT_ID`, and/or `SEARXNG_BASE_URL` depending on which providers you use
 (see [docs/web-providers.md](docs/web-providers.md)).
@@ -357,6 +388,11 @@ Project and global configs merge automatically, with project values taking prece
 | `gmd doctor` | Run diagnostics |
 | `gmd env` | Print resolved config with secrets masked |
 | `gmd cleanup` | Remove stale chunks for deleted files |
+| `gmd llm status` | Health check all LLM providers and roles |
+| `gmd llm providers` | List configured LLM providers |
+| `gmd llm profiles` | List configured LLM profiles |
+| `gmd llm show <name>` | Show role→provider mappings for a profile |
+| `gmd llm test <provider>` | Quick chat test against a provider |
 | `gmd context add <collection> "text"` | Set context for a collection |
 | `gmd context list` | List all collection contexts |
 | `gmd context rm <collection>` | Remove context from a collection |

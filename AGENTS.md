@@ -117,6 +117,11 @@ gmd web research <query> [--depth]       # Tier 3: Deep structured research (stu
 gmd serve [--port] [--host]              # REST API server (stub, Phase 5)
 gmd mcp [--http]                       # MCP server (stub, Phase 6)
 gmd agentsmd [oneline|summary|detailed|full]  # Output AGENTS.md content for users
+gmd llm status                          # Health check all LLM providers and roles
+gmd llm providers                       # List configured LLM providers
+gmd llm profiles                        # List configured LLM profiles
+gmd llm show <name>                     # Show role->provider mappings for a profile
+gmd llm test <provider>                 # Quick chat test against a provider
 gmd wiki create <name> [--path] [--wiki-dir] [--raw-dir] [--skills]
 gmd wiki list                          # List all wikis
 gmd wiki show <name>                   # Wiki config details + chunk count
@@ -149,6 +154,8 @@ pkg/indexer/      File scanning + SHA-256 dedup + chunk → embed → upsert pip
 pkg/search/       Search pipeline: signal detection, expansion, RRF fusion, rerank, blend
 pkg/ts/           Typesense client wrapper (chunks collection, hybrid/text search, CRUD)
 pkg/llm/          OpenAI-compatible API client (embeddings, chat, rerank)
+pkg/llm/auth/     Auth methods: none, apikey, service-account (GCP)
+pkg/llm/builder.go Client builder for multi-provider structured config
 pkg/output/       Result formatting (CLI, JSON)
 pkg/runtime/      Runtime struct — owns Typesense client lifecycle
 pkg/agentsmd/     Embedded AGENTS.md content (oneline/summary/detailed/full)
@@ -172,6 +179,9 @@ api/              Reserved for REST API (empty)
 - **No CGO.** `CGO_ENABLED=0` enforced. No tree-sitter, no sqlite.
 - **CUE config only.** No YAML. Global + project-local CUE files unified at load time.
 - **OpenAI-compatible, not OpenAI-specific.** Any provider via `base_url`. API keys via env vars.
+- **LLM providers and profiles.** Providers are named endpoints with auth config (none, apikey,
+  service-account). Profiles map roles (embedding, expansion, etc.) to provider+model pairs.
+  Active profile selected via `llm.profile`.
 - **Chunks as Typesense documents.** `group_by=collection,path` collapses to document level.
 - **Wikis are first-class entities** parallel to collections, with a shared `#Source` indexing
   model and `SourceConfig` Go struct. Both use the same Typesense `chunks` collection.

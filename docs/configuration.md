@@ -77,12 +77,34 @@ package gmd
 Config: {
   project:  "my-project"         # prefix for collection keys (auto-detected by gmd init)
   llm: {
-    embedding_base_url:  "http://localhost:8001/v1"
-    expansion_base_url:  "http://localhost:8002/v1"
-    rerank_base_url:     "http://localhost:8003/v1"
-    embedding_model:     "google/embeddinggemma-300m"
-    expansion_model:     "Qwen/Qwen3-1.7B"
-    rerank_model:        "Qwen/Qwen3-Reranker-0.6B"
+    providers: {
+      embedder: {
+        provider: "openai"
+        base_url: "http://localhost:8001/v1"
+        auth:     "apikey"
+        features: { embed: true, chat: false, rerank: false }
+      }
+      small: {
+        provider: "openai"
+        base_url: "http://localhost:8002/v1"
+        auth:     "apikey"
+        features: { embed: false, chat: true, rerank: false }
+      }
+      local: {
+        provider: "openai"
+        base_url: "http://localhost:8003/v1"
+        auth:     "none"          # local server, no API key
+        features: { embed: false, chat: false, rerank: true }
+      }
+    }
+    profiles: {
+      default: {
+        embedding:   { provider: "embedder", model: "google/embeddinggemma-300m" }
+        expansion:   { provider: "small",    model: "Qwen/Qwen3-1.7B" }
+        rerank:      { provider: "local",    model: "Qwen/Qwen3-Reranker-0.6B" }
+        summarizing: { provider: "small" }
+      }
+    }
   }
   typesense: {
     host:    "http://localhost:8108"
@@ -96,19 +118,15 @@ Config: {
 }
 ```
 
-API keys are read from environment variables. Each model role can have its own
-key; if unset, it falls back to the shared `OPENAI_API_KEY`:
-- `OPENAI_API_KEY` — shared API key for all LLM endpoints
-- `GMD_EMBEDDING_API_KEY` — override for embedding endpoint
-- `GMD_EXPANSION_API_KEY` — override for expansion endpoint
-- `GMD_RERANK_API_KEY` — override for rerank endpoint
-- `GMD_SUMMARIZING_API_KEY` — override for summarizing endpoint
-- `GMD_GENERAL_BIG_API_KEY` — override for general-big endpoint
-- `GMD_GENERAL_MID_API_KEY` — override for general-mid endpoint
-- `GMD_GENERAL_SMALL_API_KEY` — override for general-small endpoint
-- `GMD_TYPESENSE_API_KEY` — API key for typesense
+API keys are resolved per provider based on the `provider` type field:
+- `openai` — reads `OPENAI_API_KEY`
+- `anthropic` — reads `ANTHROPIC_API_KEY`
+- `opencode` — reads `OPENCODE_API_KEY`
+- `vertex` — uses GCP service-account (needs `project_id` + `location`, optional `credentials_file`)
+- `custom` (or any other string) — reads `GMD_LLM_API_KEY`
+- `none` auth — no API key required (local servers like vLLM)
 
-If `OPENAI_API_KEY` is not set, gmd will fail.
+Use `gmd env` to verify resolved config and `gmd llm status` to test connectivity.
 
 ## Project key
 
@@ -189,12 +207,13 @@ All parameters have sensible defaults — you only need to set what you want to 
 
 | Parameter | Default | Description |
 |---|---|---|
-| `llm.embedding_base_url` | — | Endpoint for embedding model (required) |
-| `llm.expansion_base_url` | — | Endpoint for expansion model (required) |
-| `llm.rerank_base_url` | — | Endpoint for rerank model (required) |
-| `llm.embedding_model` | `google/embeddinggemma-300m` | Model for embeddings |
-| `llm.expansion_model` | `Qwen/Qwen3-1.7B` | Model for query expansion |
-| `llm.rerank_model` | `Qwen/Qwen3-Reranker-0.6B` | Model for reranking |
+| `llm.providers.<name>.provider` | — | Provider type: openai, anthropic, vertex, opencode, or custom |
+| `llm.providers.<name>.base_url` | — | Endpoint URL for the provider |
+| `llm.providers.<name>.auth` | `apikey` | Auth method: none, apikey, service-account |
+| `llm.providers.<name>.features` | — | Feature flags: { embed, chat, rerank } |
+| `llm.profile` | `default` | Active profile name |
+| `llm.profiles.<name>.<role>.provider` | — | Which provider handles this role |
+| `llm.profiles.<name>.<role>.model` | — | Model name for this role |
 | `typesense.host` | — | Typesense server URL |
 | `pipeline.chunk.targetTokens` | 900 | Target tokens per chunk |
 | `pipeline.chunk.overlap` | 0.15 | Fraction overlap between chunks |

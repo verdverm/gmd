@@ -15,7 +15,14 @@ make cover.integration                  # All test coverage
 make cover.detailed                     # Unit test coverage (profile + HTML + func)
 make cover.detailed.integration         # All test coverage (profile + HTML + func)
 make lint                               # go vet ./...
+make gofmt                              # gofmt -s formatting check (Go Report Card style)
+make lint-all                           # golangci-lint (comprehensive: errcheck, gosec, gocyclo, revive, staticcheck, ...)
+make vulncheck                          # govulncheck (OSV vulnerability scanner)
+make nilaway                            # nilaway (nil pointer analysis)
+make check                              # Full pre-commit: tidy → gofmt → license → lint → lint-all → vulncheck → test
 make tidy                               # go mod tidy
+make tools-install                      # Install/update pinned tools (golangci-lint, govulncheck, nilaway)
+make tools-update                       # Re-run tools-install
 ```
 
 ## CLI
@@ -130,12 +137,28 @@ Project root detected by walking up from CWD looking for `.gmd/` sentinel.
 | `github.com/spf13/cobra` | CLI framework |
 | `github.com/bmatcuk/doublestar/v4` | Glob pattern matching for file scanning |
 
+## Tooling
+
+| Tool | Purpose |
+|---|---|
+| `github.com/golangci/golangci-lint` | Meta-linter: errcheck, gosec, revive, staticcheck, etc. |
+| `golang.org/x/vuln/cmd/govulncheck` | OSV vulnerability scanner for Go stdlib + deps |
+| `go.uber.org/nilaway/cmd/nilaway` | Nil pointer analysis |
+
+### golangci-lint enabled linters
+
+Includes all Go Report Card checks (gofmt excluded, handled natively):
+`bodyclose`, `copyloopvar`, `durationcheck`, `errcheck`, `gocyclo`,
+`gosec`, `ineffassign`, `misspell`, `noctx`, `prealloc`, `revive`,
+`staticcheck`, `unconvert`, `unparam`, `usetesting`, `wastedassign`
+
 ## Rules
 
 - Never run `gmd update`, `gmd embed`, `gmd collection create`, or `gmd wiki create` automatically.
   Write the command for the user to run.
 - Never modify CUE config files or the Typesense index directly without being asked.
-- Always run `make lint` after code changes.
+- Always run `make lint` after code changes. Run `make lint-all` for comprehensive linting
+  before committing.
 - Integration tests can take ~2-3min depending on external service availability (the wiki package
   starts a Typesense Docker container). Use `make test.integration` but note that the tool timeout
   must be set high enough (e.g. 10min = 600000ms). Do NOT use Go's `-timeout` flag — set the

@@ -1,0 +1,87 @@
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  enable:
+    - bodyclose
+    - copyloopvar
+    - durationcheck
+    - errcheck
+    - gocyclo
+    - gosec
+    - ineffassign
+    - misspell
+    - noctx
+    - prealloc
+    - revive
+    - staticcheck
+    - unconvert
+    - unparam
+    - usetesting
+    - wastedassign
+  disable:
+    - containedctx
+    - contextcheck
+    - cyclop
+    - err113
+    - forcetypeassert
+    - funlen
+    - gci
+    - gochecknoinits
+    - goconst
+    - gocognit
+    - godot
+    - godox
+    - gofumpt
+    - lll
+    - nakedret
+    - nestif
+    - nlreturn
+    - paralleltest
+    - testpackage
+    - thelper
+    - varnamelen
+    - wrapcheck
+    - wsl
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+  gocyclo:
+    min-complexity: 15
+  gosec:
+    excludes:
+      - G115
+  staticcheck:
+    checks:
+      - all
+      - -SA1019
+  revive:
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: var-declaration
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+
+issues:
+  exclude-generated: strict
+  exclude-dirs:
+    - third_party
+    - vendor
+    - qmd

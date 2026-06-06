@@ -1,8 +1,11 @@
-# gmd — markdown search engine
+# gmd - a markdown knowledge base
 
-**gmd** indexes local markdown files and lets you search them with full-text, vector, or hybrid
-search. Built in Go, backed by [Typesense](https://typesense.org), powered by any
-OpenAI-compatible LLM.
+**gmd** indexes collections of local markdown files and lets you search them with
+full-text, vector, or hybrid search - backed by [Typesense](https://typesense.org)
+and any OpenAI-compatible LLM. Build compounding LLM wikis that ingest source
+documents, extract knowledge, and link pages via `[[wikilinks]]`. Run web searches,
+fetch clean content from URLs, or crawl sites through a multi-provider architecture
+(EXA, Tavily, SearXNG, Cloudflare) with an LLM-orchestrated research agent.
 
 ```
 gmd init                        # scaffold .gmd/config.cue
@@ -15,24 +18,24 @@ gmd agentsmd summary            # get AGENTS.md for AI assistants
 
 ## Features
 
-- **Full hybrid search pipeline** — `gmd search` (text), `gmd vsearch` (vector), and
+- **Full hybrid search pipeline** - `gmd search` (text), `gmd vsearch` (vector), and
   `gmd query` (expansion + hybrid + RRF fusion + LLM reranking + position blending)
-- **Global + project collections** — define collections globally (OS config dir) or per-project
+- **Global + project collections** - define collections globally (OS config dir) or per-project
   (`.gmd/config.cue`); merge is automatic, project values take precedence
-- **Multi-collection projects** — index separate doc sets (e.g. user guide, dev API) as distinct
+- **Multi-collection projects** - index separate doc sets (e.g. user guide, dev API) as distinct
   collections within the same project, search across all or target one
-- **Web search, fetch, crawl, research** — `gmd web` subcommands with multi-provider support (EXA, Cloudflare, Tavily, SearXNG)
-- **LLM Wiki** — compounding Karpathy-style knowledge base with built-in agent for ingest,
+- **Web search, fetch, crawl, research** - `gmd web` subcommands with multi-provider support (EXA, Cloudflare, Tavily, SearXNG)
+- **LLM Wiki** - compounding Karpathy-style knowledge base with built-in agent for ingest,
     search-powered query, graph, and lint
-- **MCP + REST API** — wiki-aware MCP tools for AI agents (`gmd mcp`); HTTP endpoints for search,
-  status, and indexing (`gmd serve`) — see [docs/rest-api.md](docs/rest-api.md)
-- **agentsmd** — output AGENTS.md instructions for AI assistants working with gmd
+- **MCP + REST API** - wiki-aware MCP tools for AI agents (`gmd mcp`); HTTP endpoints for search,
+  status, and indexing (`gmd serve`) - see [docs/rest-api.md](docs/rest-api.md)
+- **agentsmd** - output AGENTS.md instructions for AI assistants working with gmd
 
 ## How it works
 
 **Search** (`gmd query`) expands your query via LLM, searches Typesense with text and vector
 similarity, fuses results with RRF, optionally reranks with an LLM, and blends by chunk position.
-You get the most relevant chunks ranked intelligently — no manual query tuning needed.
+You get the most relevant chunks ranked intelligently - no manual query tuning needed.
 See [docs/search-pipeline.md](docs/search-pipeline.md) for the full pipeline diagram.
 
 **Wiki** (`gmd wiki`) maintains a compounding knowledge base of interlinked markdown pages. The
@@ -140,15 +143,15 @@ See wiki skill templates with `gmd wiki skills list` and `WIKI_SCHEMA.md` for co
 
 ## Requirements
 
-- **Typesense** — must be running (Docker, Kubernetes, or cloud)
-- **OpenAI-compatible LLM API** — vLLM, Ollama, or any provider via `base_url`. Seven model roles
+- **Typesense** - must be running (Docker, Kubernetes, or cloud)
+- **OpenAI-compatible LLM API** - vLLM, Ollama, or any provider via `base_url`. Seven model roles
   (embedding, expansion, rerank, summarizing, general-big/mid/small). See
   [`models/`](models/) for vLLM serve scripts.
-- **Web provider credentials** — EXA (`EXA_API_KEY`), Tavily (`TAVILY_API_KEY`),
+- **Web provider credentials** - EXA (`EXA_API_KEY`), Tavily (`TAVILY_API_KEY`),
   Cloudflare (`CLOUDFLARE_API_KEY` + `CLOUDFLARE_ACCOUNT_ID`), or
   SearXNG (`SEARXNG_BASE_URL`, self-hosted or public instance).
   Only needed for the providers you configure.
-- **Go 1.25+** — to build from source
+- **Go 1.25+** - to build from source
 
 ## Quick start
 
@@ -169,7 +172,7 @@ make build
 
 ### 2. Start Typesense
 
-**Option A — local (Docker):**
+**Option A - local (Docker):**
 
 ```bash
 docker run -p 8108:8108 \
@@ -178,9 +181,9 @@ docker run -p 8108:8108 \
   typesense/typesense:30.2
 ```
 
-**Option B — Kubernetes:** apply the manifest in `k8s/typesense.yaml`.
+**Option B - Kubernetes:** apply the manifest in `k8s/typesense.yaml`.
 
-**Option C — Typesense Cloud:** sign up at [cloud.typesense.org](https://cloud.typesense.org).
+**Option C - Typesense Cloud:** sign up at [cloud.typesense.org](https://cloud.typesense.org).
 
 ### 3. Configure
 
@@ -208,17 +211,17 @@ Config: {
     }
   }
 
-  // LLM wikis — compounding knowledge bases with agent-driven content
+  // LLM wikis - compounding knowledge bases with agent-driven content
   wikis: {
     research: {
       path:    "wiki/research"
       pattern: "**/*.md"
-      context: "Compounding research wiki — agent-generated notes with citations"
+      context: "Compounding research wiki - agent-generated notes with citations"
       sourceRefs: ["devdocs"]
     }
   }
 
-  // Web search & content retrieval — multi-provider with configurable groups
+  // Web search & content retrieval - multi-provider with configurable groups
   web: {
     group: "default"
     groups: {
@@ -227,7 +230,7 @@ Config: {
       custom:   { search: "tavily",  browser: "cloudflare" }
       offline:  { search: "searxng", browser: "local" }
     }
-    // API keys (exa, tavily, cloudflare) are env-var-only — never in CUE
+    // API keys (exa, tavily, cloudflare) are env-var-only - never in CUE
     // Non-secret settings can go here:
     //   searxng: { base_url: "https://searx.example.com" }
     //   local:   { no_browser: false, cache_enabled: true }
@@ -254,7 +257,7 @@ Config: {
 
 **API keys.** Set `OPENAI_API_KEY` (default for all LLM roles) and
 `GMD_TYPESENSE_API_KEY` for Typesense. Per-role overrides exist if needed
-(`GMD_EMBEDDING_API_KEY`, `GMD_EXPANSION_API_KEY`, etc.) — see
+(`GMD_EMBEDDING_API_KEY`, `GMD_EXPANSION_API_KEY`, etc.) - see
 [docs/configuration.md](docs/configuration.md) for the full reference.
 For `gmd web` commands, set `EXA_API_KEY`, `TAVILY_API_KEY`, `CLOUDFLARE_API_KEY`,
 `CLOUDFLARE_ACCOUNT_ID`, and/or `SEARXNG_BASE_URL` depending on which providers you use
@@ -268,7 +271,7 @@ flags for inline overrides (highest precedence). Project `.gmd/secret.env` is gi
 and file format.
 
 **Global config.** Put shared LLM and Typesense settings in the global config file
-(`<UserConfigDir>/gmd/config.cue` — `~/.config/gmd/config.cue` on Linux, `~/Library/Application Support/gmd/config.cue` on macOS).
+(`<UserConfigDir>/gmd/config.cue` - `~/.config/gmd/config.cue` on Linux, `~/Library/Application Support/gmd/config.cue` on macOS).
 Project and global configs merge automatically, with project values taking precedence.
 
 ## Commands

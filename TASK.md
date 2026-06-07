@@ -7,7 +7,7 @@ Answers to follow up questions:
 3. from PATH
 4. yes, so we shouldn't need the --launch-agent (that is default w/o flags), we should have have an --async flag and just not attach
 5. exactly
-6. ?
+6. yes, good idea
 7. sure
 8. no, let's refactor now, the harness list should be consistent throughout and use config-driven only
 9. it should fail, we should have session command with management subcommands

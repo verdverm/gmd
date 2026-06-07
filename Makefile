@@ -1,6 +1,6 @@
 .PHONY: all build build-all clean generate lint tidy gofmt vulncheck nilaway lint-all check \
 	test test.integration cover cover.integration cover.detailed cover.detailed.integration \
-	tools-install tools-update
+	tools-install tools-update cloc
 
 GO ?= go
 CGO_ENABLED ?= 0
@@ -70,6 +70,9 @@ cover.detailed.integration:
 
 clean:
 	rm -rf $(BINDIR) coverage.out coverage.html
+
+cloc:
+	cloc . --exclude-dir=node_modules
 
 clean-ts:
 	-docker rm -f gmd-ts-integration

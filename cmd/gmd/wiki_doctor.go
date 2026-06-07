@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/verdverm/gmd/pkg/agent"
 	"github.com/verdverm/gmd/pkg/wiki"
 )
 
@@ -15,6 +16,7 @@ var wikiDoctorCmd = &cobra.Command{
 and agent compatibility. Reports issues and suggests fixes.
 
 Use --fix to automatically apply safe fixes (fixable issues only).
+After fixes, automatically launches the agent harness (use --async to skip).
 
 Example:
   gmd wiki doctor mywiki --fix`,
@@ -53,8 +55,10 @@ Example:
 		fmt.Print(wiki.FormatDoctorResult(result))
 
 		doFix, _ := cmd.Flags().GetBool("fix")
+		asyncFlag, _ := cmd.Flags().GetBool("async")
+
 		if doFix {
-			fixes, err := wiki.DoctorFix(w)
+			fixes, err := wiki.DoctorFix(w, cfg)
 			if err != nil {
 				return err
 			}
@@ -62,6 +66,27 @@ Example:
 				fmt.Printf("\n  Fixes applied:\n")
 				for _, f := range fixes {
 					fmt.Println(f)
+				}
+			}
+
+			if len(fixes) > 0 {
+				profileName := "wiki"
+				if _, _, err := agent.ResolveAgentConfig(cfg, profileName); err != nil {
+					profileName = ""
+				}
+
+				opts := agent.LaunchOptions{
+					Name:    name,
+					Message: fmt.Sprintf("Work on the wiki '%s'. Run /help for tools.", name),
+					Async:   asyncFlag,
+				}
+				err := agent.Launch(ctx, cfg, profileName, opts)
+				if err != nil {
+					if err == agent.ErrNoAgentConfig {
+						fmt.Printf("\nHint: add an 'agent:' section to gmd config to auto-launch after doctor fixes.\n")
+					} else {
+						return err
+					}
 				}
 			}
 		}
@@ -72,5 +97,6 @@ Example:
 
 func init() {
 	wikiDoctorCmd.Flags().Bool("fix", false, "Apply safe fixes automatically")
+	wikiDoctorCmd.Flags().Bool("async", false, "Launch agent in background after fixes (don't block)")
 	wikiCmd.AddCommand(wikiDoctorCmd)
 }

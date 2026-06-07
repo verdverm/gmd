@@ -20,6 +20,7 @@ gmd search "error X"            # fast text-only search
 gmd status                      # see what's indexed
 
 gmd web search "topic"          # multi-provider web search
+gmd agent mytask --profile wiki # launch agent harness
 gmd wiki create <name> --from docs
 gmd wiki ingest                 # ingest source into wiki
 gmd wiki lint                   # health checks
@@ -39,6 +40,8 @@ gmd wiki lint                   # health checks
 - **MCP + REST API** - wiki-aware MCP tools for AI agents (`gmd mcp`); HTTP endpoints for search,
   status, and indexing (`gmd serve`) - see [docs/rest-api.md](docs/rest-api.md)
 - **agentsmd** - output AGENTS.md instructions for AI assistants working with gmd
+- **Agent harness launcher** - launch external AI agent harnesses (OpenCode, Claude Code, Codex, or
+  generic) with tmux sessions and git worktree isolation. Profiles define launch presets.
 
 ## How it works
 
@@ -57,6 +60,11 @@ multi-step LLM-orchestrated research agent that searches, reads, and synthesizes
 rounds. Backed by a multi-provider architecture (EXA, Cloudflare, Tavily, SearXNG) with configurable
 provider groups. `gmd web search` fans out queries to all configured search providers in parallel,
 merges and deduplicates results, and optionally synthesizes a unified cited answer via LLM.
+
+**Agent** (`gmd agent`) launches external AI agent harnesses (OpenCode, Claude Code, Codex, or
+custom) with optional tmux sessions and git worktree workspaces. Profiles define harness-specific
+flags, messages, and launch behavior. Sessions are tracked via tmux + git worktrees for review,
+merge, and teardown. `gmd wiki doctor --fix` auto-launches the agent after writing skills.
 
 **Deploy** (`gmd serve` / `gmd mcp`) exposes gmd over HTTP and/or MCP so AI coding assistants and
 other tools can search your docs, query wikis, and browse indexed content.
@@ -186,6 +194,68 @@ gmd web agent "latest Go 1.24 developments" --steps 5 --text
 The agent mode chains multiple searches: the LLM analyzes results, decides what to search next, and
 synthesizes a final answer. Use `--save` to persist results to a wiki.
 
+## Agent Harness
+
+gmd can launch external AI agent harnesses (OpenCode, Claude Code, Codex, or generic) with optional
+tmux session management and git worktree isolation. Configure harnesses and profiles in CUE config.
+
+```cue
+agent: {
+  defaultHarness: "opencode"
+  harnesses: {
+    opencode: {
+      bin: "opencode"
+      flagStyle: "double-dash"
+    }
+    claude: {
+      bin: "claude"
+      flagStyle: "double-dash"
+    }
+    codex: {
+      bin: "codex"
+      flagStyle: "double-dash"
+    }
+  }
+  profiles: {
+    wiki: {
+      harness:   "opencode"
+      configFile: "opencode.json"
+      workspace: true
+      message:   "Work on the gmd wiki. Run /help for tools."
+    }
+    dev: {
+      harness:   "opencode"
+      tmux:      true
+      workspace: true
+      async:     false
+    }
+  }
+}
+```
+
+```bash
+# Launch with default harness
+gmd agent mytask "fix the bug"
+
+# Launch with a specific profile
+gmd agent mytask --profile wiki
+
+# Launch in tmux + git worktree
+gmd agent mytask --tmux --workspace "implement feature X"
+
+# List configured harnesses and profiles
+gmd agent list
+gmd agent profile show wiki
+
+# Manage sessions and workspaces
+gmd agent session list
+gmd agent session kill mytask
+gmd agent session merge mytask         # merge worktree back
+
+# Dry-run to see what would execute
+gmd agent mytask --dry-run
+```
+
 ## Requirements
 
 - **Docker** - helpful for running Typesense and SearXNG locally and the easiest way to get started
@@ -296,6 +366,20 @@ Config: {
     //   local:   { no_browser: false, cache_enabled: true }
   }
 
+  // Agent harness launcher - launch external AI agent harnesses
+  agent: {
+    defaultHarness: "opencode"
+    harnesses: {
+      opencode: { bin: "opencode", flagStyle: "double-dash" }
+      claude:   { bin: "claude",   flagStyle: "double-dash" }
+      codex:    { bin: "codex",    flagStyle: "double-dash" }
+    }
+    profiles: {
+      wiki: { harness: "opencode", configFile: "opencode.json", workspace: true, message: "Work on the gmd wiki. Run /help for tools." }
+      dev:  { harness: "opencode", tmux: true, workspace: true }
+    }
+  }
+
   // Typesense search backend connection
   typesense: {
     host: "http://localhost:8108"
@@ -402,6 +486,13 @@ Project and global configs merge automatically, with project values taking prece
 | `gmd web fetch <url>` | Fetch clean content from URLs via configured browser provider |
 | `gmd web crawl <url>` | Crawl a site from seed URL via configured browser provider |
 | `gmd web agent <query>` | Multi-step LLM-orchestrated web research agent |
+| `gmd agent [task] [message]` | Launch external AI agent harness with optional tmux + workspace |
+| `gmd agent list` | List configured agent harnesses and profiles |
+| `gmd agent profile list` | List configured agent profiles |
+| `gmd agent profile show <name>` | Show resolved configuration for a profile |
+| `gmd agent session list` | List active tmux sessions and workspaces |
+| `gmd agent session kill <name>` | Kill tmux session and remove its workspace |
+| `gmd agent session merge <name>` | Merge a workspace into the current branch |
 | `gmd wiki init` | Scaffold wiki directory + CUE config |
 | `gmd wiki ingest <src>` | Ingest a source into the wiki using built-in LLM agent |
 | `gmd wiki query "..."` | Query the wiki with search + LLM synthesis |

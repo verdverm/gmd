@@ -18,6 +18,8 @@ gmd wiki init [--name]        # Create a Karpathy-style LLM Wiki
 gmd wiki ingest <src>         # LLM agent reads source, creates/updates wiki pages
 gmd wiki query "<q>"          # RAG search → LLM synthesis with [[page]] citations
 gmd llm status                # Health check all LLM providers and roles
+gmd agent list                # List configured agent harnesses and profiles
+gmd agent mytask --profile wiki  # Launch external AI agent harness
 ```
 
 ## Setup
@@ -78,3 +80,21 @@ GMD includes a built-in agent for Karpathy-style compounding knowledge bases:
 - `gmd wiki skills write --target all` — install skill templates for AI agents (Claude Code, Codex, OpenCode)
 - `gmd wiki lint` — check for orphan pages, broken wikilinks, contradictions, knowledge gaps
 - `gmd wiki doctor --fix` — diagnostics + auto-configure MCP servers for detected agents
+
+## Agent Harness
+
+GMD can launch external AI agent harnesses (OpenCode, Claude Code, Codex, or generic) with optional
+tmux session management and git worktree isolation. Configure harnesses and profiles in the `agent`
+section of your CUE config. `gmd agent` resolves profiles, builds the harness command, and can
+launch in tmux with `--tmux` or in an isolated git worktree with `--workspace`.
+
+```sh
+gmd agent mytask "fix the bug"        # Launch with default harness
+gmd agent mytask --profile wiki       # Launch with a specific profile
+gmd agent mytask --tmux --workspace   # Launch in tmux + isolated worktree
+gmd agent list                        # List configured harnesses + profiles
+gmd agent profile show wiki           # Show resolved config for a profile
+gmd agent session list                # List active sessions
+gmd agent session kill mytask         # Kill session + remove workspace
+gmd agent session merge mytask        # Merge workspace into current branch
+```

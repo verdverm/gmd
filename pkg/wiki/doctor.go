@@ -11,13 +11,14 @@ import (
 )
 
 type DoctorResult struct {
-	WikiName    string
-	PageCount   int
-	SourceCount int
-	TSConnected bool
-	LLMStatus   []llm.EndpointStatus
-	Agents      []AgentStatus
-	Errors      []string
+	WikiName     string
+	PageCount    int
+	SourceCount  int
+	TSConnected  bool
+	LLMStatus    []llm.EndpointStatus
+	Agents       []AgentStatus
+	Errors       []string
+	FixesApplied []string
 }
 
 type AgentStatus struct {
@@ -45,7 +46,7 @@ func Doctor(ctx context.Context, wiki *Wiki, cfg *config.Config, tsClient *ts.Cl
 		result.LLMStatus = llmClient.CheckAll(ctx)
 	}
 
-	agentNames := []string{"claude", "codex", "opencode"}
+	agentNames := cfg.AgentHarnessNames()
 	for _, name := range agentNames {
 		installed := CheckAgentInstalled(name)
 		skillInst := CheckSkillInstalled(name)
@@ -60,10 +61,10 @@ func Doctor(ctx context.Context, wiki *Wiki, cfg *config.Config, tsClient *ts.Cl
 	return result, nil
 }
 
-func DoctorFix(wiki *Wiki) ([]string, error) {
+func DoctorFix(wiki *Wiki, cfg *config.Config) ([]string, error) {
 	var fixes []string
 
-	for _, name := range []string{"claude", "codex", "opencode"} {
+	for _, name := range cfg.AgentHarnessNames() {
 		if !CheckSkillInstalled(name) && CheckAgentInstalled(name) {
 			written, err := WriteSkills(name)
 			if err != nil {

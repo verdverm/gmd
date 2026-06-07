@@ -25,6 +25,7 @@ type Config struct {
 	Typesense      TypesenseConfig             `json:"typesense"`
 	Web            WebConfig                   `json:"web,omitempty"`
 	Pipeline       PipelineConfig              `json:"pipeline"`
+	Agent          AgentConfig                 `json:"agent,omitempty"`
 	Collections    map[string]CollectionConfig `json:"collections"`
 	Wikis          map[string]WikiConfig       `json:"wikis"`
 	SearchDefaults map[string][]string         `json:"searchDefaults,omitempty"`
@@ -90,6 +91,36 @@ type WebSearchConfig struct {
 	Dedup           string `json:"dedup,omitempty"`
 	Synthesize      bool   `json:"synthesize"`
 	SynthesisPrompt string `json:"synthesis_prompt,omitempty"`
+}
+
+// AgentConfig defines configuration for launching external AI agent harnesses.
+type AgentConfig struct {
+	DefaultHarness string                         `json:"defaultHarness,omitempty"`
+	Harnesses      map[string]AgentHarnessConfig  `json:"harnesses,omitempty"`
+	Profiles       map[string]AgentHarnessProfile `json:"profiles,omitempty"`
+}
+
+// AgentHarnessConfig defines a named executable harness (e.g., opencode, claude).
+type AgentHarnessConfig struct {
+	Name      string            `json:"-"`
+	Bin       string            `json:"bin"`
+	FlagStyle string            `json:"flagStyle,omitempty"`
+	Env       map[string]string `json:"env,omitempty"`
+}
+
+// AgentHarnessProfile defines a named preset for launching a harness.
+type AgentHarnessProfile struct {
+	Name       string            `json:"-"`
+	Harness    string            `json:"harness,omitempty"`
+	Message    string            `json:"message,omitempty"`
+	Flags      map[string]string `json:"flags,omitempty"`
+	Args       []string          `json:"args,omitempty"`
+	Env        map[string]string `json:"env,omitempty"`
+	ConfigFile string            `json:"configFile,omitempty"`
+	Cwd        string            `json:"cwd,omitempty"`
+	Tmux       bool              `json:"tmux,omitempty"`
+	Workspace  bool              `json:"workspace,omitempty"`
+	Async      bool              `json:"async,omitempty"`
 }
 
 // ResolveProvider resolves the provider name for a given role using the active group
@@ -824,12 +855,43 @@ func mergeConfigs(dst, src *Config) {
 			dst.Web.Groups[k] = v
 		}
 	}
-	mergeStringField(&src.Web.Search.Dedup, &dst.Web.Search.Dedup)
-	if src.Web.Search.Synthesize {
-		dst.Web.Search.Synthesize = src.Web.Search.Synthesize
-	}
 	mergeStringField(&src.Web.Search.SynthesisPrompt, &dst.Web.Search.SynthesisPrompt)
 	mergeStringField(&src.Web.SearXNG.BaseURL, &dst.Web.SearXNG.BaseURL)
+
+	// Merge Agent config
+	mergeStringField(&src.Agent.DefaultHarness, &dst.Agent.DefaultHarness)
+	if src.Agent.Harnesses != nil {
+		if dst.Agent.Harnesses == nil {
+			dst.Agent.Harnesses = make(map[string]AgentHarnessConfig)
+		}
+		for k, v := range src.Agent.Harnesses {
+			hc := v
+			hc.Name = k
+			dst.Agent.Harnesses[k] = hc
+		}
+	}
+	if src.Agent.Profiles != nil {
+		if dst.Agent.Profiles == nil {
+			dst.Agent.Profiles = make(map[string]AgentHarnessProfile)
+		}
+		for k, v := range src.Agent.Profiles {
+			p := v
+			p.Name = k
+			dst.Agent.Profiles[k] = p
+		}
+	}
+}
+
+// AgentHarnessNames returns all configured harness names.
+func (c *Config) AgentHarnessNames() []string {
+	if c.Agent.Harnesses != nil {
+		var names []string
+		for k := range c.Agent.Harnesses {
+			names = append(names, k)
+		}
+		return names
+	}
+	return nil
 }
 
 func mergeStringField(src, dst *string) {

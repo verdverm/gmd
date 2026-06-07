@@ -223,6 +223,34 @@ WebConfig: {
 	search:    WebSearchConfig
 }
 
+// AgentHarnessConfig defines a named executable harness (e.g., opencode, claude).
+AgentHarnessConfig: {
+	bin:        string
+	flagStyle?: string | *"double-dash"
+	env?:       [string]: string
+}
+
+// AgentHarnessProfile defines a named preset for launching a harness.
+AgentHarnessProfile: {
+	harness?:    string
+	message?:    string
+	flags?:      [string]: string
+	args?:       [...string]
+	env?:        [string]: string
+	configFile?: string
+	cwd?:        string
+	tmux?:       bool | *false
+	workspace?:  bool | *false
+	async?:      bool | *false
+}
+
+// AgentConfig defines configuration for launching external AI agent harnesses.
+AgentConfig: {
+	defaultHarness?: string
+	harnesses?:      [string]: AgentHarnessConfig
+	profiles?:       [string]: AgentHarnessProfile
+}
+
 // ProjectConfig is the root configuration object.
 ProjectConfig: {
 	project?:    string
@@ -230,6 +258,7 @@ ProjectConfig: {
 	typesense?:  TypesenseConfig
 	web?:        WebConfig
 	pipeline?:   PipelineConfig
+	agent?:      AgentConfig
 	collections: [string]: CollectionConfig
 	wikis:       [string]: WikiConfig
 

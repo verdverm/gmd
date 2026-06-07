@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/verdverm/gmd/pkg/config"
 	"github.com/verdverm/gmd/pkg/llm"
 )
 
@@ -79,7 +80,8 @@ func TestIntegrationFormatDoctorResult_Empty(t *testing.T) {
 
 func TestIntegrationDoctorFix(t *testing.T) {
 	_, agent := newTestWikiAgent(t)
-	fixes, err := DoctorFix(agent.wiki)
+	cfg := &config.Config{}
+	fixes, err := DoctorFix(agent.wiki, cfg)
 	if err != nil {
 		t.Fatalf("DoctorFix error: %v", err)
 	}

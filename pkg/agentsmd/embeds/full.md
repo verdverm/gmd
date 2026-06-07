@@ -256,6 +256,76 @@ Search flags:
 | `gmd env` | Print resolved config with secrets masked |
 | `gmd agentsmd [oneline|summary|detailed|full]` | Output AGENTS.md content for AI coding assistants |
 
+### Agent Harness
+
+GMD can launch external AI agent harnesses (OpenCode, Claude Code, Codex, or generic) with optional
+tmux sessions and git worktree isolation. Configure harnesses and profiles in the `agent` section
+of your CUE config (`gmd init` generates an empty agent section).
+
+| Command | Description |
+|---|---|
+| `gmd agent [task] [message]` | Launch external AI agent harness |
+| `gmd agent list` | List configured agent harnesses and profiles |
+| `gmd agent profile list` | List configured agent profiles |
+| `gmd agent profile show <name>` | Show resolved configuration for a profile |
+| `gmd agent session list` | List active tmux sessions and git workspaces |
+| `gmd agent session kill <name>` | Kill tmux session and remove its workspace |
+| `gmd agent session merge <name>` | Merge a workspace into the current branch |
+
+Launch flags:
+- `-p, --profile <name>` — profile or harness name to launch
+- `-m, --message <text>` — message/prompt for the agent
+- `--config <path>` — path to harness-specific config file
+- `--cwd <path>` — working directory
+- `--tmux` — launch inside a named tmux session
+- `--tmux-conf <path>` — path to tmux config file
+- `--workspace` — create a git worktree before launching
+- `--workspace-base <ref>` — git ref for worktree (default: current branch)
+- `--async` — don't block; return after launching
+- `--dry-run` — print resolved command without executing
+- `--flag KEY=VAL` — extra flag for the harness (repeatable)
+- `--env KEY=VAL` — extra env var (repeatable)
+- `--args VAL` — extra positional args (repeatable)
+
+#### Agent Config
+
+```cue
+agent: {
+  defaultHarness: "opencode"
+  harnesses: {
+    opencode: {
+      bin:       "opencode"
+      flagStyle: "double-dash"
+    }
+    claude: {
+      bin:       "claude"
+      flagStyle: "double-dash"
+    }
+  }
+  profiles: {
+    wiki: {
+      harness:    "opencode"
+      configFile: "opencode.json"
+      workspace:  true
+      message:    "Work on the gmd wiki. Run /help for tools."
+    }
+    dev: {
+      harness:   "opencode"
+      tmux:      true
+      workspace: true
+    }
+  }
+}
+```
+
+Harness types: `opencode` (uses `run` subcommand), all others are `generic` (uses `--message` flag
+by default). Generic harnesses support `flagStyle: "single-dash"` for tools using `-message` style.
+
+Profile selection: `--profile` flag > `defaultHarness` > error. If `--profile` matches a harness
+name directly (no profile), the harness is used with no extra profile settings.
+
+`gmd wiki doctor --fix` auto-launches the agent after writing skills.
+
 ### Web Search
 
 Three-tier command spectrum for searching the live web via multiple providers:
@@ -406,6 +476,7 @@ pkg/llm/auth/     Auth methods: none, apikey, service-account (GCP)
 pkg/llm/builder.go Client builder for multi-provider structured config
 pkg/output/       Result formatting (CLI, JSON)
 pkg/runtime/      Runtime struct — owns Typesense client lifecycle
+pkg/agent/        Agent harness launcher: config resolution, tmux, workspace, session management
 pkg/wiki/         LLM Wiki: scaffold, built-in agent, graph, lint, skills
 pkg/mcp/          MCP server tools (wiki-aware tools)
 pkg/web/          Web providers: shared interfaces, registry, agent, prompts, fusion

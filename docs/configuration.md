@@ -388,6 +388,136 @@ gmd web search "AI trends" --secret TAVILY_API_KEY=tvly-temp
 
 For per-provider API details and tuning, see [docs/web-providers.md](web-providers.md).
 
+## Agent Harness Configuration
+
+`gmd agent` launches external AI agent harnesses (OpenCode, Claude Code, Codex, or generic) with
+optional tmux session management and git worktree isolation. Configure harnesses and profiles in
+the `agent` section.
+
+### Harnesses
+
+A harness defines a named executable binary and its launch behavior:
+
+```cue
+agent: {
+  harnesses: {
+    opencode: {
+      bin:       "opencode"
+      flagStyle: "double-dash"     // "double-dash" (default) or "single-dash"
+      env: {
+        "KEY": "value"
+      }
+    }
+    claude: {
+      bin:       "claude"
+      flagStyle: "double-dash"
+    }
+  }
+}
+```
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `bin` | string | — | Binary name or path (resolved via PATH) |
+| `flagStyle` | string | `double-dash` | Flag prefix style: `double-dash` (`--flag`) or `single-dash` (`-flag`) |
+| `env` | map[string]string | — | Extra environment variables for the harness process |
+
+The `opencode` harness type is special: it uses the `run` subcommand (`opencode run <message>`) instead
+of the `--message` flag used by generic harnesses. All other harness names use the generic path.
+
+### Profiles
+
+Profiles define named presets that combine a harness with launch options:
+
+```cue
+agent: {
+  defaultHarness: "opencode"
+
+  profiles: {
+    wiki: {
+      harness:    "opencode"
+      configFile: "opencode.json"
+      workspace:  true
+      message:    "Work on the gmd wiki. Run /help for tools."
+    }
+    dev: {
+      harness:   "opencode"
+      tmux:      true
+      workspace: true
+      async:     false
+    }
+  }
+}
+```
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `harness` | string | — | Harness name to use (must match a configured harness) |
+| `message` | string | — | Default message/prompt passed to the agent |
+| `configFile` | string | — | Path to harness-specific config file |
+| `flags` | map[string]string | — | Extra flags passed to the harness |
+| `args` | [...]string | — | Extra positional args passed to the harness |
+| `env` | map[string]string | — | Extra environment variables |
+| `cwd` | string | — | Working directory (relative to project root, or absolute) |
+| `tmux` | bool | false | Launch inside a named tmux session |
+| `workspace` | bool | false | Create a git worktree before launching |
+| `async` | bool | false | Don't block; return after launching |
+
+### Profile Resolution
+
+Profile selection follows this priority:
+
+1. `--profile` CLI flag (highest)
+2. `defaultHarness` if set in config
+3. Error if no profile and no default
+
+If `--profile` specifies a name that matches a profile, that profile's settings are loaded. If it
+matches a harness name directly (no profile), the harness is used with no extra profile settings.
+
+### CLI Flags
+
+| Flag | Description |
+|---|---|
+| `-p, --profile <name>` | Profile or harness name to launch |
+| `-m, --message <text>` | Message/prompt for the agent (overrides profile) |
+| `--config <path>` | Path to harness-specific config file (overrides profile) |
+| `--cwd <path>` | Working directory (relative to project root unless absolute) |
+| `--tmux` | Launch inside a named tmux session |
+| `--tmux-conf <path>` | Path to tmux config file for the session |
+| `--workspace` | Create a git worktree before launching |
+| `--workspace-base <ref>` | Git ref for worktree (default: current branch) |
+| `--async` | Don't block; return after launching |
+| `--dry-run` | Print resolved command without executing |
+| `--flag KEY=VAL` | Extra flag for the harness (repeatable) |
+| `--env KEY=VAL` | Extra env var (repeatable) |
+| `--args VAL` | Extra positional args (repeatable) |
+
+### Examples
+
+```bash
+# Launch with default harness
+gmd agent mytask "fix the bug"
+
+# Launch with a specific profile
+gmd agent mytask --profile wiki
+
+# Launch in tmux + git worktree (isolated workspace)
+gmd agent mytask --tmux --workspace "implement feature X"
+
+# Dry-run to see resolved command
+gmd agent mytask --dry-run --verbose
+
+# List configured harnesses and profiles
+gmd agent list
+gmd agent profile show wiki
+
+# Manage sessions and workspaces
+gmd agent session list
+gmd agent session kill mytask
+gmd agent session merge mytask          # merge worktree back
+gmd agent session merge mytask --squash # squash before merge
+```
+
 ### Verifying your config
 
 Run `gmd env` to print the fully resolved configuration (global + project CUE +

@@ -1,12 +1,15 @@
 # SCRATCH
 
-## Top Priority
 
-update/enhance docs for changes since 2ea2ab4
+## Go Markdown
+
+- need to writeup some guidelines for Go development and patterns (not necessarily here, but it is impacting here)
 
 ## Random
 
 - filters/facets for coll/wiki search
+- 'gmd context [agents(md), skills, (list,status,install/uninstall)]
+- prompt processing package
 - work on agent/research, agentsmd -> craft new command(s) for installing/removing our agents, etc... && 'gdm agent' generally to launch and agent in various modes
     - markdown and skills, run with opencode -c (generally a configurable agent-cli)
     - ability to write these files to global/project with init [--global]
@@ -22,6 +25,12 @@ update/enhance docs for changes since 2ea2ab4
 - 'gmd init' should write a global config if global dir not found
 - 'gmd find ...' ?
 - record some integration (real) results and save them for better regular tests
+- always write web search results somewhere
+- maybe we end up with an sqlite db after all?
+- code index, search, research, explore, AST chunking
+
+- "Codex CLI" in the agent skills writable to disk
+- config for persisting 'gmd web search/fetch/crawl' results
 
 ---
 

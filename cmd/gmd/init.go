@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/verdverm/gmd/pkg/agentsmd"
+	"github.com/verdverm/gmd/pkg/context/agentsmd"
 )
 
 //go:embed embeds
@@ -60,7 +60,7 @@ then run 'gmd update' to index your files.`,
 		}
 		fmt.Printf("Created GMD config at %s\n", configPath)
 		fmt.Println()
-		fmt.Println("Tip: run 'gmd agentsmd' to get AGENTS.md content for your AI coding assistant.")
+		fmt.Println("Tip: run 'gmd context agentsmd show' to get AGENTS.md content for your AI coding assistant.")
 		fmt.Println()
 		oneline, err := agentsmd.GetContent("oneline")
 		if err != nil {

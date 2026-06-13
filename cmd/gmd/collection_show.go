@@ -61,7 +61,7 @@ var collectionShowCmd = &cobra.Command{
 	Use:   "show <name>",
 	Short: "Show collection or wiki config details, chunk count, and schema",
 	Long: `Displays the full configuration for a collection or wiki including path, pattern,
-ignore rules, context, excludeFromDefault, and frontmatter fields — along
+ignore rules, excludeFromDefault, and frontmatter fields — along
 with the current chunk count and actual Typesense schema fields.
 
 Example:
@@ -92,9 +92,6 @@ Example:
 			fmt.Printf("patterns:          %v\n", col.Patterns)
 			if len(col.Ignore) > 0 {
 				fmt.Printf("ignore:            %v\n", col.Ignore)
-			}
-			if col.Context != "" {
-				fmt.Printf("context:           %s\n", col.Context)
 			}
 			fmt.Printf("excludeFromDefault: %v\n", col.ExcludeFromDefault)
 
@@ -135,9 +132,6 @@ Example:
 			fmt.Printf("patterns:          %v\n", wc.Patterns)
 			if len(wc.Ignore) > 0 {
 				fmt.Printf("ignore:            %v\n", wc.Ignore)
-			}
-			if wc.Context != "" {
-				fmt.Printf("context:           %s\n", wc.Context)
 			}
 			fmt.Printf("excludeFromDefault: %v\n", wc.ExcludeFromDefault)
 			if len(wc.SourceRefs) > 0 {

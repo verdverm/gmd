@@ -10,7 +10,7 @@ var (
 )
 
 var wikiCmd = &cobra.Command{
-	Use:   "wiki [create|list|show|remove|rename|include|exclude|context|ref|ingest|query|graph|lint|doctor|skills]",
+	Use:   "wiki [create|list|show|remove|rename|include|exclude|ref|ingest|query|graph|lint|doctor]",
 	Short: "Manage LLM wikis — knowledge bases with agent-driven operations",
 	Long: `Wiki commands for creating and managing a compounding knowledge base.
 

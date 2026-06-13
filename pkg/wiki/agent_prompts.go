@@ -9,7 +9,10 @@ import (
 var wikiEmbedsFS embed.FS
 
 func SchemaPrompt() string {
-	data, _ := wikiEmbedsFS.ReadFile("embeds/skills/WIKI_SCHEMA.md")
+	data, err := wikiEmbedsFS.ReadFile("embeds/wiki_schema.md")
+	if err != nil {
+		return ""
+	}
 	return string(data)
 }
 

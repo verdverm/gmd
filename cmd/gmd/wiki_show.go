@@ -40,9 +40,6 @@ Example:
 		if len(wc.Ignore) > 0 {
 			fmt.Printf("ignore:            %v\n", wc.Ignore)
 		}
-		if wc.Context != "" {
-			fmt.Printf("context:           %s\n", wc.Context)
-		}
 		fmt.Printf("excludeFromDefault: %v\n", wc.ExcludeFromDefault)
 		if len(wc.SourceRefs) > 0 {
 			fmt.Printf("sourceRefs:        %v\n", wc.SourceRefs)

@@ -19,7 +19,7 @@ Getting started:
   gmd init        create .gmd/config.cue
   gmd update      index all collections
   gmd query ...   full hybrid search pipeline
-  gmd agentsmd    output AGENTS.md content for AI coding assistants`,
+  gmd context    output AGENTS.md content for AI coding assistants`,
 	Run: func(cmd *cobra.Command, args []string) {
 		_ = cmd.Help()
 	},
@@ -97,7 +97,6 @@ func init() {
 	rootCmd.AddCommand(cleanupCmd)
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(mcpCmd)
-	rootCmd.AddCommand(agentsmdCmd)
 }
 
 func main() {

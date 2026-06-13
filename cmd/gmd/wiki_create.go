@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/verdverm/gmd/pkg/config"
+	"github.com/verdverm/gmd/pkg/context/skills"
 	"github.com/verdverm/gmd/pkg/wiki"
 )
 
@@ -105,12 +107,22 @@ Example:
 			if target == "" {
 				target = "all"
 			}
-			written, err := wiki.WriteSkills(target)
+			home, err := os.UserHomeDir()
 			if err != nil {
 				fmt.Printf("Warning: %v\n", err)
-			}
-			for _, w := range written {
-				fmt.Printf("  Skill written: %s\n", w)
+			} else {
+				harnesses := []string{target}
+				if target == "all" {
+					harnesses = skills.HarnessNames()
+				}
+				for _, h := range harnesses {
+					dest, err := skills.WriteSkillTo(home, true, h)
+					if err != nil {
+						fmt.Printf("Warning: %v\n", err)
+					} else {
+						fmt.Printf("  Skill written: %s\n", dest)
+					}
+				}
 			}
 		}
 

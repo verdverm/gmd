@@ -17,10 +17,10 @@ When user provides a source to ingest:
 3. Read related wiki pages for context
 4. Extract entities, concepts, claims, contradictions
 5. Write/update wiki pages in the appropriate directories:
-   - entities/ — people, orgs, products, technologies
-   - concepts/ — methodologies, architectures, theories
-   - comparisons/ — X vs Y analyses
-   - sources/ — summaries of ingested content
+   - entities/ -- people, orgs, products, technologies
+   - concepts/ -- methodologies, architectures, theories
+   - comparisons/ -- X vs Y analyses
+   - sources/ -- summaries of ingested content
 6. Update _index.md with new/updated page entries
 7. Append entry to _log.md
 8. Call gmd_wiki_update to re-index
@@ -57,7 +57,7 @@ Brief description of the entity.
 - Part of [[broader-concept]]
 
 ## Sources
-- [[source-page]] — key claim or quote
+- [[source-page]] -- key claim or quote
 ```
 
 ### Concept Page (concepts/name.md)
@@ -132,17 +132,6 @@ One-paragraph summary.
 ## Claims
 > Direct quote or paraphrased claim.
 ```
-
-## Frontmatter Conventions
-
-| Field | Description | Example |
-|---|---|---|
-| type | Page category | entity, concept, comparison, source, synthesis |
-| tags | Searchable labels | [kubernetes, deployment] |
-| status | Review state | draft, reviewed, needs-update |
-| sources | Pages this page derives from | [source-page.md] |
-| difficulty | Complexity rating (1-5) | 3 |
-| source_url | URL of original source | https://... |
 
 ## Lint & Maintenance
 Periodically run gmd_wiki_lint to:

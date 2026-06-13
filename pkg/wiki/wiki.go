@@ -71,9 +71,9 @@ func (w *Wiki) Init() error {
 
 	schemaPath := filepath.Join(w.Path, "WIKI_SCHEMA.md")
 	if _, err := os.Stat(schemaPath); os.IsNotExist(err) {
-		tmpl, err := GetSkillTemplate("WIKI_SCHEMA.md")
+		data, err := wikiEmbedsFS.ReadFile("embeds/wiki_schema.md")
 		if err == nil {
-			if err := os.WriteFile(schemaPath, []byte(tmpl.Content), 0600); err != nil {
+			if err := os.WriteFile(schemaPath, data, 0600); err != nil {
 				return fmt.Errorf("writing schema file: %w", err)
 			}
 		}

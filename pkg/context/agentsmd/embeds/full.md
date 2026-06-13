@@ -254,7 +254,7 @@ Search flags:
 | `gmd mcp [--http]` | Start MCP server for AI agent integration |
 | `gmd doctor` | Run system diagnostics |
 | `gmd env` | Print resolved config with secrets masked |
-| `gmd agentsmd [oneline|summary|detailed|full]` | Output AGENTS.md content for AI coding assistants |
+| `gmd context agentsmd show [oneline|summary|detailed|full]` | Output AGENTS.md content for AI coding assistants |
 
 ### Agent Harness
 

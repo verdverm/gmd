@@ -1,0 +1,1 @@
+GMD is a local Markdown search engine with LLM Wiki integration — index with `gmd update`, search with `gmd query "<question>"`, search the web with `gmd web search "<query>"`, launch agent harnesses with `gmd agent mytask --profile wiki`, build a compounding knowledge base with `gmd wiki ingest`. Debug config with `gmd env`. See `gmd context agentsmd show summary` for details.

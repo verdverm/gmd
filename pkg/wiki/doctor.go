@@ -3,9 +3,11 @@ package wiki
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/verdverm/gmd/pkg/config"
+	"github.com/verdverm/gmd/pkg/context/skills"
 	"github.com/verdverm/gmd/pkg/llm"
 	"github.com/verdverm/gmd/pkg/ts"
 )
@@ -46,10 +48,35 @@ func Doctor(ctx context.Context, wiki *Wiki, cfg *config.Config, tsClient *ts.Cl
 		result.LLMStatus = llmClient.CheckAll(ctx)
 	}
 
-	agentNames := cfg.AgentHarnessNames()
-	for _, name := range agentNames {
-		installed := CheckAgentInstalled(name)
-		skillInst := CheckSkillInstalled(name)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		result.Errors = append(result.Errors, fmt.Sprintf("home directory: %v", err))
+		return result, nil
+	}
+	skillNames, err := skills.ListSkillNames()
+	if err != nil {
+		result.Errors = append(result.Errors, fmt.Sprintf("list skills: %v", err))
+		return result, nil
+	}
+
+	for _, name := range cfg.AgentHarnessNames() {
+		installed, err := skills.CheckHarnessInstalled(home, true, name)
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("check %s: %v", name, err))
+			continue
+		}
+		skillInst := false
+		for _, sn := range skillNames {
+			si, err := skills.SkillInstalled(home, true, name, sn)
+			if err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("check skill %s/%s: %v", name, sn, err))
+				continue
+			}
+			if si {
+				skillInst = true
+				break
+			}
+		}
 
 		result.Agents = append(result.Agents, AgentStatus{
 			Name:      name,
@@ -64,15 +91,38 @@ func Doctor(ctx context.Context, wiki *Wiki, cfg *config.Config, tsClient *ts.Cl
 func DoctorFix(wiki *Wiki, cfg *config.Config) ([]string, error) {
 	var fixes []string
 
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("home directory: %w", err)
+	}
+	skillNames, err := skills.ListSkillNames()
+	if err != nil {
+		return nil, fmt.Errorf("list skills: %w", err)
+	}
+
 	for _, name := range cfg.AgentHarnessNames() {
-		if !CheckSkillInstalled(name) && CheckAgentInstalled(name) {
-			written, err := WriteSkills(name)
+		skillInst := false
+		for _, sn := range skillNames {
+			si, err := skills.SkillInstalled(home, true, name, sn)
+			if err != nil {
+				return nil, fmt.Errorf("check skill %s/%s: %w", name, sn, err)
+			}
+			if si {
+				skillInst = true
+				break
+			}
+		}
+		agentInst, err := skills.CheckHarnessInstalled(home, true, name)
+		if err != nil {
+			return nil, fmt.Errorf("check harness %s: %w", name, err)
+		}
+
+		if !skillInst && agentInst {
+			dest, err := skills.WriteSkillTo(home, true, name)
 			if err != nil {
 				fixes = append(fixes, fmt.Sprintf("  %s: failed to write skill: %v", name, err))
 			} else {
-				for _, w := range written {
-					fixes = append(fixes, fmt.Sprintf("  %s: skill written to %s", name, w))
-				}
+				fixes = append(fixes, fmt.Sprintf("  %s: skill written to %s", name, dest))
 			}
 		}
 	}

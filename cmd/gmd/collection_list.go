@@ -10,8 +10,8 @@ import (
 var collectionListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all configured collections and wikis with paths and patterns",
-	Long: `Displays every collection's and wiki's name, root path, file pattern, and context
-description as configured in .gmd/config.cue. Does not query Typesense
+	Long: `Displays every collection's and wiki's name, root path, and file pattern
+as configured in .gmd/config.cue. Does not query Typesense
 — shows config only.
 
 Example:
@@ -59,9 +59,6 @@ Example:
 			if len(col.Ignore) > 0 {
 				fmt.Printf("    ignore:   %v\n", col.Ignore)
 			}
-			if col.Context != "" {
-				fmt.Printf("    context:  %s\n", col.Context)
-			}
 			if refs, ok := referencedBy[name]; ok {
 				fmt.Printf("    referenced by: %v\n", refs)
 			}
@@ -76,9 +73,6 @@ Example:
 			fmt.Printf("    patterns:   %v\n", wc.Patterns)
 			if len(wc.Ignore) > 0 {
 				fmt.Printf("    ignore:     %v\n", wc.Ignore)
-			}
-			if wc.Context != "" {
-				fmt.Printf("    context:    %s\n", wc.Context)
 			}
 			if len(wc.SourceRefs) > 0 {
 				fmt.Printf("    sourceRefs: %v\n", wc.SourceRefs)

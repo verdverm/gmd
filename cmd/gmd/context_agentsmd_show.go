@@ -41,3 +41,7 @@ Examples:
 		return nil
 	},
 }
+
+func init() {
+	contextAgentsmdCmd.AddCommand(contextAgentsmdShowCmd)
+}

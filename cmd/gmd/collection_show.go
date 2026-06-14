@@ -5,57 +5,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/verdverm/gmd/pkg/config"
+	"github.com/verdverm/gmd/pkg/ts"
 )
-
-type tsFieldInfo struct {
-	Name string
-	Type string
-}
-
-func printSchemaDiff(fields map[string]config.FrontmatterField, tsFields []tsFieldInfo) {
-	tsFieldSet := make(map[string]string)
-	for _, f := range tsFields {
-		tsFieldSet[f.Name] = f.Type
-	}
-
-	baseFields := map[string]string{
-		"collection": "string", "path": "string", "title": "string",
-		"content": "string", "hash": "string", "chunk_seq": "int32",
-		"total_chunks": "int32", "embedding": "float[]", "links": "string[]",
-	}
-
-	if len(fields) > 0 || len(tsFields) > len(baseFields) {
-		fmt.Println("schema:")
-		for _, fname := range sortedKeys(fields) {
-			f := fields[fname]
-			tsType, inTS := tsFieldSet[fname]
-			status := "PENDING"
-			if inTS && tsType == f.Type {
-				status = "OK"
-			} else if inTS && tsType != f.Type {
-				status = fmt.Sprintf("TYPEMISMATCH (TS: %s)", tsType)
-			}
-			facetStr := ""
-			if f.Facet {
-				facetStr = " [facet]"
-			}
-			sortStr := ""
-			if f.Sort {
-				sortStr = " [sort]"
-			}
-			fmt.Printf("  %-20s %-8s%s%s  [%s]\n", fname, f.Type, facetStr, sortStr, status)
-		}
-		for _, f := range tsFields {
-			if _, isBase := baseFields[f.Name]; isBase {
-				continue
-			}
-			if _, configured := fields[f.Name]; !configured {
-				fmt.Printf("  %-20s %-8s           [ORPHANED]\n", f.Name, f.Type)
-			}
-		}
-	}
-}
 
 var collectionShowCmd = &cobra.Command{
 	Use:   "show <name>",
@@ -115,11 +66,25 @@ Example:
 			if err != nil {
 				fmt.Printf("schema: (error fetching Typesense schema: %v)\n", err)
 			} else {
-				tf := make([]tsFieldInfo, len(tsFields))
-				for i, f := range tsFields {
-					tf[i] = tsFieldInfo{Name: f.Name, Type: f.Type}
+				diffs := ts.DiffSchemaFields(col.Fields, tsFields)
+				if len(diffs) > 0 {
+					fmt.Println("schema:")
+					for _, d := range diffs {
+						facetStr := ""
+						if d.Facet {
+							facetStr = " [facet]"
+						}
+						sortStr := ""
+						if d.Sort {
+							sortStr = " [sort]"
+						}
+						status := d.Status
+						if status == "TYPE_MISMATCH" {
+							status = fmt.Sprintf("TYPEMISMATCH (TS: %s)", d.TSType)
+						}
+						fmt.Printf("  %-20s %-8s%s%s  [%s]\n", d.Name, d.ConfigType, facetStr, sortStr, status)
+					}
 				}
-				printSchemaDiff(col.Fields, tf)
 			}
 		} else {
 			fmt.Printf("type:              wiki\n")

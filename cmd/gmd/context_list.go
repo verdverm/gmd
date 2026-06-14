@@ -68,3 +68,7 @@ Example:
 		return nil
 	},
 }
+
+func init() {
+	contextCmd.AddCommand(contextListCmd)
+}

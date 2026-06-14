@@ -98,4 +98,6 @@ func init() {
 	webAgentCmd.Flags().BoolVarP(&webAgentJSON, "json", "", false, "Short for --output json")
 	webAgentCmd.Flags().BoolVarP(&webAgentSave, "save", "s", false, "Save result to wiki/synthesis/ (requires wiki)")
 	webAgentCmd.Flags().StringVar(&webAgentWiki, "wiki", "", "Wiki name to save to (default: first wiki found)")
+
+	webCmd.AddCommand(webAgentCmd)
 }

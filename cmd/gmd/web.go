@@ -135,10 +135,5 @@ func init() {
 	webCmd.PersistentFlags().StringVar(&webSearchProvider, "search-provider", "", "Search provider override, comma-separated (exa, tavily, searxng)")
 	webCmd.PersistentFlags().StringVar(&webBrowserProvider, "browser-provider", "", "Browser provider override (exa, cloudflare, local)")
 
-	webCmd.AddCommand(webFetchCmd)
-	webCmd.AddCommand(webSearchCmd)
-	webCmd.AddCommand(webCrawlCmd)
-	webCmd.AddCommand(webAgentCmd)
-	webCmd.AddCommand(webResearchCmd)
 	rootCmd.AddCommand(webCmd)
 }

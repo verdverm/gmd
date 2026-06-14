@@ -49,3 +49,7 @@ Examples:
 		return nil
 	},
 }
+
+func init() {
+	contextAgentsCmd.AddCommand(contextAgentsListCmd)
+}

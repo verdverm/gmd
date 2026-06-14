@@ -113,3 +113,7 @@ Examples:
 		return nil
 	},
 }
+
+func init() {
+	contextCmd.AddCommand(contextShowCmd)
+}

@@ -3,6 +3,9 @@
 Each file contains exactly one cobra command (variable), except `main.go`
 (entry point, `rootCmd`, and `init()` that registers all top-level commands).
 
+Each subcommand registers itself with its parent via its own `init()`.
+Parent commands do NOT maintain centralized lists of `AddCommand` calls.
+
 ## Naming convention
 
 ```

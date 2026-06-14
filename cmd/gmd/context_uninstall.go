@@ -80,4 +80,6 @@ Examples:
 
 func init() {
 	contextUninstallCmd.Flags().StringVar(&contextTarget, "target", "", "Target agent harness (claude, codex, opencode, all)")
+
+	contextCmd.AddCommand(contextUninstallCmd)
 }

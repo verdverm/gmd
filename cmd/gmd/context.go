@@ -37,13 +37,4 @@ Use --global to target global (home directory) scope instead of project-local.`,
 
 func init() {
 	contextCmd.PersistentFlags().BoolVar(&contextGlobal, "global", false, "Target global (home directory) scope instead of project-local")
-
-	contextCmd.AddCommand(contextStatusCmd)
-	contextCmd.AddCommand(contextInstallCmd)
-	contextCmd.AddCommand(contextUninstallCmd)
-	contextCmd.AddCommand(contextListCmd)
-	contextCmd.AddCommand(contextShowCmd)
-	contextCmd.AddCommand(contextAgentsmdCmd)
-	contextCmd.AddCommand(contextSkillsCmd)
-	contextCmd.AddCommand(contextAgentsCmd)
 }

@@ -45,4 +45,6 @@ func init() {
 	webResearchCmd.Flags().StringVar(&webResearchFormat, "format", "markdown", "Output format: json or markdown")
 	webResearchCmd.Flags().BoolVarP(&webResearchSave, "save", "s", false, "Save to wiki (requires wiki)")
 	webResearchCmd.Flags().StringVar(&webResearchWiki, "wiki", "", "Wiki name")
+
+	webCmd.AddCommand(webResearchCmd)
 }

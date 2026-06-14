@@ -23,3 +23,7 @@ var contextAgentsmdListCmd = &cobra.Command{
 		return nil
 	},
 }
+
+func init() {
+	contextAgentsmdCmd.AddCommand(contextAgentsmdListCmd)
+}

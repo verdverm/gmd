@@ -24,6 +24,5 @@ Examples:
 }
 
 func init() {
-	contextAgentsmdCmd.AddCommand(contextAgentsmdListCmd)
-	contextAgentsmdCmd.AddCommand(contextAgentsmdShowCmd)
+	contextCmd.AddCommand(contextAgentsmdCmd)
 }

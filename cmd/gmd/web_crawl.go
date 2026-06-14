@@ -105,4 +105,6 @@ func init() {
 	webCrawlCmd.Flags().StringVar(&webCrawlInclude, "include", "", "URL pattern to include")
 	webCrawlCmd.Flags().StringVar(&webCrawlExclude, "exclude", "", "URL pattern to exclude")
 	webCrawlCmd.Flags().BoolVar(&webCrawlJSON, "json", false, "Output raw JSON")
+
+	webCmd.AddCommand(webCrawlCmd)
 }

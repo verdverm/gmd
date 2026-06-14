@@ -43,3 +43,7 @@ Example:
 		return nil
 	},
 }
+
+func init() {
+	contextAgentsCmd.AddCommand(contextAgentsShowCmd)
+}

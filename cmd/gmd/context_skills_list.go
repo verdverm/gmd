@@ -26,3 +26,7 @@ Example:
 		return nil
 	},
 }
+
+func init() {
+	contextSkillsCmd.AddCommand(contextSkillsListCmd)
+}

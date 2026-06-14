@@ -123,4 +123,6 @@ func init() {
 	webFetchCmd.Flags().StringVarP(&webFetchOutdir, "outdir", "o", ".", "Output directory for --output file")
 	webFetchCmd.Flags().BoolVar(&webFetchJSON, "json", false, "Output raw JSON")
 	webFetchCmd.Flags().IntVar(&webFetchMaxAge, "max-age", 0, "Max age in hours for cached content")
+
+	webCmd.AddCommand(webFetchCmd)
 }

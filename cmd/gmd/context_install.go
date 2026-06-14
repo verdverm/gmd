@@ -66,4 +66,6 @@ Examples:
 
 func init() {
 	contextInstallCmd.Flags().StringVar(&contextTarget, "target", "", "Target agent harness (claude, codex, opencode, all)")
+
+	contextCmd.AddCommand(contextInstallCmd)
 }

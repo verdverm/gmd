@@ -21,6 +21,5 @@ Examples:
 }
 
 func init() {
-	contextSkillsCmd.AddCommand(contextSkillsListCmd)
-	contextSkillsCmd.AddCommand(contextSkillsShowCmd)
+	contextCmd.AddCommand(contextSkillsCmd)
 }

@@ -33,8 +33,8 @@ global (user home directory) scope. Default is project-local.
 
 | Scope | Base path | Example |
 |---|---|---|
-| Global (`--global`) | `os.UserHomeDir()` | `~/.claude/skills/`, `~/.config/opencode/skills/` |
-| Project-local (default) | Project root (via `.gmd/` sentinel) | `./.agents/skills/`, `./.opencode/skills/` |
+| Global (`--global`) | `os.UserHomeDir()` | `~/.claude/skills/`, `~/.config/opencode/skills/`, `~/.config/gmd/agents/` |
+| Project-local (default) | Project root (via `.gmd/` sentinel) | `./.agents/skills/`, `./.opencode/skills/`, `./.gmd/agents/` |
 
 ### --target flag (harness selection)
 
@@ -264,55 +264,24 @@ wiki directories and injected into LLM prompts. It now lives in
 
 ### Gaps and deviations
 
-- **`--target` flag scope too broad.** The design specifies `--target` for
-  `install`/`uninstall` only, but it is registered as a persistent flag on
-  `contextCmd` (line 40 of `context.go`). This makes it appear in help output
-  and accept values for every subcommand (`status`, `list`, `show`, `skills`,
-  `agents`, `agentsmd`), where it is silently ignored. Fix: move the flag to
-  `installCmd` and `uninstallCmd` only, or add a runtime check that errors if
-  `--target` is provided to a command that does not use it.
+#### Resolved (2026-06-13)
 
-- **`rootCmd` help text is misleading.** `main.go:22` shows:
-  ```
-  gmd context    output AGENTS.md content for AI coding assistants
-  ```
-  This understates the command scope — `gmd context` also manages status,
-  install/uninstall, skills, and agent roles. It is no longer just an
-  AGENTS.md output command. Fix: update to something like:
-  ```
-  gmd context    manage agent context (skills, AGENTS.md, agent roles)
-  ```
+- **`--target` flag scope limited.** Moved `--target` from `contextCmd.PersistentFlags()` to local flags on `installCmd` and `uninstallCmd` only. Added `PreRunE` validation on both commands that rejects invalid values with a descriptive error.
 
-- **`context skills show` example references deleted skill.** `context_skills.go:17`
-  shows `gmd context skills show AGENTS.md` in the Long help text. `AGENTS.md`
-  is not a skill — skills are directories containing `SKILL.md`, and the only
-  embedded skill is `gmd-wiki`. Running this example returns:
-  `skill "AGENTS.md" not found`. Fix: change example to `gmd context skills
-  show gmd-wiki`.
+- **`rootCmd` help text fixed.** Changed `main.go:22` from `"output AGENTS.md content for AI coding assistants"` to `"manage agent context (skills, AGENTS.md, agent roles)"`.
 
-- **SKILL.md content changed without documentation.** When `AGENTS.md` (the old
-  universal skill) was moved to `pkg/context/skills/embeds/gmd-wiki/SKILL.md`,
-  two content changes were made that are not described in the design doc:
-  1. The "Frontmatter Conventions" table (type, tags, status, sources,
-     difficulty, source_url) was removed entirely.
-  2. All `---` horizontal rule markers were changed to `--` in list
-     continuations (e.g., `---` -> `--` after: "entities/ -- people, orgs...").
-     This is a downgrade — `---` renders as a horizontal rule in Markdown,
-     `--` renders as a literal dash pair.
+- **`context skills show` example fixed.** Changed `context_skills.go:17` from `gmd context skills show AGENTS.md` to `gmd context skills show gmd-wiki`.
 
-- **`pkg/context/agents/agents.go` has no tests.** Unlike `pkg/context/skills/`
-  which has both unit and integration test files, the agents package has zero
-  test coverage. `ListAgents` and `ShowAgent` both do filesystem I/O and should
-  have at minimum unit tests with temp dirs.
+- **SKILL.md content restored.** Frontmatter Conventions table re-added before the Lint & Maintenance section. Directory comment delimiters changed from `--` to `#` (e.g., `entities/  # people, orgs...`).
 
-- **Agent role directory paths undocumented in spec.** The design's scope table
-  (Global vs Project-local) only covers harness paths for claude/codex/opencode.
-  The agents package uses `~/.config/gmd/agents/` (global) and `.gmd/agents/`
-  (project-local). These paths are referenced only in the `agents` command's
-  Long help string. They should be added to the scope table.
+- **`collection.go` help text fixed.** Removed the `"context text for AI assistants."` reference from the Long help (line 15), since the Context field is now dead storage.
 
-- **`context show` disambiguation lacks concrete examples.** The show command's
-  Long help says "Use category subcommand to disambiguate" but does not provide
-  examples. A user seeing "ambiguous name 'foo' matches: agentsmd/foo,
-  skills/foo" has to infer that `gmd context agentsmd show foo` or
-  `gmd context skills show foo` would work.
+- **Fallback consistency restored.** Added `isGlobal || baseDir == ""` → `os.UserHomeDir()` fallback to `context_list.go`, `context_show.go`, `context_agents_list.go`, and `context_agents_show.go`, matching the pattern already used in `context_status.go`, `context_install.go`, and `context_uninstall.go`.
+
+- **Agent role directory paths documented.** Added `~/.config/gmd/agents/` and `./.gmd/agents/` to the scope table above.
+
+- **`context show` disambiguation examples added.** Long help now shows `gmd context agentsmd show <name>`, `gmd context skills show <name>`, `gmd context agents show <name>`.
+
+- **`context_skills_list.go` help text improved.** Added example (`gmd context skills list`) to Long text.
+
+- **Tests added for agents and agentsmd packages.** `pkg/context/agents/agents_test.go` covers `ProjectAgentsDir`, `ResolveDir`, `ListAgents` (non-existent dir, subdirs, files vs dirs), and `ShowAgent` (existing, missing, file-not-dir, subdirs ignored, unreadable files). `pkg/context/agentsmd/agents_test.go` covers `ValidNames` (count, all expected present, no blanks) and `GetContent` (all valid names, invalid name, empty name, content trimmed).

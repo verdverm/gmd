@@ -14,7 +14,7 @@ AI assistants operating on GMD wikis.
 
 Examples:
   gmd context skills list
-  gmd context skills show AGENTS.md`,
+  gmd context skills show gmd-wiki`,
 	Run: func(cmd *cobra.Command, args []string) {
 		_ = cmd.Help()
 	},

@@ -11,6 +11,12 @@ import (
 var contextInstallCmd = &cobra.Command{
 	Use:   "install [--target claude|codex|opencode|all]",
 	Short: "Install skills to harness discovery paths",
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		if contextTarget != "" && contextTarget != "claude" && contextTarget != "codex" && contextTarget != "opencode" && contextTarget != "all" {
+			return fmt.Errorf("invalid --target %q (valid: claude, codex, opencode, all)", contextTarget)
+		}
+		return nil
+	},
 	Long: `Writes skills to the appropriate harness discovery directories
 so that AI coding tools discover and use them automatically.
 
@@ -56,4 +62,8 @@ Examples:
 		}
 		return nil
 	},
+}
+
+func init() {
+	contextInstallCmd.Flags().StringVar(&contextTarget, "target", "", "Target agent harness (claude, codex, opencode, all)")
 }

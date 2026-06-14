@@ -19,7 +19,7 @@ Getting started:
   gmd init        create .gmd/config.cue
   gmd update      index all collections
   gmd query ...   full hybrid search pipeline
-  gmd context    output AGENTS.md content for AI coding assistants`,
+  gmd context    manage agent context (skills, AGENTS.md, agent roles)`,
 	Run: func(cmd *cobra.Command, args []string) {
 		_ = cmd.Help()
 	},

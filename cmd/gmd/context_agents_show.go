@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/verdverm/gmd/pkg/context/agents"
@@ -21,12 +22,18 @@ Example:
 		if err != nil {
 			return err
 		}
-		projectRoot := cfg.ProjectRoot
-		if contextGlobal {
-			projectRoot = ""
+		baseDir := cfg.ProjectRoot
+		isGlobal := contextGlobal
+		if isGlobal || baseDir == "" {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return err
+			}
+			baseDir = home
+			isGlobal = true
 		}
 
-		files, err := agents.ShowAgent(args[0], contextGlobal, projectRoot)
+		files, err := agents.ShowAgent(args[0], isGlobal, baseDir)
 		if err != nil {
 			return err
 		}

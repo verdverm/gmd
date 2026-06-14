@@ -11,6 +11,12 @@ import (
 var contextUninstallCmd = &cobra.Command{
 	Use:   "uninstall [--target claude|codex|opencode|all]",
 	Short: "Remove skills from harness discovery paths",
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		if contextTarget != "" && contextTarget != "claude" && contextTarget != "codex" && contextTarget != "opencode" && contextTarget != "all" {
+			return fmt.Errorf("invalid --target %q (valid: claude, codex, opencode, all)", contextTarget)
+		}
+		return nil
+	},
 	Long: `Removes skill directories from harness discovery paths. Idempotent:
 if a skill is already absent, it is reported as already absent.
 
@@ -70,4 +76,8 @@ Examples:
 		}
 		return nil
 	},
+}
+
+func init() {
+	contextUninstallCmd.Flags().StringVar(&contextTarget, "target", "", "Target agent harness (claude, codex, opencode, all)")
 }

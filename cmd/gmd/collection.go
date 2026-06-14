@@ -11,8 +11,7 @@ var collectionCmd = &cobra.Command{
 	Use:   "collection [create|list|remove|rename|show|include|exclude]",
 	Short: "Manage collections — create, list, remove, rename, show, include, exclude",
 	Long: `Collections define which files to index. Each collection has a root path,
-a glob pattern for matching files, optional ignore rules, and optional
-context text for AI assistants.
+a glob pattern for matching files, and optional ignore rules.
 
 Workflow:
   gmd collection create mydocs --path ./docs --pattern "**/*.md"

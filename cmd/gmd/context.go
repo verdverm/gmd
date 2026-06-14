@@ -37,7 +37,6 @@ Use --global to target global (home directory) scope instead of project-local.`,
 
 func init() {
 	contextCmd.PersistentFlags().BoolVar(&contextGlobal, "global", false, "Target global (home directory) scope instead of project-local")
-	contextCmd.PersistentFlags().StringVar(&contextTarget, "target", "", "Target agent harness (claude, codex, opencode, all)")
 
 	contextCmd.AddCommand(contextStatusCmd)
 	contextCmd.AddCommand(contextInstallCmd)

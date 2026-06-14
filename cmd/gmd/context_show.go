@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -18,7 +19,11 @@ checking agentsmd detail levels, skill names, and agent
 role definitions in order.
 
 If the name is ambiguous across categories, an error is reported
-listing all matches. Use category subcommands to disambiguate.
+listing all matches. Use category subcommands to disambiguate:
+
+  gmd context agentsmd show <name>
+  gmd context skills show <name>
+  gmd context agents show <name>
 
 Examples:
   gmd context show summary
@@ -54,11 +59,17 @@ Examples:
 		if err != nil {
 			return err
 		}
-		projectRoot := cfg.ProjectRoot
-		if contextGlobal {
-			projectRoot = ""
+		baseDir := cfg.ProjectRoot
+		isGlobal := contextGlobal
+		if isGlobal || baseDir == "" {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return err
+			}
+			baseDir = home
+			isGlobal = true
 		}
-		agentNames, err := agents.ListAgents(contextGlobal, projectRoot)
+		agentNames, err := agents.ListAgents(isGlobal, baseDir)
 		if err != nil {
 			return err
 		}
@@ -91,7 +102,7 @@ Examples:
 			}
 			fmt.Println(content)
 		case strings.HasPrefix(match, "agents/"):
-			files, err := agents.ShowAgent(name, contextGlobal, projectRoot)
+			files, err := agents.ShowAgent(name, isGlobal, baseDir)
 			if err != nil {
 				return err
 			}

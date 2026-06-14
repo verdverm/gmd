@@ -10,7 +10,10 @@ import (
 var contextSkillsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List available skills",
-	Long:  "Shows all embedded agent skills.",
+	Long: `Shows all embedded agent skills.
+
+Example:
+  gmd context skills list`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		names, err := skills.ListSkillNames()
 		if err != nil {

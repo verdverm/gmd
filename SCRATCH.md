@@ -8,8 +8,7 @@
 ## Random
 
 - filters/facets for coll/wiki search
-- 'gmd context [agents(md), skills, (list,status,install/uninstall)]
-- prompt processing package
+- prompt processing package (what was this?)
 - work on agent/research, agentsmd -> craft new command(s) for installing/removing our agents, etc... && 'gdm agent' generally to launch and agent in various modes
     - markdown and skills, run with opencode -c (generally a configurable agent-cli)
     - ability to write these files to global/project with init [--global]
@@ -28,7 +27,6 @@
 - always write web search results somewhere
 - maybe we end up with an sqlite db after all?
 - code index, search, research, explore, AST chunking
-
 - "Codex CLI" in the agent skills writable to disk
 - config for persisting 'gmd web search/fetch/crawl' results
 

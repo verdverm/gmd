@@ -65,7 +65,7 @@ The tape's `Transport(parent http.RoundTripper)` method returns a RoundTripper t
 ```
 pkg/testutil/
   tape.go              # Tape type: records or replays sequential HTTP exchanges
-  tape_test.go         # Self-tests
+  tape_test.go         # Self-tests (see Tape Self-Tests below)
 
 pkg/ts/testdata/       # Typesense tapes (next to pkg/ts/*_test.go)
   001_chunk_crud.json
@@ -176,22 +176,52 @@ func TestMain(m *testing.M) {
 func TestIntegrationChunkCRUD(t *testing.T) {
     tape := testutil.NewTape("testdata/001_chunk_crud.json", srv.URL(), nil, testutil.ModeRecord)
     tape.Start()
-    defer tape.Stop()
+    defer func() {
+        if err := tape.Stop(); err != nil {
+            t.Fatal(err)
+        }
+    }()
     // TS calls in this function only are recorded
 }
 ```
 
+Note: `defer tape.Stop()` alone discards the error return. Use `defer func() { if err := tape.Stop(); err != nil { t.Fatal(err) } }()` to catch write failures, JSON marshal errors, or tape validation failures.
+
+### Tape Self-Tests
+
+`pkg/testutil/tape_test.go` must cover:
+
+1. **Record-then-replay round-trip** — Record N exchanges via `httptest.Server`, replay them, verify identical content (method, URL, status, headers, body).
+2. **Header stripping** — Verify `Authorization`, `x-api-key` (lowercase), `X-TYPESENSE-API-KEY` (mixed case), `Cookie`, and `Set-Cookie` are stripped from recorded exchanges. Test case-insensitive matching.
+3. **Response header stripping** — Verify `Set-Cookie` and echoed auth headers are stripped from recorded response headers.
+4. **Parent directory creation** — `Stop()` in Record mode creates missing `testdata/` directories.
+5. **Tape exhaustion** — Replay beyond recorded length returns an error containing "tape exhausted" and the position number.
+6. **Empty tape** — Replay with zero exchanges returns an error on the first call.
+7. **Start/Stop gate** — A request made before `Start()` is not recorded. A request after `Stop()` is not recorded.
+8. **Response body re-readability** — The recorded response body can be read once (matching `http.Response.Body` semantics — `io.NopCloser` behavior).
+9. **Large response body round-trip** — A 1MB response is recorded and replayed correctly.
+10. **Invalid tape JSON** — `NewReplayTape` returns an error (not a panic) when the file contains malformed JSON or a non-array root. Corrupted files from merge conflicts are caught at load time.
+11. **File write failure** — If the tape file path is unwritable (e.g., read-only parent), `Stop()` returns an error.
+
 ### Security: Header Stripping
 
-The RoundTripper strips these sensitive headers during recording:
+The RoundTripper strips these sensitive headers from **both request and response** during recording:
 
+**Request headers:**
 - `Authorization` — OpenAI-compatible APIs and some web providers
 - `X-TYPESENSE-API-KEY` — Typesense API
 - `X-Api-Key` — EXA
 - `X-Auth-Key` — potential Cloudflare/SearXNG variants
 - `Cookie` — some providers may use cookie auth
 
-Rather than hardcoding a list, use a `stripHeaders` set passed at construction time, defaulting to `{"Authorization", "X-TYPESENSE-API-KEY", "X-Api-Key"}`.
+**Response headers:**
+- `Set-Cookie` — echoed by some auth setups
+- `X-TYPESENSE-API-KEY` — echoed by internal Typesense configurations
+- `X-Api-Key`, `X-Auth-Key`, `Authorization` — mirrored in some proxy setups
+
+Matching is case-insensitive — the Typesense SDK sends `x-typesense-api-key` (lowercase), EXA sends `x-api-key` (lowercase). The strip function normalizes header names via `strings.EqualFold`.
+
+Rather than hardcoding a list, use a `stripHeaders` set passed at construction time, defaulting to `{"Authorization", "X-TYPESENSE-API-KEY", "X-Api-Key", "X-Auth-Key", "Cookie", "Set-Cookie"}`.
 
 Playback tests use fake keys (`"test-key"`). Header values in committed tape files contain no secrets.
 
@@ -276,7 +306,7 @@ func newOpenAIClient(baseURL, apiKey string, httpClient *http.Client) openai.Cli
 }
 ```
 
-The single call site at `client.go:231` passes `nil`.
+The single call site at `client.go:231` passes `nil`. Must be updated to pass `nil` as the third `*http.Client` argument.
 
 ### `pkg/web/config.go` — ProviderConfig
 
@@ -455,26 +485,21 @@ func TestHybridSearch(t *testing.T) {
 
 ### Phase 5: Makefile Integration
 
-Recording is the default in `make test.integration`. The existing `check` target stays unchanged; a new `ci` target runs replay-then-record for CI:
+The existing `test` and `test.integration` targets stay unchanged. A new `ci` target chains them — no target shadowing, no breaking changes:
 
 ```makefile
-# Unit tests — replay tapes, no external deps (unchanged)
+# Existing rules — unchanged
 test:
 	go test ./... -v -count=1
 
-# Integration tests — record tapes by default
-test.integration:
-	$(MAKE) clean-ts
-	go test -p 1 ./... -v -count=1 -tags=integration
+test.integration: clean-ts
+	CGO_ENABLED=$(CGO_ENABLED) $(GO) test -p 1 ./... -v -count=1 -tags=integration
 
-# Opt out of recording during development
+# Opt out of recording during development (new)
 test.integration.norecord:
-	GMD_NORECORD=1 $(MAKE) clean-ts
-	go test -p 1 ./... -v -count=1 -tags=integration
+	GMD_NORECORD=1 $(MAKE) test.integration
 
-# CI: replay unit tests then re-record integration tapes
-# This ensures tapes are always fresh — if integration passes
-# but unit replay fails, something regressed in the replay logic.
+# CI: replay unit tests (make test) then re-record tapes (make test.integration)
 ci: test test.integration
 ```
 
@@ -500,21 +525,74 @@ For packages using narrow interfaces (e.g., `pkg/indexer/` uses 6 TS methods), t
 - Each package owns its tapes — clear ownership, easy re-recording per-package.
 - Go ignores `testdata/` for package compilation. `go test` runs with CWD set to the package directory, so `"testdata/001_chunk_crud.json"` resolves correctly.
 
-### Tape freshness
-
-CI runs `make ci` which does `test` (replay) then `test.integration` (record). If integration passes but replay fails, the replay logic regressed — not the data. Tapes are always committed after CI pass.
-
 ### LLM non-determinism
 
 Chat/rerank responses vary. Tapes record one concrete response. Assertions validate structure, not content. Provider response format changes are caught by re-recording on `make test.integration`.
 
 ### EXA retry loop
 
-`pkg/web/providers/exa/client.go:88-155` retries up to 3 times on 429s/5xxs. During recording against real APIs, these retries create redundant tape entries. In replay mode, the recorded responses (including the eventual success) are replayed deterministically — no actual retry logic executes. The retry entries in the tape are harmless noise.
+`pkg/web/exa/client.go:88-155` retries up to 3 times on 429s/5xxs. The retry loop still executes during replay. The tape feeds responses in FIFO order:
+
+```
+Recording:
+  Attempt 0: HTTP 429 → tape records exchange[0]
+  Attempt 1: HTTP 429 → tape records exchange[1]
+  Attempt 2: HTTP 200 → tape records exchange[2]
+
+Replay (429s only):
+  Attempt 0: tape serves exchange[0] (429) → loop retries (always for 429s)
+  Attempt 1: tape serves exchange[1] (429) → loop retries
+  Attempt 2: tape serves exchange[2] (200) → success
+```
+
+This works for 429s because the loop unconditionally retries them (line 122-128). However, for 5xx errors the loop only retries on the first attempt (`attempt == 0`, line 131-140):
+
+```
+Recording with 5xx:
+  Attempt 0: HTTP 502 → tape records exchange[0]
+  Attempt 1: HTTP 502 → tape records exchange[1]
+  Attempt 2: HTTP 200 → tape records exchange[2]
+
+Replay (5xx):
+  Attempt 0: tape serves exchange[0] (502) → loop retries (attempt == 0)
+  Attempt 1: tape serves exchange[1] (502) → loop returns error (attempt != 0), test fails
+```
+
+The third entry (200) is never consumed. **Mitigation:** During recording, use `GMD_NORECORD` or manually record only against a stable API that doesn't return 5xx errors. For tests that need to exercise retry behavior, use `httptest.Server` directly (existing pattern in `exa/client_test.go`) rather than depending on real API jitter.
+
+If the retry logic itself changes (maxRetries, backoff, which status codes trigger retry), previously recorded tapes break. This is an explicit coupling — tape tests validate the retry logic indirectly, so retry changes require re-recording.
 
 ### Out-of-order requests in replay
 
 The tape is strictly sequential. If a test refactoring changes the call order, the replay will serve wrong responses or exhaust prematurely. This is an acceptable tradeoff: tape tests are coupled to the recorded test flow, and changes to that flow require re-recording (which happens on the next `make test.integration` run).
+
+### Typesense pagination: multi-exchange per method call
+
+Several `ts.Client` methods paginate internally and make multiple HTTP calls per single Go method call:
+
+- `TextSearch` — paginates when results span >250 per page
+- `FetchChunksByPath` — paginates for files with >250 chunks
+- `SearchDistinctPaths` — paginates per 250 grouped hits
+- `FetchDocs` → `searchDocsByPattern` — paginates across matching docs
+
+Each paginated call produces N sequential HTTP exchanges. The tape records these in order, and replay serves them in FIFO order — each `RoundTrip` call consumes one exchange. A single `client.TextSearch(query)` that paginates over 3 pages consumes 3 tape entries. This is deliberate and expected. If the tape has fewer entries than the pagination requires, replay fails with "tape exhausted."
+
+Integration tests should use small page sizes (e.g., `limit=5`) to keep tapes compact while still exercising pagination logic.
+
+### Upstream errors during recording
+
+If the real upstream API returns a 4xx/5xx during recording, the tape captures the error response with its status code and body. A replay test that asserts on success-structure (e.g., `len(resp.Choices) > 0`) will fail against a 400/500-shaped response. This is correct behavior — it signals that the recorded response was not a successful one. To avoid false failures:
+- Record tapes against a known-good, non-rate-limited API state.
+- For tests that exercise error handling, use `httptest.Server` with hand-crafted error responses instead.
+
+### `NewReplayTape` JSON validation
+
+`NewReplayTape` must validate more than file existence:
+1. File exists and is readable.
+2. File contains valid JSON (return parse error, don't panic).
+3. JSON root is an array (not an object or scalar).
+
+A tape file corrupted by a merge conflict would fail step 2, producing a descriptive error. The replay test's `t.Fatal` on the tape load error catches this before any test logic runs.
 
 ### Working directory and file paths
 
@@ -526,13 +604,65 @@ The design sets `Host: "http://unused"` in replay mode. The `typesense.NewClient
 
 ## Summary
 
-6-phase plan:
+6-phase plan to add HTTP-level sequential tape recording/replay to gmd's test suite. Per-package `testdata/` directories hold committed JSON tape files. Integration tests record by default (opt-out via `GMD_NORECORD`). Unit tests replay tapes for fast, deterministic, parallel tests covering the same codepaths as integration. `make ci` chains replay-then-record for CI validation; `check` validates replay only. Hand-written mocks coexist for narrow interfaces; tapes cover broad API surfaces (Typesense, LLM, web providers, wiki).
 
-1. Build `pkg/testutil/tape.go` — sequential HTTP tape (record/replay) with header stripping and `os.MkdirAll`
-2. Add `HTTPClient` fields to `ts.Config`, `llm.ProviderConfig`, and all web provider config structs
-3. Wire tapes into integration tests (record by default, opt-out via `GMD_NORECORD=1`)
-4. Write unit tests using tape replay with structural assertions
-5. Add `make ci` target: replay unit tests then re-record integration tapes
-6. Coexistence: hand-written mocks for narrow interfaces, tapes for broad API surfaces
+### Tape Freshness and CI
 
-Per-package `testdata/` directories next to the test files that use them. Sequential replay handles stateful sequences. Recording is the default during integration tests — `make test.integration` always refreshes tapes.
+CI runs `make ci` which does `test` (replay) then `test.integration` (record). If integration passes but replay fails, the replay logic regressed — not the data. Tapes are always committed after CI passes.
+
+**Constraint:** The `check` target (`check: tidy gofmt lint lint-all vulncheck test`) runs `test` (replay unit tests) but NOT `test.integration`. A developer running `make check` before pushing may have stale tapes from a prior recording session that pass replay but fail against the current code structure (e.g., if call order changed or new endpoints were added). The `check` target should ideally include a `tape-fresh` verification hook, or the CI pipeline must be the authoritative freshness gate — tapes validated via `make ci` before merge, not via `make check`.
+
+## Operational Notes
+
+### `pkg/web/providers/local/`
+
+This package exists in the tree but has no HTTP client yet. When it gains one, the same `cfg.HTTPClient` injection pattern applies.
+
+### Web Crawl Tape Size
+
+Cloudflare's `Crawl` makes N sequential `GetContent` calls per depth level. A crawl of depth 2 with 20 pages produces ~20 exchange entries per depth. Tape files may exceed 1MB for complex crawls. Use a minimal depth (1) and a constrained seed URL for crawl tapes. The `002_crawl.json` tape should target a small, stable page set.
+
+Link extraction is content-dependent: if the seed page's rendered markdown varies between recordings (dynamic content, timestamps, ads), extracted links differ → different subsequent `GetContent` calls → different tape shapes. Use a static, version-pinned seed URL for crawl recording tapes.
+
+### Page Limit and Metadata Endpoints
+
+For tapes targeting list/query endpoints (e.g. Typesense `ListDocs`, `CountByPath`), limit parameters in integration tests to keep tape files small. Metadata-only endpoints (schema info, collection stats) can be combined into a single tape.
+
+### Tape File Merge Conflicts
+
+Tapes are JSON arrays, not line-oriented. When two branches modify the same test and both re-record the tape, the merge conflict is two different JSON arrays — effectively unresolvable without re-recording. Mitigations:
+- Name tapes per-test-function (e.g., `TestChunkCRUD.json`) rather than shared tapes, minimizing overlap.
+- Pretty-print JSON (indented) so diffs are at least partially readable.
+- In practice, developers resolve conflicts by accepting one branch's tape and re-running `make test.integration`.
+
+### Tape Versioning
+
+The `Exchange` struct has no version field. If fields are added (e.g., `Response.TrailerHeaders`), existing tape files must be migrated or re-recorded. For the initial implementation this is acceptable — old tapes are simply deleted and re-recorded. Future work: add an optional `"version": 1` field and a version-check on `NewReplayTape`.
+
+## Alternatives Considered
+
+| Approach | Rejected because |
+|---|---|
+| **Interface-based mocks** (`gomock`, `moq`) | `ts.Client` has ~80 methods. `llm.Client` wraps `openai-go` SDK types that would require wrapping every return type. Interface surface is too large. |
+| **Content-hash matching** (VCR-style) | Fails for stateful sequences where the same request yields different responses (e.g., `CountByPath` before/after delete). |
+| **Standalone proxy recorder** (mitmproxy, `go-vcr`) | Adds external dependency. Doesn't integrate with test code gating (`Start/Stop`). Requires TLS cert management for HTTPS endpoints. |
+| **Contract-based testing** (OpenAPI specs) | Typesense and all LLM providers would need maintained OpenAPI specs. No spec exists for many providers. |
+| **Generating fake responses** (hand-crafted structs) | Already used in `pkg/web/` unit tests. Works for structural validation but doesn't test client deserialization against real API shapes. Tapes complement this approach. |
+
+## Risks and Mitigations
+
+| Risk | Severity | Mitigation |
+|---|---|---|
+| EXA 5xx retries recorded in tape break replay | Low | Use stable API for recording; test retry logic via `httptest.Server` (existing pattern); the recording path avoids this by simply not recording during API instability |
+| Response headers leak secrets | High | Strip `Set-Cookie` and echoed auth headers from responses, case-insensitive |
+| Stale tapes pass `make check` | Medium | CI runs `make ci` (replay then record) as the authoritative freshness gate |
+| Tape merge conflicts in git | Low | Per-test-function naming; pretty-printed JSON for readability |
+| Tape size bloat (web crawl) | Low | Constrain depth and seed pages; size guard in recording |
+| Retry logic changes break tapes | Medium | Document coupling; re-recording required; CI detects this automatically |
+| Test call order changes break replay | Medium | Accepted tradeoff — tapes are deliberately coupled to their recording flow |
+| JSON marshal failure during Stop() | Low | Error returned from Stop(); test code checks it (defer func pattern) |
+| `pkg/web/providers/local/` unaddressed | Low | No HTTP client yet; tape pattern applies when one is added |
+
+## Large Response Policy
+
+If a response body exceeds 1MB during recording, the tape truncates and logs a warning. Response bodies that large are typically web crawl results or file downloads — not useful for structural assertion tests. The size guard prevents tape file bloat.

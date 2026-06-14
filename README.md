@@ -3,7 +3,8 @@
 **gmd** indexes collections of local markdown files and lets you search them with
 full-text, vector, or hybrid search - backed by [Typesense](https://typesense.org)
 and any OpenAI-compatible LLM. Build compounding LLM wikis that ingest source
-documents, extract knowledge, and link pages via `[[wikilinks]]`. Run web searches,
+documents, extract knowledge, and link pages via standard markdown links
+([OKF v0.1](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) compatible). Run web searches,
 fetch clean content from URLs, or crawl sites through a multi-provider architecture
 (EXA, Tavily, SearXNG, Cloudflare). Agent-orchestrated workflows, instructions,
 skills, and harness configurations are exportable for use in your tools.
@@ -52,8 +53,8 @@ See [docs/search-pipeline.md](docs/search-pipeline.md) for the full pipeline dia
 
 **Wiki** (`gmd wiki`) maintains a compounding knowledge base of interlinked markdown pages. The
 built-in LLM agent reads source documents, extracts entities and claims, writes or updates wiki
-pages, and links them via `[[wikilinks]]`. Querying the wiki uses the same Typesense-backed search pipeline: retrieve relevant pages,
-synthesize an answer with inline `[[citations]]`.
+pages, and links them via standard markdown links. Querying the wiki uses the same Typesense-backed search pipeline: retrieve relevant pages,
+synthesize an answer with inline citations.
 
 **Web** (`gmd web`) lets you search the web, fetch clean content from URLs, crawl sites, or run a
 multi-step LLM-orchestrated research agent that searches, reads, and synthesizes across multiple
@@ -133,12 +134,13 @@ wikis: {
 ```
 
 ```bash
-gmd wiki init --name myresearch      # scaffold wiki directory + config
-gmd wiki ingest paper.md             # LLM reads paper, creates/updates wiki pages
-gmd wiki query "what is..."          # search → LLM synthesis with [[citations]]
-gmd wiki lint                        # health checks (orphans, broken links)
-gmd wiki doctor                      # diagnostics + auto-configure agent MCP
-gmd wiki graph                       # export wikilink graph (dot/mermaid/json)
+gmd wiki create myresearch           # scaffold wiki directory + config
+gmd wiki ingest myresearch paper.md  # LLM reads paper, creates/updates wiki pages
+gmd wiki query myresearch "what..."  # search → LLM synthesis with citations
+gmd wiki lint myresearch             # health checks (orphans, broken links)
+gmd wiki doctor myresearch           # diagnostics + auto-configure agent MCP
+gmd wiki graph myresearch            # export link graph (dot/mermaid/json)
+gmd wiki export myresearch           # export as self-contained directory
 gmd wiki skills write --target all   # install skill templates for AI agents
 ```
 
@@ -493,12 +495,13 @@ Project and global configs merge automatically, with project values taking prece
 | `gmd agent session list` | List active tmux sessions and workspaces |
 | `gmd agent session kill <name>` | Kill tmux session and remove its workspace |
 | `gmd agent session merge <name>` | Merge a workspace into the current branch |
-| `gmd wiki init` | Scaffold wiki directory + CUE config |
-| `gmd wiki ingest <src>` | Ingest a source into the wiki using built-in LLM agent |
-| `gmd wiki query "..."` | Query the wiki with search + LLM synthesis |
-| `gmd wiki graph` | Export wikilink graph (dot/mermaid/json) |
-| `gmd wiki lint` | Health checks (orphans, broken links, contradictions) |
-| `gmd wiki doctor` | Diagnostics + auto-configure agent MCP |
+| `gmd wiki create <name>` | Scaffold wiki directory + CUE config |
+| `gmd wiki ingest <name> <src>` | Ingest a source into the wiki using built-in LLM agent |
+| `gmd wiki query <name> "..."` | Query the wiki with search + LLM synthesis |
+| `gmd wiki graph <name>` | Export link graph (dot/mermaid/json) |
+| `gmd wiki lint <name>` | Health checks (orphans, broken links, OKF conformance) |
+| `gmd wiki export <name>` | Export wiki as a self-contained directory |
+| `gmd wiki doctor <name>` | Diagnostics + auto-configure agent MCP |
 | `gmd wiki skills` | Manage embedded agent skill templates |
 
 ## Development

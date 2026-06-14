@@ -169,25 +169,25 @@ Config: {
 
 ### Wiki configuration
 
-When `wiki` is present on a collection, gmd applies wiki-aware behavior:
+Wikis are configured as top-level entries in the `wikis` block:
 
 ```cue
-collections: myresearch: {
+wikis: myresearch: {
   path:    "wiki"
   pattern: "wiki/**/*.md"
-  ignore:  ["wiki/_index.md", "wiki/_log.md"]
+  ignore:  ["wiki/index.md", "wiki/log.md"]
   context: "AI research knowledge base"
-  wiki: {
-    enabled:    true
-    indexFile:  "_index.md"
-    logFile:    "_log.md"
-    graphLinks: true
-    frontmatter: {
-      fields: {
-        type:   { type: "string",  facet: true }
-        tags:   { type: "string[]", facet: true }
-        status: { type: "string",  facet: true }
-      }
+  wikiDir:   "wiki"
+  rawDir:    "raw"
+  indexFile: "index.md"
+  logFile:   "log.md"
+  okfVersion: "0.1"
+  graphLinks: true
+  frontmatter: {
+    fields: {
+      type:   { type: "string",  facet: true }
+      tags:   { type: "string[]", facet: true }
+      status: { type: "string",  facet: true }
     }
   }
 }
@@ -195,11 +195,14 @@ collections: myresearch: {
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `wiki.enabled` | bool | true | Enable wiki-aware behavior |
-| `wiki.indexFile` | string | `_index.md` | Path to wiki catalog file (skipped during indexing) |
-| `wiki.logFile` | string | `_log.md` | Path to chronological log file (skipped during indexing) |
-| `wiki.graphLinks` | bool | true | Parse `[[wikilinks]]` for graph edges |
-| `wiki.frontmatter.fields` | map | — | YAML frontmatter fields to extract as typed fields in Typesense |
+| `wikiDir` | string | `"wiki"` | Subdirectory for wiki pages |
+| `rawDir` | string | `"raw"` | Subdirectory for raw source material |
+| `indexFile` | string | `"index.md"` | Wiki catalog file (reserved, skipped during indexing) |
+| `logFile` | string | `"log.md"` | Chronological log file (reserved, skipped during indexing) |
+| `okfVersion` | string | `"0.1"` | Declared OKF version in bundle-root index.md |
+| `graphLinks` | bool | true | Parse page links for graph edges and lint |
+| `frontmatter.fields` | map | — | YAML frontmatter fields to extract as typed fields in Typesense |
+| `sourceRefs` | `[...string]` | — | Referenced collections or wikis to aggregate search results |
 
 ## Pipeline reference
 

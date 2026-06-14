@@ -3,7 +3,8 @@
 **gmd** indexes collections of local markdown files and lets you search them with
 full-text, vector, or hybrid search - backed by [Typesense](https://typesense.org)
 and any OpenAI-compatible LLM. Build compounding LLM wikis that ingest source
-documents, extract knowledge, and link pages via `[[wikilinks]]`. Run web searches,
+documents, extract knowledge, and link pages via standard markdown links
+([OKF v0.1](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) compatible). Run web searches,
 fetch clean content from URLs, or crawl sites through a multi-provider architecture
 (EXA, Tavily, SearXNG, Cloudflare). Agent-orchestrated workflows, instructions,
 skills, and harness configurations are exportable for use in your tools.
@@ -51,8 +52,8 @@ See [docs/search-pipeline.md](docs/search-pipeline.md) for the full pipeline dia
 
 **Wiki** (`gmd wiki`) maintains a compounding knowledge base of interlinked markdown pages. The
 built-in LLM agent reads source documents, extracts entities and claims, writes or updates wiki
-pages, and links them via `[[wikilinks]]`. Querying the wiki uses the same Typesense-backed search pipeline: retrieve relevant pages,
-synthesize an answer with inline `[[citations]]`.
+pages, and links them via standard markdown links. Querying the wiki uses the same Typesense-backed search pipeline: retrieve relevant pages,
+synthesize an answer with inline citations.
 
 **Web** (`gmd web`) lets you search the web, fetch clean content from URLs, crawl sites, or run a
 multi-step LLM-orchestrated research agent that searches, reads, and synthesizes across multiple
@@ -137,6 +138,7 @@ gmd agent profile show <profile>         # Show resolved config for a profile
 gmd agent session list                   # List active sessions + workspaces
 gmd agent session kill <name>            # Kill tmux session + remove workspace
 gmd agent session merge <name>           # Merge workspace into current branch
+gmd wiki export <name> [--output <dir>]  # Export wiki as a self-contained directory
 gmd wiki create <name> [--path] [--wiki-dir] [--raw-dir] [--skills]
 gmd wiki list                          # List all wikis
 gmd wiki show <name>                   # Wiki config details + chunk count

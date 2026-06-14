@@ -54,13 +54,15 @@ func (a *Agent) lintStructure(ctx context.Context, result *LintResult) {
 	wikiDir := a.wiki.WikiPath
 
 	allPages := make(map[string]bool)
-	linkRefs := make(map[string]int)
 	pageNameToID := make(map[string]string)
+
+	pageContents := make(map[string]string)
 
 	sourceDir := func(cid string) string {
 		return filepath.Dir(filepath.Join(wikiDir, cid+".md"))
 	}
 
+	// Pass 1: build allPages and pageNameToID registry
 	_ = filepath.Walk(wikiDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil
@@ -73,8 +75,8 @@ func (a *Agent) lintStructure(ctx context.Context, result *LintResult) {
 			return nil
 		}
 
-		name := pageName(wikiDir, path)
-		allPages[name] = true
+		cid := pageName(wikiDir, path)
+		allPages[cid] = true
 
 		data, err := os.ReadFile(path)
 		if err != nil {
@@ -84,9 +86,16 @@ func (a *Agent) lintStructure(ctx context.Context, result *LintResult) {
 		fm, stripped, _ := ParseFrontmatter(string(data))
 		pn := getPageName(fm, stripped)
 		if pn != "" {
-			pageNameToID[pn] = name
+			pageNameToID[pn] = cid
 		}
+		pageContents[cid] = stripped
 
+		return nil
+	})
+
+	// Pass 2: extract and resolve all links
+	linkRefs := make(map[string]int)
+	for cid, stripped := range pageContents {
 		wLinks := chunking.ExtractWikilinks(stripped)
 		mLinks := chunking.ExtractMarkdownLinks(stripped)
 
@@ -98,59 +107,53 @@ func (a *Agent) lintStructure(ctx context.Context, result *LintResult) {
 			} else {
 				resolved = link
 			}
-			if !seen[resolved] && resolved != name {
+			if !seen[resolved] && resolved != cid {
 				seen[resolved] = true
 				linkRefs[resolved]++
 			}
 		}
 		for _, link := range mLinks {
-			resolved := chunking.NormalizeConceptID(link, sourceDir(name))
-			if !seen[resolved] && resolved != name {
+			resolved := chunking.NormalizeConceptID(link, sourceDir(cid))
+			if !seen[resolved] && resolved != cid {
 				seen[resolved] = true
 				linkRefs[resolved]++
 			}
 		}
+	}
 
-		return nil
-	})
-
+	// Orphan detection
 	for page := range allPages {
 		if linkRefs[page] == 0 {
 			result.Orphans = append(result.Orphans, page)
 		}
 	}
 
+	// Broken link detection
 	for target := range linkRefs {
 		if !allPages[target] {
 			var fromPages []string
-			_ = filepath.Walk(wikiDir, func(path string, info os.FileInfo, err error) error {
-				if err != nil || info.IsDir() || !strings.HasSuffix(path, ".md") {
-					return nil
-				}
-				if filepath.Base(path) == a.wiki.WikiConfig.IndexFile || filepath.Base(path) == a.wiki.WikiConfig.LogFile {
-					return nil
-				}
-				data, _ := os.ReadFile(path)
-				_, stripped, _ := ParseFrontmatter(string(data))
-				cid := pageName(wikiDir, path)
-
+			for cid, stripped := range pageContents {
 				wLinks := chunking.ExtractWikilinks(stripped)
 				for _, link := range wLinks {
 					if id, ok := pageNameToID[link]; ok && id == target {
 						fromPages = append(fromPages, cid)
+						break
 					} else if link == target {
 						fromPages = append(fromPages, cid)
+						break
 					}
 				}
-
+				if len(fromPages) > 0 && fromPages[len(fromPages)-1] == cid {
+					continue
+				}
 				mLinks := chunking.ExtractMarkdownLinks(stripped)
 				for _, link := range mLinks {
 					if chunking.NormalizeConceptID(link, sourceDir(cid)) == target {
 						fromPages = append(fromPages, cid)
+						break
 					}
 				}
-				return nil
-			})
+			}
 			result.BrokenLinks = append(result.BrokenLinks, BrokenLink{
 				FromPage:   strings.Join(fromPages, ", "),
 				LinkTarget: target,
@@ -159,27 +162,34 @@ func (a *Agent) lintStructure(ctx context.Context, result *LintResult) {
 		}
 	}
 
+	// Stale entry detection
 	indexData, err := os.ReadFile(a.wiki.IndexFilePath())
 	if err != nil {
 		return
 	}
 	indexContent := string(indexData)
+
+	pagesFoundInIndex := make(map[string]bool)
+	indexWLinks := chunking.ExtractWikilinks(indexContent)
+	for _, link := range indexWLinks {
+		if id, ok := pageNameToID[link]; ok {
+			pagesFoundInIndex[id] = true
+		}
+		if allPages[link] {
+			pagesFoundInIndex[link] = true
+		}
+	}
+	indexMLinks := chunking.ExtractMarkdownLinks(indexContent)
+	for _, link := range indexMLinks {
+		resolved := chunking.NormalizeConceptID(link, "")
+		if allPages[resolved] {
+			pagesFoundInIndex[resolved] = true
+		}
+	}
+
 	for page := range allPages {
-		if strings.Contains(indexContent, page) {
-			continue
-		}
-		indexLinks := chunking.ExtractWikilinks(indexContent)
-		indexMLinks := chunking.ExtractMarkdownLinks(indexContent)
-		for _, link := range indexLinks {
-			if link == page && !allPages[link] {
-				result.StaleEntries = append(result.StaleEntries, link)
-			}
-		}
-		for _, link := range indexMLinks {
-			resolved := chunking.NormalizeConceptID(link, "")
-			if resolved == page && !allPages[resolved] {
-				result.StaleEntries = append(result.StaleEntries, resolved)
-			}
+		if !pagesFoundInIndex[page] {
+			result.StaleEntries = append(result.StaleEntries, page)
 		}
 	}
 }

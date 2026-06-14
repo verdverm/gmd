@@ -222,13 +222,14 @@ SearXNG is self-hosted (no API key). Use `gmd env` to verify your resolved confi
 
 | Command | Description |
 |---|---|
-| `gmd wiki init [--name] [--path]` | Scaffold wiki directory structure + CUE config entry |
-| `gmd wiki ingest <source>` | LLM reads source, extracts entities/concepts/claims, writes wiki pages |
-| `gmd wiki query "<question>" [--save]` | RAG search over wiki → LLM synthesis with [[page]] citations |
-| `gmd wiki graph [--format]` | Export wikilink graph as dot, mermaid, or JSON |
-| `gmd wiki lint` | Structure checks (orphans, broken links) + LLM content analysis |
+| `gmd wiki create <name> [--path] [--wiki-dir] [--raw-dir] [--skills]` | Scaffold wiki directory structure + CUE config entry |
+| `gmd wiki ingest <name> <src>` | LLM reads source, extracts entities/concepts/claims, writes wiki pages |
+| `gmd wiki query <name> "<question>" [--save]` | RAG search over wiki → LLM synthesis with citations |
+| `gmd wiki graph <name> [--format]` | Export link graph as dot, mermaid, or JSON |
+| `gmd wiki lint <name>` | Structure checks (orphans, broken links) + OKF conformance + LLM content analysis |
+| `gmd wiki export <name> [--output <dir>]` | Export wiki as a self-contained directory |
 | `gmd wiki skills [list|show|write]` | Manage embedded skill templates for AI agents |
-| `gmd wiki doctor [--fix]` | Diagnostics + auto-configure MCP servers for detected agents |
+| `gmd wiki doctor <name> [--fix]` | Diagnostics + auto-configure MCP servers for detected agents |
 
 ### REST API Endpoints (`gmd serve`)
 

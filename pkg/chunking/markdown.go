@@ -5,6 +5,7 @@ import (
 	"math"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -276,4 +277,67 @@ func splitIntoSegments(lines []string, headings []headingInfo) []segment {
 
 func buildSegmentText(seg segment) string {
 	return strings.Join(seg.lines, "\n")
+}
+
+var wikilinkReplaceRe = regexp.MustCompile(`\[\[([^\]|#]+)(?:\|([^\]#]+))?(?:#[^\]]+)?\]\]`)
+
+func ConvertWikilinksToMarkdown(content string, resolve func(pageName string) string) string {
+	reader := text.NewReader([]byte(content))
+	mdParser := goldmark.New().Parser()
+	doc := mdParser.Parse(reader)
+
+	type replacement struct {
+		start, end int
+		text       string
+	}
+	var replacements []replacement
+
+	_ = ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		txtNode, ok := n.(*ast.Text)
+		if !ok {
+			return ast.WalkContinue, nil
+		}
+		seg := txtNode.Segment
+		if seg.Start >= seg.Stop {
+			return ast.WalkContinue, nil
+		}
+		nodeText := content[seg.Start:seg.Stop]
+		if !strings.Contains(nodeText, "[[") {
+			return ast.WalkContinue, nil
+		}
+		newText := wikilinkReplaceRe.ReplaceAllStringFunc(nodeText, func(match string) string {
+			m := wikilinkReplaceRe.FindStringSubmatch(match)
+			if m == nil {
+				return match
+			}
+			pageName := strings.TrimSpace(m[1])
+			alias := strings.TrimSpace(m[2])
+			if alias == "" {
+				alias = pageName
+			}
+			targetPath := resolve(pageName)
+			return "[" + alias + "](" + targetPath + ")"
+		})
+		if newText != nodeText {
+			replacements = append(replacements, replacement{seg.Start, seg.Stop, newText})
+		}
+		return ast.WalkContinue, nil
+	})
+
+	if len(replacements) == 0 {
+		return content
+	}
+
+	sort.Slice(replacements, func(i, j int) bool {
+		return replacements[i].start > replacements[j].start
+	})
+
+	buf := []byte(content)
+	for _, r := range replacements {
+		buf = append(buf[:r.start], append([]byte(r.text), buf[r.end:]...)...)
+	}
+	return string(buf)
 }

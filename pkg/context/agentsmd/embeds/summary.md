@@ -14,9 +14,9 @@ gmd get <path>               # Retrieve document content by file path
 gmd ls [collection]          # List indexed documents
 gmd collection list          # List all collections
 gmd context agentsmd show [name]          # Output AGENTS.md content for AI assistants (oneline, summary, detailed, full)
-gmd wiki init [--name]        # Create a Karpathy-style LLM Wiki
-gmd wiki ingest <src>         # LLM agent reads source, creates/updates wiki pages
-gmd wiki query "<q>"          # RAG search → LLM synthesis with [[page]] citations
+gmd wiki create <name>         # Create a Karpathy-style LLM Wiki
+gmd wiki ingest <name> <src>    # LLM agent reads source, creates/updates wiki pages
+gmd wiki query <name> "<q>"     # RAG search → LLM synthesis with citations
 gmd llm status                # Health check all LLM providers and roles
 gmd agent list                # List configured agent harnesses and profiles
 gmd agent mytask --profile wiki  # Launch external AI agent harness
@@ -74,12 +74,13 @@ env vars or env files. Use `gmd env` to verify your resolved config.
 
 GMD includes a built-in agent for Karpathy-style compounding knowledge bases:
 
-- `gmd wiki init --name myresearch` — scaffold wiki directory structure + CUE config
-- `gmd wiki ingest paper.md` — LLM reads source, extracts entities/concepts/claims, writes/updates interlinked wiki pages
-- `gmd wiki query "what is..."` — RAG search over wiki → LLM synthesizes answer with [[page]] citations
+- `gmd wiki create myresearch` — scaffold wiki directory structure + CUE config
+- `gmd wiki ingest myresearch paper.md` — LLM reads source, extracts entities/concepts/claims, writes/updates interlinked wiki pages
+- `gmd wiki query myresearch "what is..."` — RAG search over wiki → LLM synthesizes answer with citations
 - `gmd wiki skills write --target all` — install skill templates for AI agents (Claude Code, Codex, OpenCode)
-- `gmd wiki lint` — check for orphan pages, broken wikilinks, contradictions, knowledge gaps
-- `gmd wiki doctor --fix` — diagnostics + auto-configure MCP servers for detected agents
+- `gmd wiki lint myresearch` — check for orphan pages, broken links, OKF conformance, contradictions, knowledge gaps
+- `gmd wiki export myresearch` — export wiki as self-contained directory
+- `gmd wiki doctor myresearch --fix` — diagnostics + auto-configure MCP servers for detected agents
 
 ## Agent Harness
 

@@ -9,32 +9,6 @@ import (
 	"github.com/verdverm/gmd/pkg/llm"
 )
 
-func setTimestamp(pagePath string) error {
-	data, err := os.ReadFile(pagePath)
-	if err != nil {
-		return fmt.Errorf("reading page for timestamp: %w", err)
-	}
-	content := string(data)
-
-	fm, stripped, err := ParseFrontmatter(content)
-	if err != nil {
-		return fmt.Errorf("parsing frontmatter for timestamp: %w", err)
-	}
-	if fm == nil {
-		return fmt.Errorf("no frontmatter found in %s", pagePath)
-	}
-
-	fm["timestamp"] = time.Now().UTC().Format(time.RFC3339)
-
-	fmYAML, err := marshalYAML(fm)
-	if err != nil {
-		return fmt.Errorf("marshaling frontmatter for timestamp: %w", err)
-	}
-
-	newContent := fmt.Sprintf("---\n%s\n---\n\n%s", fmYAML, stripped)
-	return os.WriteFile(pagePath, []byte(newContent), 0600)
-}
-
 func generateDescription(ctx context.Context, pagePath string, llmClient *llm.Client) error {
 	if llmClient == nil {
 		return nil

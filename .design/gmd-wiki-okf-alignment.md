@@ -196,7 +196,7 @@ one universal body heading for that concept type only.
 
 ### 4.1 GMD as OKF Producer (Export)
 
-When `gmd wiki okf export <name>` is run (new command), or when wiki pages are
+When `gmd wiki export <name>` is run (new command), or when wiki pages are
 written by the ingest agent:
 
 1. Every `.md` file has YAML frontmatter with a non-empty `type` field.
@@ -273,8 +273,8 @@ Apply runtime defaults:
 
 | Command | Status | Description |
 |---|---|---|
-| `gmd wiki lint <name> [--okf] [--strict]` | Modified | `--okf` flag adds OKF conformance checks (every .md has frontmatter with `type`, reserved files follow structure, non-root `index.md` has no frontmatter). Calls `ValidateOKF()`. `--strict` makes violations non-zero exit. |
-| `gmd wiki okf export <name> [--output <dir>]` | New | Export wiki as a standalone OKF bundle directory. Converts [[wikilinks]] → markdown links, ensures frontmatter compliance. |
+| `gmd wiki lint <name>` | Modified | Always validates OKF conformance (every .md has frontmatter with `type`, reserved files follow structure, non-root `index.md` has no frontmatter). Calls `ValidateOKF()`. Violations cause non-zero exit. |
+| `gmd wiki export <name> [--output <dir>]` | New | Export wiki as a self-contained directory. Converts [[wikilinks]] → markdown links, ensures frontmatter compliance. |
 | `gmd wiki doctor <name>` | Modified | Add check: missing `okf_version` in index.md → offer to add. Add check: pages missing `type` frontmatter. Add check: pages with stale `timestamp` vs file mtime. |
 | `gmd wiki create <name>` | Modified | Scaffold `index.md`/`log.md`. Write `okf_version: "0.1"` in `index.md` frontmatter. Update hardcoded ignore patterns to use config values. No subdirectory scaffold. |
 
@@ -282,8 +282,8 @@ Apply runtime defaults:
 - `gmd wiki okf import` — importing external OKF bundles is out of scope.
 - `gmd wiki ingest` OKF bundle source detection — ingest reads from `raw/` only.
 
-OKF validation lives under `gmd wiki lint --okf`, not a separate command.
-The `okf` subcommand group under `wiki` exists only for export.
+OKF validation lives under `gmd wiki lint` (always on), not a separate command.
+The `export` subcommand under `wiki` handles export.
 
 ## 7. Code Changes Required
 
@@ -523,10 +523,9 @@ type WikiFrontmatter struct {
 
 ### 7.13 New CLI Commands (`cmd/gmd/`)
 
-- `wiki_okf_export.go` — `gmd wiki okf export <name> [--output <dir>]`
+- `wiki_export.go` — `gmd wiki export <name> [--output <dir>]`
 - Import is out of scope.
-- The `okf` subcommand group under `wiki` exists only for export.
-- OKF validation lives under `gmd wiki lint --okf`.
+- OKF validation is always on in `gmd wiki lint`.
 
 ### 7.14 Tool-Level Post-Processing (`pkg/wiki/`)
 
@@ -562,9 +561,9 @@ New functions that run after the ingest agent writes a page:
 |---|---|---|---|
 | **P0: Foundation** | 1. Rename defaults: `indexFile` → `"index.md"`, `logFile` → `"log.md"` in CUE + Go config<br>2. Add `okfVersion` + `frontmatter` to CUE schema + Go config defaults (per §5.1)<br>3. Update `embeds/wiki_schema.md` (OKF names, markdown links, remove difficulty)<br>4. Update `wiki create` scaffolding + hardcoded ignore patterns (use config values). No subdirectory scaffold.<br>5. Replace all `_`-prefix skip guards with name-based checks. Add missing guard at `lint.go:97-110`.<br>6. `Init()` writes `okf_version` in `index.md` frontmatter<br>7. Update `SKILL.md` and `agentsmd/full.md` embedded docs<br>8. Remove `difficulty` from all frontmatter references across codebase | `types.cue`, `config.go`, `wiki_create.go`, `wiki.go`, `wiki_schema.md`, `graph.go`, `lint.go`, `watch.go`, `SKILL.md`, `full.md` | None |
 | **P1: Links & Resolution** | 1. Implement `ExtractMarkdownLinks()` in `chunking/markdown.go`<br>2. Implement `NormalizeConceptID()` link target resolution<br>3. Build **page-name → file-path registry** (scan wiki dir, parse H1/title per page)<br>4. Update `BuildGraph()` for dual link types: extract wikilinks + markdown links, resolve both to concept IDs, deduplicate<br>5. Update broken-link detection in `lintStructure()` for both link types<br>6. Update `updateIndexFile()`: OKF `* [Title](url) - description` format<br>7. Update `saveQueryResult()`: `# Citations` format, tool sets timestamp<br>8. Update `createWikiPage()` and `packageDoc()`: standard links, no difficulty, `concept_kind` support<br>9. `appendLogFile()` keeps richer heading format<br>10. Update embedded ingest/query prompts: markdown links, `concept_kind` field in JSON schema, no timestamp/description in LLM output | `markdown.go`, `graph.go`, `lint.go`, `agent.go`, `ingest_system.md`, `query_system.md` | P0 |
-| **P2: Conformance & Post-Processing** | 1. Implement `pkg/wiki/okf.go`: `ValidateOKF()`<br>2. Add `--okf` flag to `gmd wiki lint` (calls `ValidateOKF()`)<br>3. Add doctor checks: missing `okf_version`, missing `type`, stale `timestamp`<br>4. **Subdirectory index.md no-frontmatter enforcement** (OKF §6)<br>5. Implement `generateDescription()` (summarizer LLM) and `setTimestamp()` (deterministic) in `pkg/wiki/postprocess.go`<br>6. Add frontmatter preservation: export must preserve unknown frontmatter keys | `okf.go` (new), `lint.go`, `doctor.go`, `postprocess.go` (new) | P1 |
-| **P3: Exchange** | 1. Add `gmd wiki okf export <name> [--output <dir>]` CLI + `ExportOKF()`<br>2. `[[wikilinks]]` → markdown link conversion in export (uses page registry from P1)<br>3. Wire `okf` subcommand group under `wiki` in cobra | `wiki_okf_export.go` (new), `okf.go`, cmd wiring | P2 |
-| **P4: Hardening** | 1. Full test coverage (unit + integration with minimal OKF bundle fixture)<br>2. `gmd wiki lint --okf --strict` — non-zero exit on OKF violations<br>3. Docs update (agentsmd content, CLI help text, `docs/configuration.md`)<br>4. Final review pass: remove any remaining `_index.md`/`_log.md` refs, difficulty refs | Tests, `agentsmd/`, CLI help, `docs/configuration.md` | P3 |
+| **P2: Conformance & Post-Processing** | 1. Implement `pkg/wiki/okf.go`: `ValidateOKF()`<br>2. Always run OKF validation in `gmd wiki lint` (calls `ValidateOKF()`)<br>3. Add doctor checks: missing `okf_version`, missing `type`, stale `timestamp`<br>4. **Subdirectory index.md no-frontmatter enforcement** (OKF §6)<br>5. Implement `generateDescription()` (summarizer LLM) and remove dead `setTimestamp()` in `pkg/wiki/postprocess.go`<br>6. Add frontmatter preservation: export must preserve unknown frontmatter keys | `okf.go` (new), `lint.go`, `doctor.go`, `postprocess.go` (new) | P1 |
+| **P3: Exchange** | 1. Add `gmd wiki export <name> [--output <dir>]` CLI + `ExportOKF()`<br>2. `[[wikilinks]]` → markdown link conversion in export (uses page registry from P1)<br>3. Wire `export` subcommand directly under `wiki` in cobra | `wiki_export.go` (new), `okf.go`, cmd wiring | P2 |
+| **P4: Hardening** | 1. Full test coverage (unit + integration with minimal OKF bundle fixture)<br>2. `gmd wiki lint` — non-zero exit on OKF violations<br>3. Docs update (agentsmd content, CLI help text, `docs/configuration.md`)<br>4. Final review pass: remove any remaining `_index.md`/`_log.md` refs, difficulty refs | Tests, `agentsmd/`, CLI help, `docs/configuration.md` | P3 |
 
 ---
 
@@ -574,7 +573,7 @@ New functions that run after the ingest agent writes a page:
 
 2. **Fixed wiki directory structure:** No fixed subdirectory layout. Wiki pages live wherever the user or agent places them. Any existing prescribed directory structure is removed. No `layout` config field.
 
-3. **`--okf` flag for create:** No separate flag. The default template uses OKF names and conventions.
+3. **`--okf` flag for create:** No separate flag. The default template uses OKF names and conventions. OKF validation in lint is always on, not opt-in.
 
 4. **Type taxonomy / internal categories:** No internal type taxonomy. `type` is a free-form string. No mapping of OKF types to GMD categories. No importing of external OKF bundles — ingest reads from `raw/` only.
 

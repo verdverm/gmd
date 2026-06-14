@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/verdverm/gmd/pkg/chunking"
 )
@@ -80,8 +79,14 @@ func ValidateOKF(wiki *Wiki) (*OKFReport, error) {
 				} else {
 					report.PassCount++
 				}
+			} else if fm == nil || fm["okf_version"] == nil {
+				report.Violations = append(report.Violations, OKFViolation{
+					Page:    pageName(wikiDir, path),
+					Message: fmt.Sprintf("bundle-root %s must have okf_version in frontmatter (OKF §11)", indexFile),
+					IsError: true,
+				})
+				report.ErrorCount++
 			}
-			// Root index.md with frontmatter is fine (okf_version)
 		} else if base == logFile {
 			// log.md has no frontmatter requirement
 		} else {
@@ -120,11 +125,26 @@ func ExportOKF(wiki *Wiki, outputDir string) (*OKFReport, error) {
 	report := &OKFReport{}
 	wikiDir := wiki.WikiPath
 
+	validateReport, valErr := ValidateOKF(wiki)
+	if valErr != nil {
+		return report, fmt.Errorf("validating before export: %w", valErr)
+	}
+	if validateReport.HasErrors() {
+		return validateReport, fmt.Errorf("%w: %d OKF violation(s) found in source wiki; run 'gmd wiki lint %s' for details", ErrOKFValidation, validateReport.ErrorCount, wiki.Name)
+	}
+
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return report, fmt.Errorf("creating output directory: %w", err)
 	}
 
 	pageNameToID := buildPageRegistry(wikiDir)
+
+	resolve := func(pageName string) string {
+		if id, ok := pageNameToID[pageName]; ok {
+			return "/" + id + ".md"
+		}
+		return "/" + pageName + ".md"
+	}
 
 	err := filepath.Walk(wikiDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
@@ -162,7 +182,7 @@ func ExportOKF(wiki *Wiki, outputDir string) (*OKFReport, error) {
 			}
 		}
 
-		converted := convertWikilinksToMarkdown(stripped, filepath.Dir(rel), pageNameToID)
+		converted := chunking.ConvertWikilinksToMarkdown(stripped, resolve)
 
 		fmYAML, _ := marshalYAML(fm)
 		exportContent := fmt.Sprintf("---\n%s\n---\n\n%s", fmYAML, converted)
@@ -199,34 +219,6 @@ func buildPageRegistry(wikiDir string) map[string]string {
 	return registry
 }
 
-func convertWikilinksToMarkdown(content string, sourceRelDir string, pageNameToID map[string]string) string {
-	wikilinks := chunking.ExtractWikilinks(content)
-	result := content
-	for _, link := range wikilinks {
-		var targetPath string
-		if id, ok := pageNameToID[link]; ok {
-			targetPath = "/" + id + ".md"
-		} else {
-			targetPath = "/" + link + ".md"
-		}
-		oldPattern := "[[" + link + "]]"
-		newLink := "[" + link + "](" + targetPath + ")"
-		result = strings.ReplaceAll(result, oldPattern, newLink)
-		oldPatAlias := "[[" + link + "|"
-		if idx := strings.Index(result, oldPatAlias); idx >= 0 {
-			end := strings.Index(result[idx:], "]]")
-			if end >= 0 {
-				alias := result[idx+len(oldPatAlias) : idx+end]
-				newLinkAlias := "[" + alias + "](" + targetPath + ")"
-				result = result[:idx] + newLinkAlias + result[idx+end+2:]
-			}
-		}
-	}
-	return result
-}
-
 func writeExportFile(path, content string) error {
 	return os.WriteFile(path, []byte(content), 0600)
 }
-
-var _ = time.Now

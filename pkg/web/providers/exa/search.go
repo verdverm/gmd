@@ -17,9 +17,9 @@ func NewSearchAdapter(cfg web.ProviderConfig) (*SearchAdapter, error) {
 	apiKey, _ := cfg.Extra["api_key"].(string)
 	baseURL, _ := cfg.Extra["base_url"].(string)
 	if baseURL != "" {
-		return &SearchAdapter{client: exaclient.NewWithServer(apiKey, baseURL), name: cfg.Name}, nil
+		return &SearchAdapter{client: exaclient.NewWithServer(apiKey, baseURL, cfg.HTTPClient), name: cfg.Name}, nil
 	}
-	return &SearchAdapter{client: exaclient.New(apiKey), name: cfg.Name}, nil
+	return &SearchAdapter{client: exaclient.New(apiKey, cfg.HTTPClient), name: cfg.Name}, nil
 }
 
 func (a *SearchAdapter) Name() string { return a.name }

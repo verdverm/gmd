@@ -20,23 +20,31 @@ type Client struct {
 	httpClient *http.Client
 }
 
-func New(apiKey string) *Client {
-	return &Client{
-		apiKey:  apiKey,
-		baseURL: defaultBaseURL,
-		httpClient: &http.Client{
+func New(apiKey string, httpClient *http.Client) *Client {
+	hc := httpClient
+	if hc == nil {
+		hc = &http.Client{
 			Timeout: defaultTimeout,
-		},
+		}
+	}
+	return &Client{
+		apiKey:     apiKey,
+		baseURL:    defaultBaseURL,
+		httpClient: hc,
 	}
 }
 
-func NewWithServer(apiKey, baseURL string) *Client {
-	return &Client{
-		apiKey:  apiKey,
-		baseURL: baseURL,
-		httpClient: &http.Client{
+func NewWithServer(apiKey, baseURL string, httpClient *http.Client) *Client {
+	hc := httpClient
+	if hc == nil {
+		hc = &http.Client{
 			Timeout: defaultTimeout,
-		},
+		}
+	}
+	return &Client{
+		apiKey:     apiKey,
+		baseURL:    baseURL,
+		httpClient: hc,
 	}
 }
 

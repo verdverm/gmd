@@ -24,6 +24,9 @@ var (
 	testLLMClient *llm.Client
 	testCfg       *config.Config
 	testWikiDirs  = []string{"raw", "wiki"}
+
+	TestTSSrvURL string
+	TestTSSrvKey string
 )
 
 func TestMain(m *testing.M) {
@@ -42,6 +45,8 @@ func TestMain(m *testing.M) {
 		if err := tsSrv.WaitForHealth(ctx, 30*time.Second); err != nil {
 			fmt.Fprintf(os.Stderr, "wiki integration: FATAL: TS health check failed (%v)\n", err)
 		} else {
+			TestTSSrvURL = tsSrv.URL()
+			TestTSSrvKey = tsSrv.APIKey
 			testTSClient = ts.New(ts.Config{
 				Host:   tsSrv.URL(),
 				APIKey: tsSrv.APIKey,
@@ -658,13 +663,6 @@ func TestIntegrationInit_ErrorWriteSchema(t *testing.T) {
 // ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------
-
-// storePath converts a relative page path (e.g. "entities/foo.md") to the path
-// the production indexer would store — relative to the project root with a "wiki/"
-// prefix, matching how readWikiPage (which uses a.wiki.Path) resolves it.
-func storePath(relPath string) string {
-	return filepath.Join("wiki", relPath)
-}
 
 func indexWikiPage(ctx context.Context, c *ts.Client, collectionKey, wikiPath, relPath string) ([]ts.ChunkDocument, error) {
 	fullPath := filepath.Join(wikiPath, relPath)

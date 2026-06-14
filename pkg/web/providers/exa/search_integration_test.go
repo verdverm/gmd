@@ -5,10 +5,12 @@ package exa
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"testing"
 
 	"github.com/verdverm/gmd/pkg/config"
+	"github.com/verdverm/gmd/pkg/testutil"
 	"github.com/verdverm/gmd/pkg/web"
 )
 
@@ -18,6 +20,14 @@ func TestMain(m *testing.M) {
 		fmt.Fprintf(os.Stderr, "exa integration: config load failed (%v)\n", err)
 	}
 	os.Exit(m.Run())
+}
+
+func maybeNewTape(t *testing.T, filePath string) *testutil.Tape {
+	t.Helper()
+	if os.Getenv("GMD_NORECORD") == "1" {
+		return nil
+	}
+	return testutil.NewTape(filePath, "https://api.exa.ai", nil, testutil.ModeRecord)
 }
 
 func requireEnv(t *testing.T, key string) string {
@@ -35,11 +45,24 @@ func requireEnv(t *testing.T, key string) string {
 func TestSearchAdapter_Integration(t *testing.T) {
 	apiKey := requireEnv(t, "EXA_API_KEY")
 
+	tape := maybeNewTape(t, "testdata/001_search.json")
+	var httpClient *http.Client
+	if tape != nil {
+		tape.Start()
+		defer func() {
+			if err := tape.Stop(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+		httpClient = &http.Client{Transport: tape.Transport()}
+	}
+
 	adapter, err := NewSearchAdapter(web.ProviderConfig{
 		Name: "exa",
 		Extra: map[string]any{
 			"api_key": apiKey,
 		},
+		HTTPClient: httpClient,
 	})
 	if err != nil {
 		t.Fatalf("NewSearchAdapter: %v", err)

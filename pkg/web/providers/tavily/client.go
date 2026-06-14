@@ -30,10 +30,14 @@ func NewSearchClient(cfg web.ProviderConfig) (*SearchClient, error) {
 	if baseURL == "" {
 		baseURL = defaultTavilyBaseURL
 	}
+	httpClient := cfg.HTTPClient
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 30 * time.Second}
+	}
 	return &SearchClient{
 		apiKey:     apiKey,
 		baseURL:    baseURL,
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		httpClient: httpClient,
 		name:       cfg.Name,
 	}, nil
 }

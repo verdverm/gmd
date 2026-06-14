@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
@@ -92,12 +93,15 @@ func (c *Client) RoleURL(role string) string {
 	return ""
 }
 
-func newOpenAIClient(baseURL, apiKey string) openai.Client {
+func newOpenAIClient(baseURL, apiKey string, httpClient *http.Client) openai.Client {
 	opts := []option.RequestOption{
 		option.WithBaseURL(baseURL),
 	}
 	if apiKey != "" {
 		opts = append(opts, option.WithAPIKey(apiKey))
+	}
+	if httpClient != nil {
+		opts = append(opts, option.WithHTTPClient(httpClient))
 	}
 	return openai.NewClient(opts...)
 }
@@ -228,7 +232,7 @@ type EndpointStatus struct {
 
 func (c *Client) CheckEndpoint(ctx context.Context, label, baseURL, model string) EndpointStatus {
 	s := EndpointStatus{Label: label, URL: baseURL, Model: model}
-	cli := newOpenAIClient(baseURL, "")
+	cli := newOpenAIClient(baseURL, "", nil)
 	page, err := cli.Models.List(ctx)
 	if err != nil {
 		s.Err = err.Error()

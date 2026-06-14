@@ -12,27 +12,6 @@ import (
 	"github.com/verdverm/gmd/pkg/config"
 )
 
-func newTestWikiAgent(t *testing.T) (*Wiki, *Agent) {
-	t.Helper()
-	tmpDir := t.TempDir()
-	w, err := NewWiki("test-wiki", tmpDir, &config.WikiConfig{
-		SourceConfig: config.SourceConfig{Path: tmpDir},
-		WikiDir:      "wiki",
-		RawDir:       "raw",
-		IndexFile:    "index.md",
-		LogFile:      "log.md",
-		GraphLinks:   true,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := w.Init(); err != nil {
-		t.Fatal(err)
-	}
-	agent := NewAgent(w, nil, nil, nil)
-	return w, agent
-}
-
 func TestIntegrationReadWikiPage_Existing(t *testing.T) {
 	_, agent := newTestWikiAgent(t)
 
@@ -697,11 +676,4 @@ Always close channels when done sending. Use range to receive values until the c
 	if len(logContent) <= len("# Wiki Log\n\n") {
 		t.Error("expected log to contain ingested entry")
 	}
-}
-
-func minInt(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

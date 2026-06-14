@@ -3,6 +3,7 @@ package ts
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -32,8 +33,9 @@ type Client struct {
 
 // Config holds Typesense connection parameters.
 type Config struct {
-	Host   string
-	APIKey string
+	Host       string
+	APIKey     string
+	HTTPClient *http.Client
 }
 
 // ChunkDocument represents a single chunk indexed in Typesense.
@@ -102,11 +104,15 @@ func (d *DocDocument) ToMap() map[string]interface{} {
 
 // New creates a new Typesense client wrapper.
 func New(cfg Config) *Client {
+	opts := []typesense.ClientOption{
+		typesense.WithServer(cfg.Host),
+		typesense.WithAPIKey(cfg.APIKey),
+	}
+	if cfg.HTTPClient != nil {
+		opts = append(opts, typesense.WithCustomHTTPClient(cfg.HTTPClient))
+	}
 	return &Client{
-		client: typesense.NewClient(
-			typesense.WithServer(cfg.Host),
-			typesense.WithAPIKey(cfg.APIKey),
-		),
+		client: typesense.NewClient(opts...),
 		config: cfg,
 	}
 }

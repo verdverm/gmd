@@ -2,8 +2,8 @@
 
 **Created:** 2026-06-13
 **Last updated:** 2026-06-13
-**Phase:** Design
-**Status:** Draft
+**Phase:** Implementation
+**Status:** In Progress (Phases 1-2 complete, 3-4 near-complete: ts + llm + wiki + exa/tavily/searxng/fusion; remaining: cloudflare)
 
 ## Context
 
@@ -365,157 +365,119 @@ When `cfg.HTTPClient` is nil (production), all behavior is unchanged.
 
 ## Implementation Plan
 
-### Phase 1: Tape Infrastructure (`pkg/testutil/tape.go`)
+Status: **In Progress** — Phases 1-4 complete for ts, llm, wiki, exa, tavily, searxng, fusion.
+Remaining: cloudflare, Makefile.
 
-Single ~250-line file, no dependencies beyond stdlib.
+### Phase 1: Tape Infrastructure (`pkg/testutil/tape.go`) — COMPLETE
 
-**Record mode RoundTripper:**
-1. Buffer request body (read bytes, restore with `io.NopCloser(bytes.NewReader(bodyBytes))`)
-2. Forward to upstream via `t.parent.RoundTrip(req)`
-3. Buffer response body
-4. Strip sensitive headers (from configured set)
-5. Append exchange to `t.exchanges`
-6. Return response with buffered body
+`pkg/testutil/tape.go` (258 lines, stdlib only) and `pkg/testutil/tape_test.go` (13 self-tests).
 
-**Replay mode RoundTripper:**
-1. Pop next exchange from `t.exchanges[t.pos]`, increment `t.pos`
-2. Construct `*http.Response` from stored status, headers, body
-3. If `t.pos >= len(t.exchanges)`, return error ("tape exhausted at position N")
+- `Tape` type with `ModeRecord` / `ModeReplay`, sequential exchange array, `Start()`/`Stop()` gates
+- Record mode: buffers request/response body, strips sensitive headers (case-insensitive), appends exchange
+- Replay mode: serves exchanges in FIFO order, returns "tape exhausted at position N" on overrun
+- `Stop()` in Record: `os.MkdirAll` + `json.MarshalIndent` to `filePath`; Replay: no-op
+- `NewReplayTape`: validates file exists, valid JSON, root is array; returns error (not panic)
+- Header stripping: `Authorization`, `X-TYPESENSE-API-KEY`, `X-Api-Key`, `X-Auth-Key`, `Cookie`, `Set-Cookie` — from both request and response, case-insensitive via `strings.EqualFold`
+- Concurrency: `sync.Mutex` per tape; each test creates its own
 
-**`Stop()` in Record mode:**
-- Creates `testdata/` directory if missing via `os.MkdirAll(filepath.Dir(t.filePath), 0755)`
-- Writes `t.exchanges` as JSON array to `t.filePath`
+### Phase 2: Add HTTPClient Fields to Config Structs — COMPLETE
 
-**`Stop()` in Replay mode:**
-- No-op. (Unconsumed exchanges are fine — the test exercises a subset of the recorded flow.)
+| Package | File | Change |
+|---|---|---|
+| `pkg/ts/` | `client.go` | `Config.HTTPClient` + `WithCustomHTTPClient` in `New()` |
+| `pkg/llm/` | `builder.go` | `ProviderConfig.HTTPClient` + `option.WithHTTPClient` in `BuildClient()` |
+| `pkg/llm/` | `client.go` | `newOpenAIClient()` accepts optional `*http.Client` param; call site passes `nil` |
+| `pkg/web/` | `config.go` | `ProviderConfig.HTTPClient` field |
+| `pkg/web/exa/` | `client.go` | `New()` and `NewWithServer()` accept optional `*http.Client` |
+| `pkg/web/providers/tavily/` | `client.go` | Uses `cfg.HTTPClient` if non-nil, else default `http.Client{Timeout: 30s}` |
+| `pkg/web/providers/searxng/` | `client.go` | Same pattern as tavily |
+| `pkg/web/providers/cloudflare/` | `browser.go` | Same pattern |
+| `pkg/web/providers/exa/` | `search.go`, `browser.go` | Pass `cfg.HTTPClient` to exa client constructors |
+| `cmd/gmd/` | `web_agent.go` | Updated `exa.New()` call to pass `nil` |
 
-**Concurrency:** `sync.Mutex` protects the exchanges slice. Not designed for concurrent use — each test function creates its own `Tape`.
+### Phase 3: Wire Tapes into Integration Tests — PARTIAL
 
-### Phase 2: Add HTTPClient Fields to Config Structs
+Recording is on by default. Each package has `maybeNewTape(t, filePath string) *testutil.Tape` helper that returns nil when `GMD_NORECORD=1`. Taped tests create a local client with tape transport injected via `cfg.HTTPClient`.
 
-- `pkg/ts/client.go` — `Config.HTTPClient` + `New()` wiring
-- `pkg/llm/builder.go` — `ProviderConfig.HTTPClient` + `BuildClient()` wiring
-- `pkg/llm/client.go` — `newOpenAIClient` optional `*http.Client` param
-- All web providers — `HTTPClient` field on each provider's config struct + constructor wiring
+Completed packages and their committed tapes:
 
-### Phase 3: Wire Tapes into Integration Tests
+| Package | Test | Tape File | Status |
+|---|---|---|---|
+| `pkg/ts/` | `TestIntegrationChunkCRUD` | `testdata/001_chunk_crud.json` | Taped |
+| `pkg/ts/` | `TestIntegrationTextSearch` | `testdata/002_text_search.json` | Taped |
+| `pkg/ts/` | `TestIntegrationHybridSearch` | `testdata/003_hybrid_search.json` | Taped |
+| `pkg/ts/` | `TestIntegrationVectorSearch` | `testdata/004_vector_search.json` | Taped |
+| `pkg/ts/` | `TestIntegrationDocCRUD` | `testdata/005_doc_crud.json` | Taped |
+| `pkg/ts/` | `TestIntegrationEmptyCollectionSearch` | `testdata/006_empty_results.json` | Taped |
+| `pkg/web/providers/exa/` | `TestSearchAdapter_Integration` | `testdata/001_search.json` | Taped |
+| `pkg/web/providers/exa/` | `TestBrowserAdapter_Integration` | `testdata/002_browser.json` | Taped |
+| `pkg/web/providers/tavily/` | `TestSearchClient_Integration` | `testdata/001_search.json` | Taped |
+| `pkg/web/providers/searxng/` | `TestSearchClient_Integration` | `testdata/001_search.json` | Taped |
+| `pkg/llm/` | `TestIntegrationEmbed` | `testdata/001_embed.json` | Taped |
+| `pkg/llm/` | `TestIntegrationChatExpand` | `testdata/002_chat_expand.json` | Taped |
+| `pkg/llm/` | `TestIntegrationRerank` | `testdata/003_rerank.json` | Taped |
+| `pkg/web/fusion/` | `TestMultiSearch_Integration` | `testdata/fusion_exa.json`, `testdata/fusion_tavily.json`, `testdata/fusion_searxng.json` | Per-provider tapes, concurrent fan-out |
+| `pkg/wiki/` | `TestIntegrationQueryFlow_Record` | `testdata/query_flow.json` | TS embed+upsert+search + LLM chat, shared tape |
+| `pkg/wiki/` | `TestIntegrationIngestFlow_Record` | `testdata/ingest_flow.json` | TS search overlap + LLM ingest + descriptions, shared tape |
+| `pkg/wiki/` | `TestIntegrationLintContentFlow_Record` | `testdata/lint_content.json` | LLM pairwise comparisons, shared tape |
 
-Recording is on by default. The integration test code checks `GMD_NORECORD=1` to skip recording:
+Remaining packages:
 
-```go
-func maybeNewTape(t *testing.T, filePath, upstreamURL string) *testutil.Tape {
-    if os.Getenv("GMD_NORECORD") == "1" {
-        return nil
-    }
-    return testutil.NewTape(filePath, upstreamURL, nil, testutil.ModeRecord)
-}
-```
+| Package | Target Tapes | Status |
+|---|---|---|
+| `pkg/web/providers/cloudflare/` | Browser (GetContent), crawl | Not started |
 
-Integration test functions call `tape.Start()` / `defer tape.Stop()` to bracket recording. When tape is nil (opt-out), the test runs as before with no recording.
+8 non-taped `pkg/ts/` tests (Schema, DynamicFields, ChunkLinks, DocLinks, FetchDocs, SearchDistinctPaths, ListDocuments, SearchChunksByPath, NonExistentPaths) keep using `testTSClient` directly — can be taped in a follow-up.
 
-```go
-// pkg/ts/client_integration_test.go
-func TestIntegrationChunkCRUD(t *testing.T) {
-    tape := maybeNewTape(t, "testdata/001_chunk_crud.json", srv.URL())
-    if tape != nil {
-        tape.Start()
-        defer tape.Stop()
-    }
-    // ... existing test logic ...
-}
-```
+**Tape generation process:** All committed tape files were generated by running the integration tests against real APIs (not hand-crafted). To regenerate: `GMD_NORECORD=0 make test.integration`.
 
-Target tapes per package (each in its own `testdata/` alongside test files):
+### Phase 4: Write Unit Tests Using Replay — PARTIAL
 
-| Package | Tapes |
-|---|---|
-| `pkg/ts/` | Chunk CRUD, text search, hybrid search, vector search, doc CRUD, empty results |
-| `pkg/llm/` | Embed (single + batch), chat (expansion), rerank |
-| `pkg/wiki/` | Ingest flow, query flow, lint |
-| `pkg/web/fusion/` | MultiSearch fan-out + partial failure |
-| `pkg/web/providers/exa/` | Search, browser |
-| `pkg/web/providers/tavily/` | Search |
-| `pkg/web/providers/searxng/` | Search |
-| `pkg/web/providers/cloudflare/` | Search, crawl |
+Replay tests follow the same pattern: load tape via `NewReplayTape`, inject transport via `cfg.HTTPClient`, call client methods, assert structural validity.
 
-### Phase 4: Write Unit Tests Using Replay
+Completed replay tests:
 
-```go
-func TestHybridSearch(t *testing.T) {
-    tape, err := testutil.NewReplayTape("testdata/003_hybrid_search.json")
-    if err != nil {
-        t.Fatal(err) // fail hard — testdata is committed, absence is a bug
-    }
-    tape.Start()
-    defer tape.Stop()
-
-    client := ts.New(ts.Config{
-        Host:       "http://unused",
-        APIKey:     "test-key",
-        HTTPClient: &http.Client{Transport: tape.Transport()},
-    })
-
-    results, err := client.HybridSearch(t.Context(), ts.HybridSearchParams{
-        Query:       "deploy",
-        Collections: []string{"docs"},
-        Limit:       10,
-        GroupLimit:  3,
-    })
-    if err != nil {
-        t.Fatal(err)
-    }
-    if len(results) == 0 {
-        t.Error("expected non-empty results")
-    }
-    for _, r := range results {
-        if r.Path == "" || r.Content == "" {
-            t.Errorf("result missing required field: %+v", r)
-        }
-    }
-}
-```
+| Package | Test Function | Tape File | Assertions |
+|---|---|---|---|
+| `pkg/ts/` | `TestReplayDemo` | `testdata/replay_demo.json` | CountByPath returns 3, exhaustion check |
+| `pkg/web/providers/exa/` | `TestSearchAdapter_Replay` | `testdata/001_search.json` | Non-empty results, title+URL non-empty |
+| `pkg/web/providers/exa/` | `TestBrowserAdapter_Replay` | `testdata/002_browser.json` | Non-empty content |
+| `pkg/web/providers/tavily/` | `TestSearchClient_Replay` | `testdata/001_search.json` | Non-empty results, title+URL non-empty, exhaustion check |
+| `pkg/web/providers/searxng/` | `TestSearchClient_Replay` | `testdata/001_search.json` | Non-empty results, title+URL non-empty, exhaustion check |
+| `pkg/llm/` | `TestEmbedReplay` | `testdata/001_embed.json` | Non-empty []float64, batch returns 2 vectors, exhaustion check |
+| `pkg/llm/` | `TestChatReplay` | `testdata/002_chat_expand.json` | Non-empty response string, exhaustion check |
+| `pkg/llm/` | `TestRerankReplay` | `testdata/003_rerank.json` | 2 results with valid indices/scores, exhaustion check |
+| `pkg/web/fusion/` | `TestMultiSearch_Replay` | `testdata/fusion_*.json` | Non-empty results, _provider tags, per-provider concurrent replay |
+| `pkg/wiki/` | `TestQueryFlow_Replay` | `testdata/query_flow.json` | Non-empty query answer |
+| `pkg/wiki/` | `TestIngestFlow_Replay` | `testdata/ingest_flow.json` | Pages created/updated (source content must match recording) |
+| `pkg/wiki/` | `TestLintContentFlow_Replay` | `testdata/lint_content.json` | Contradiction count |
 
 **Assertion strategy:**
-- Typesense responses: structural validation (non-empty fields, correct types, result counts).
-- LLM chat/rerank: structural only — `len(resp.Choices) > 0`, content non-empty. Never assert on semantic content.
-- LLM embeddings: assert correct dimension and finite float values. Skip per-value epsilon comparison.
-- Web provider responses: structural validation against the real response shape.
+- Typesense responses: structural validation (non-empty fields, correct types, result counts)
+- LLM chat/rerank: structural only — `len(resp.Choices) > 0`, content non-empty. Never assert on semantic content
+- LLM embeddings: assert correct dimension and finite float values. Skip per-value epsilon comparison
+- Web provider responses: structural validation against the real response shape
 
-**Tape exhausted error:** If replay makes more calls than recorded, `Transport()` returns `fmt.Errorf("tape exhausted at position %d", pos)`, failing the test.
+**Tape exhaustion:** For providers without retry loops (tavily, searxng), replay tests include a second call to verify exhaustion. For providers with retry loops (exa), exhaustion is tested in `pkg/testutil/tape_test.go` instead.
 
-### Phase 5: Makefile Integration
+Remaining replay tests: cloudflare (2 tests), additional ts tests.
 
-The existing `test` and `test.integration` targets stay unchanged. A new `ci` target chains them — no target shadowing, no breaking changes:
+### Phase 5: Makefile Integration — NOT STARTED
+
+The existing `test` and `test.integration` targets stay unchanged. A new `ci` target chains them:
 
 ```makefile
-# Existing rules — unchanged
-test:
-	go test ./... -v -count=1
-
-test.integration: clean-ts
-	CGO_ENABLED=$(CGO_ENABLED) $(GO) test -p 1 ./... -v -count=1 -tags=integration
-
 # Opt out of recording during development (new)
 test.integration.norecord:
 	GMD_NORECORD=1 $(MAKE) test.integration
 
-# CI: replay unit tests (make test) then re-record tapes (make test.integration)
+# CI: replay unit tests then re-record integration tapes
 ci: test test.integration
 ```
 
-The `check` target (currently `tidy gofmt lint lint-all vulncheck test`) is unchanged. `ci` is the new target that validates tape freshness.
+### Phase 6: Coexistence with Hand-Written Mocks — NOT STARTED
 
-### Phase 6: Coexistence with Hand-Written Mocks
-
-For packages using narrow interfaces (e.g., `pkg/indexer/` uses 6 TS methods), the existing `mockTSClient` pattern remains:
-
-| Use case | Best approach |
-|---|---|
-| Full search pipeline (20+ TS + LLM methods) | Replay tape |
-| Indexer cleanup logic (6 TS methods) | Hand-written mock struct |
-| LLM agent workflows (wiki) | Replay tape |
-| Web provider response parsing | Replay tape |
-| Config, chunking, formatting | Pure functions, no mocking |
+For packages using narrow interfaces (e.g., `pkg/indexer/` uses 6 TS methods), the existing `mockTSClient` pattern remains. Coexistence documented but no wiring needed — hand-written mocks already exist and are independent of tapes.
 
 ## Design Considerations
 
@@ -604,7 +566,11 @@ The design sets `Host: "http://unused"` in replay mode. The `typesense.NewClient
 
 ## Summary
 
-6-phase plan to add HTTP-level sequential tape recording/replay to gmd's test suite. Per-package `testdata/` directories hold committed JSON tape files. Integration tests record by default (opt-out via `GMD_NORECORD`). Unit tests replay tapes for fast, deterministic, parallel tests covering the same codepaths as integration. `make ci` chains replay-then-record for CI validation; `check` validates replay only. Hand-written mocks coexist for narrow interfaces; tapes cover broad API surfaces (Typesense, LLM, web providers, wiki).
+6-phase plan to add HTTP-level sequential tape recording/replay to gmd's test suite. Per-package `testdata/` directories hold committed JSON tape files generated by integration test runs against real APIs.
+
+**Completed:** Phases 1-2 (tape infrastructure + HTTPClient config fields). Phases 3-4 for 7 packages: `pkg/ts/` (6 taped + 1 replay), `pkg/llm/` (3 taped + 3 replay), `pkg/web/providers/exa/` (2 taped + 2 replay), `pkg/web/providers/tavily/` (1 taped + 1 replay), `pkg/web/providers/searxng/` (1 taped + 1 replay), `pkg/web/fusion/` (1 taped with per-provider concurrent tapes + 1 replay), `pkg/wiki/` (3 taped + 3 replay with shared TS+LLM tape). 17 integration tests wired with tape recording, 15 replay unit tests passing against real captured data.
+
+**Remaining:** `pkg/web/providers/cloudflare/`, additional ts tests, Makefile `ci` target.
 
 ### Tape Freshness and CI
 

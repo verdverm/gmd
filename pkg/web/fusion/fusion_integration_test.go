@@ -5,12 +5,14 @@ package fusion
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/verdverm/gmd/pkg/config"
 	"github.com/verdverm/gmd/pkg/llm"
+	"github.com/verdverm/gmd/pkg/testutil"
 	"github.com/verdverm/gmd/pkg/web"
 	exaprovider "github.com/verdverm/gmd/pkg/web/providers/exa"
 	searxngprovider "github.com/verdverm/gmd/pkg/web/providers/searxng"
@@ -36,6 +38,51 @@ func requireEnv(t *testing.T, key string) string {
 		t.Skipf("%s not set — skipping integration test", key)
 	}
 	return v
+}
+
+func maybeNewTape(t *testing.T, filePath, upstreamURL string) *testutil.Tape {
+	t.Helper()
+	if os.Getenv("GMD_NORECORD") == "1" {
+		return nil
+	}
+	return testutil.NewTape(filePath, upstreamURL, nil, testutil.ModeRecord)
+}
+
+func tapedSearchProviders(t *testing.T, exaHC, tavilyHC, searxngHC *http.Client) []web.SearchProvider {
+	t.Helper()
+	var providers []web.SearchProvider
+
+	if key := os.Getenv("EXA_API_KEY"); key != "" {
+		adapter, err := exaprovider.NewSearchAdapter(web.ProviderConfig{
+			Name: "exa", Extra: map[string]any{"api_key": key},
+			HTTPClient: exaHC,
+		})
+		if err == nil {
+			providers = append(providers, adapter)
+		}
+	}
+
+	if key := os.Getenv("TAVILY_API_KEY"); key != "" {
+		client, err := tavilyprovider.NewSearchClient(web.ProviderConfig{
+			Name: "tavily", Extra: map[string]any{"api_key": key},
+			HTTPClient: tavilyHC,
+		})
+		if err == nil {
+			providers = append(providers, client)
+		}
+	}
+
+	if url := os.Getenv("SEARXNG_BASE_URL"); url != "" {
+		client, err := searxngprovider.NewSearchClient(web.ProviderConfig{
+			Name: "searxng", Extra: map[string]any{"base_url": url},
+			HTTPClient: searxngHC,
+		})
+		if err == nil {
+			providers = append(providers, client)
+		}
+	}
+
+	return providers
 }
 
 func availableSearchProviders(t *testing.T) []web.SearchProvider {
@@ -93,7 +140,42 @@ func llmClientOrSkip(t *testing.T) *llm.Client {
 }
 
 func TestMultiSearch_Integration(t *testing.T) {
-	providers := availableSearchProviders(t)
+	exaTape := maybeNewTape(t, "testdata/fusion_exa.json", "https://api.exa.ai")
+	tavilyTape := maybeNewTape(t, "testdata/fusion_tavily.json", "https://api.tavily.com")
+
+	searxngURL := os.Getenv("SEARXNG_BASE_URL")
+	var searxngTape *testutil.Tape
+	if searxngURL != "" {
+		searxngTape = maybeNewTape(t, "testdata/fusion_searxng.json", searxngURL)
+	}
+
+	var exaHC, tavilyHC, searxngHC *http.Client
+	startTape := func(tape *testutil.Tape) *http.Client {
+		if tape == nil {
+			return nil
+		}
+		tape.Start()
+		return &http.Client{Transport: tape.Transport()}
+	}
+	exaHC = startTape(exaTape)
+	tavilyHC = startTape(tavilyTape)
+	searxngHC = startTape(searxngTape)
+
+	defer func() {
+		stopTape := func(tape *testutil.Tape) {
+			if tape == nil {
+				return
+			}
+			if err := tape.Stop(); err != nil {
+				t.Fatal(err)
+			}
+		}
+		stopTape(exaTape)
+		stopTape(tavilyTape)
+		stopTape(searxngTape)
+	}()
+
+	providers := tapedSearchProviders(t, exaHC, tavilyHC, searxngHC)
 	if len(providers) == 0 {
 		t.Skip("no search providers available")
 	}

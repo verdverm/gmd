@@ -1,0 +1,31 @@
+[
+  {
+    "request": {
+      "method": "POST",
+      "url": "http://192.168.4.31:8003/v1/rerank",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": "OpenAI/Go 3.37.0",
+        "X-Stainless-Arch": "arm64",
+        "X-Stainless-Lang": "go",
+        "X-Stainless-Os": "MacOS",
+        "X-Stainless-Package-Version": "3.37.0",
+        "X-Stainless-Retry-Count": "0",
+        "X-Stainless-Runtime": "go",
+        "X-Stainless-Runtime-Version": "go1.26.4"
+      },
+      "body": "{\"model\":\"Qwen/Qwen3-Reranker-0.6B\",\"query\":\"test query\",\"documents\":[\"doc one\",\"doc two\"]}\n"
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Content-Length": "319",
+        "Content-Type": "application/json",
+        "Date": "Sun, 14 Jun 2026 06:37:00 GMT",
+        "Server": "uvicorn"
+      },
+      "body": "{\"id\":\"score-8ba01fd044bddf9f\",\"model\":\"Qwen/Qwen3-Reranker-0.6B\",\"usage\":{\"prompt_tokens\":8,\"total_tokens\":8},\"results\":[{\"index\":0,\"document\":{\"text\":\"doc one\",\"multi_modal\":null},\"relevance_score\":0.9190211296081543},{\"index\":1,\"document\":{\"text\":\"doc two\",\"multi_modal\":null},\"relevance_score\":0.7786862850189209}]}"
+    }
+  }
+]

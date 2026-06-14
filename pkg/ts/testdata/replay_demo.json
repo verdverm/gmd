@@ -1,0 +1,17 @@
+[
+  {
+    "request": {
+      "method": "GET",
+      "url": "/collections/chunks/documents/search?q=*&query_by=content&filter_by=path%3Achunk-crud.md&per_page=0",
+      "headers": {},
+      "body": ""
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": "{\"facet_counts\":[],\"found\":3,\"hits\":[{\"document\":{\"collection\":\"ts-int-test\",\"path\":\"chunk-crud.md\",\"title\":\"Doc chunk-crud.md chunk 0\",\"content\":\"Content of chunk 0 for chunk-crud.md.\",\"hash\":\"hash-chunk-crud.md-0\",\"chunk_seq\":0,\"total_chunks\":3,\"embedding\":[0,0.5,0.1,0.2]},\"highlight\":{},\"text_match\":0},{\"document\":{\"collection\":\"ts-int-test\",\"path\":\"chunk-crud.md\",\"title\":\"Doc chunk-crud.md chunk 1\",\"content\":\"Content of chunk 1 for chunk-crud.md.\",\"hash\":\"hash-chunk-crud.md-1\",\"chunk_seq\":1,\"total_chunks\":3,\"embedding\":[1,1,0.1,0.2]},\"highlight\":{},\"text_match\":0},{\"document\":{\"collection\":\"ts-int-test\",\"path\":\"chunk-crud.md\",\"title\":\"Doc chunk-crud.md chunk 2\",\"content\":\"Content of chunk 2 for chunk-crud.md.\",\"hash\":\"hash-chunk-crud.md-2\",\"chunk_seq\":2,\"total_chunks\":3,\"embedding\":[2,1.5,0.1,0.2]},\"highlight\":{},\"text_match\":0}],\"found\":3,\"out_of\":3,\"page\":1,\"request_params\":{\"collection_name\":\"chunks\",\"per_page\":0,\"q\":\"*\"},\"search_cutoff\":false,\"search_time_ms\":1}"
+    }
+  }
+]

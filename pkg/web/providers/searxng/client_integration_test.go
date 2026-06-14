@@ -5,10 +5,12 @@ package searxng
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"testing"
 
 	"github.com/verdverm/gmd/pkg/config"
+	"github.com/verdverm/gmd/pkg/testutil"
 	"github.com/verdverm/gmd/pkg/web"
 )
 
@@ -23,6 +25,21 @@ func TestMain(m *testing.M) {
 		testCfg = cfg
 	}
 	os.Exit(m.Run())
+}
+
+func maybeNewTape(t *testing.T, filePath string) *testutil.Tape {
+	t.Helper()
+	if os.Getenv("GMD_NORECORD") == "1" {
+		return nil
+	}
+	baseURL := os.Getenv("SEARXNG_BASE_URL")
+	if baseURL == "" && testCfg != nil {
+		baseURL = testCfg.Web.SearXNG.BaseURL
+	}
+	if baseURL == "" {
+		baseURL = "http://localhost:8080"
+	}
+	return testutil.NewTape(filePath, baseURL, nil, testutil.ModeRecord)
 }
 
 func requireSearXNGURL(t *testing.T) string {
@@ -43,11 +60,24 @@ func requireSearXNGURL(t *testing.T) string {
 func TestSearchClient_Integration(t *testing.T) {
 	baseURL := requireSearXNGURL(t)
 
+	tape := maybeNewTape(t, "testdata/001_search.json")
+	var httpClient *http.Client
+	if tape != nil {
+		tape.Start()
+		defer func() {
+			if err := tape.Stop(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+		httpClient = &http.Client{Transport: tape.Transport()}
+	}
+
 	c, err := NewSearchClient(web.ProviderConfig{
 		Name: "searxng",
 		Extra: map[string]any{
 			"base_url": baseURL,
 		},
+		HTTPClient: httpClient,
 	})
 	if err != nil {
 		t.Fatalf("NewSearchClient: %v", err)

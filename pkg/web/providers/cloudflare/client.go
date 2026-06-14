@@ -33,11 +33,15 @@ func NewBrowserClient(cfg web.ProviderConfig) (*BrowserClient, error) {
 	if accountID == "" {
 		return nil, fmt.Errorf("gmd/web: cloudflare: account_id is required")
 	}
+	httpClient := cfg.HTTPClient
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 60 * time.Second}
+	}
 	return &BrowserClient{
 		apiKey:     apiKey,
 		accountID:  accountID,
 		baseURL:    defaultCloudflareBaseURL,
-		httpClient: &http.Client{Timeout: 60 * time.Second},
+		httpClient: httpClient,
 	}, nil
 }
 

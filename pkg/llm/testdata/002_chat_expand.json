@@ -1,0 +1,31 @@
+[
+  {
+    "request": {
+      "method": "POST",
+      "url": "http://192.168.4.31:8002/v1/chat/completions",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": "OpenAI/Go 3.37.0",
+        "X-Stainless-Arch": "arm64",
+        "X-Stainless-Lang": "go",
+        "X-Stainless-Os": "MacOS",
+        "X-Stainless-Package-Version": "3.37.0",
+        "X-Stainless-Retry-Count": "0",
+        "X-Stainless-Runtime": "go",
+        "X-Stainless-Runtime-Version": "go1.26.4"
+      },
+      "body": "{\"messages\":[{\"content\":\"Say hello in one word.\",\"role\":\"user\"}],\"model\":\"Qwen/Qwen3-1.7B\"}"
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Content-Length": "1980",
+        "Content-Type": "application/json",
+        "Date": "Sun, 14 Jun 2026 06:36:53 GMT",
+        "Server": "uvicorn"
+      },
+      "body": "{\"id\":\"chatcmpl-b4aafe1b6e722d0b\",\"object\":\"chat.completion\",\"created\":1781419014,\"prompt_routed_experts\":null,\"model\":\"Qwen/Qwen3-1.7B\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"\u003cthink\u003e\\nOkay, the user wants me to say hello in one word. Let me think about the most common and simple ways to greet someone.\\n\\nFirst, \\\"Hello\\\" is the most straightforward, but the user might be looking for something more concise. \\\"Hi\\\" is another common option. But maybe they want a more unique or creative word. \\n\\nWait, the user said \\\"in one word,\\\" so maybe they want a single word that's both a greeting and a noun? Like \\\"Hi\\\" or \\\"Hello.\\\" But perhaps they want a more poetic or less common word. \\n\\nAlternatively, maybe they want a word that's a noun and a verb? Like \\\"Hello\\\" is both. But the user might not be looking for that. \\n\\nI should consider the most commonly used and acceptable answers. \\\"Hello\\\" is the most obvious. \\\"Hi\\\" is also common. Maybe \\\"Hey\\\" is another option. But \\\"Hello\\\" is the most standard. \\n\\nWait, the user might be testing if I can think of a single word that's a greeting. So the answer is \\\"Hello\\\" or \\\"Hi.\\\" But since the user said \\\"say hello in one word,\\\" the answer is likely \\\"Hello.\\\" But maybe they want a different word. \\n\\nI should check if there's any other possible answer. \\\"Hi\\\" is also correct. But the user might prefer \\\"Hello.\\\" Let me confirm. In most contexts, \\\"Hello\\\" is the standard greeting. So the answer is \\\"Hello.\\\"\\n\u003c/think\u003e\\n\\nHello\",\"refusal\":null,\"annotations\":null,\"audio\":null,\"function_call\":null,\"tool_calls\":[],\"reasoning\":null},\"logprobs\":null,\"finish_reason\":\"stop\",\"stop_reason\":null,\"token_ids\":null,\"routed_experts\":null}],\"service_tier\":null,\"system_fingerprint\":\"vllm-0.21.0-e1166d38\",\"usage\":{\"prompt_tokens\":14,\"total_tokens\":320,\"completion_tokens\":306,\"prompt_tokens_details\":null},\"prompt_logprobs\":null,\"prompt_token_ids\":null,\"prompt_text\":null,\"kv_transfer_params\":null}"
+    }
+  }
+]

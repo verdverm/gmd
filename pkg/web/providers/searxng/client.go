@@ -25,9 +25,13 @@ func NewSearchClient(cfg web.ProviderConfig) (*SearchClient, error) {
 	if baseURL == "" {
 		return nil, fmt.Errorf("gmd/web: searxng: base_url is required")
 	}
+	httpClient := cfg.HTTPClient
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 30 * time.Second}
+	}
 	return &SearchClient{
 		baseURL:    baseURL,
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		httpClient: httpClient,
 		name:       cfg.Name,
 	}, nil
 }

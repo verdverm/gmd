@@ -5,16 +5,19 @@ package ts
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/verdverm/gmd/pkg/testutil"
 	"github.com/verdverm/gmd/pkg/ts/testserver"
 )
 
 const testColl = "ts-int-test"
 
 var testTSClient *Client
+var testServerURL string
 
 func TestMain(m *testing.M) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
@@ -32,6 +35,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
+	testServerURL = srv.URL()
 	testTSClient = New(Config{
 		Host:   srv.URL(),
 		APIKey: srv.APIKey,
@@ -60,6 +64,23 @@ func cleanupTestData(t *testing.T) {
 	ctx := context.Background()
 	_ = testTSClient.DeleteChunksByCollection(ctx, testColl)
 	_ = testTSClient.DeleteDocsByCollection(ctx, testColl)
+}
+
+func maybeNewTape(t *testing.T, filePath string) *testutil.Tape {
+	t.Helper()
+	if os.Getenv("GMD_NORECORD") == "1" {
+		return nil
+	}
+	return testutil.NewTape(filePath, testServerURL, nil, testutil.ModeRecord)
+}
+
+func newTapeClient(t *testing.T, tape *testutil.Tape) *Client {
+	t.Helper()
+	return New(Config{
+		Host:       testServerURL,
+		APIKey:     testserver.DefaultAPIKey,
+		HTTPClient: &http.Client{Transport: tape.Transport()},
+	})
 }
 
 func makeTestChunks(path string, n int) []ChunkDocument {
@@ -148,14 +169,29 @@ func TestIntegrationChunkCRUD(t *testing.T) {
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
+	tape := maybeNewTape(t, "testdata/001_chunk_crud.json")
+	if tape != nil {
+		tape.Start()
+		defer func() {
+			if err := tape.Stop(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+	}
+
+	client := testTSClient
+	if tape != nil {
+		client = newTapeClient(t, tape)
+	}
+
 	path := "chunk-crud.md"
 	chunks := makeTestChunks(path, 3)
 
-	if err := testTSClient.UpsertChunks(ctx, chunks); err != nil {
+	if err := client.UpsertChunks(ctx, chunks); err != nil {
 		t.Fatalf("UpsertChunks: %v", err)
 	}
 
-	count, err := testTSClient.CountByPath(ctx, path)
+	count, err := client.CountByPath(ctx, path)
 	if err != nil {
 		t.Fatalf("CountByPath: %v", err)
 	}
@@ -163,7 +199,7 @@ func TestIntegrationChunkCRUD(t *testing.T) {
 		t.Errorf("CountByPath = %d, want 3", count)
 	}
 
-	counts, err := testTSClient.CountByCollection(ctx, []string{testColl})
+	counts, err := client.CountByCollection(ctx, []string{testColl})
 	if err != nil {
 		t.Fatalf("CountByCollection: %v", err)
 	}
@@ -171,7 +207,7 @@ func TestIntegrationChunkCRUD(t *testing.T) {
 		t.Errorf("CountByCollection[%q] = %d, want 3", testColl, counts[testColl])
 	}
 
-	total, err := testTSClient.CollectionCount(ctx)
+	total, err := client.CollectionCount(ctx)
 	if err != nil {
 		t.Fatalf("CollectionCount: %v", err)
 	}
@@ -179,7 +215,7 @@ func TestIntegrationChunkCRUD(t *testing.T) {
 		t.Errorf("CollectionCount = %d, want >= 3", total)
 	}
 
-	hash, err := testTSClient.GetHashByPath(ctx, path)
+	hash, err := client.GetHashByPath(ctx, path)
 	if err != nil {
 		t.Fatalf("GetHashByPath: %v", err)
 	}
@@ -190,7 +226,7 @@ func TestIntegrationChunkCRUD(t *testing.T) {
 		t.Errorf("GetHashByPath = %q, want hash starting with 'hash-'", hash)
 	}
 
-	fetched, err := testTSClient.FetchChunksByPath(ctx, path)
+	fetched, err := client.FetchChunksByPath(ctx, path)
 	if err != nil {
 		t.Fatalf("FetchChunksByPath: %v", err)
 	}
@@ -209,21 +245,21 @@ func TestIntegrationChunkCRUD(t *testing.T) {
 		}
 	}
 
-	if err := testTSClient.DeleteChunksByPath(ctx, path); err != nil {
+	if err := client.DeleteChunksByPath(ctx, path); err != nil {
 		t.Fatalf("DeleteChunksByPath: %v", err)
 	}
-	count, _ = testTSClient.CountByPath(ctx, path)
+	count, _ = client.CountByPath(ctx, path)
 	if count != 0 {
 		t.Errorf("after delete, CountByPath = %d, want 0", count)
 	}
 
-	if err := testTSClient.UpsertChunks(ctx, chunks); err != nil {
+	if err := client.UpsertChunks(ctx, chunks); err != nil {
 		t.Fatalf("UpsertChunks (re-upsert): %v", err)
 	}
-	if err := testTSClient.DeleteChunksByCollection(ctx, testColl); err != nil {
+	if err := client.DeleteChunksByCollection(ctx, testColl); err != nil {
 		t.Fatalf("DeleteChunksByCollection: %v", err)
 	}
-	count, _ = testTSClient.CountByPath(ctx, path)
+	count, _ = client.CountByPath(ctx, path)
 	if count != 0 {
 		t.Errorf("after collection delete, CountByPath = %d, want 0", count)
 	}
@@ -289,14 +325,29 @@ func TestIntegrationDocCRUD(t *testing.T) {
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
+	tape := maybeNewTape(t, "testdata/005_doc_crud.json")
+	if tape != nil {
+		tape.Start()
+		defer func() {
+			if err := tape.Stop(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+	}
+
+	client := testTSClient
+	if tape != nil {
+		client = newTapeClient(t, tape)
+	}
+
 	path := "doc-crud.md"
 	doc := makeTestDoc(path)
 
-	if err := testTSClient.UpsertDoc(ctx, doc); err != nil {
+	if err := client.UpsertDoc(ctx, doc); err != nil {
 		t.Fatalf("UpsertDoc: %v", err)
 	}
 
-	fetched, err := testTSClient.FetchDocByPath(ctx, path)
+	fetched, err := client.FetchDocByPath(ctx, path)
 	if err != nil {
 		t.Fatalf("FetchDocByPath: %v", err)
 	}
@@ -319,7 +370,7 @@ func TestIntegrationDocCRUD(t *testing.T) {
 		t.Errorf("Hash = %q, want %q", fetched.Hash, doc.Hash)
 	}
 
-	counts, err := testTSClient.CountDocsByCollection(ctx, []string{testColl})
+	counts, err := client.CountDocsByCollection(ctx, []string{testColl})
 	if err != nil {
 		t.Fatalf("CountDocsByCollection: %v", err)
 	}
@@ -327,7 +378,7 @@ func TestIntegrationDocCRUD(t *testing.T) {
 		t.Errorf("CountDocsByCollection[%q] = %d, want 1", testColl, counts[testColl])
 	}
 
-	total, err := testTSClient.DocCollectionCount(ctx)
+	total, err := client.DocCollectionCount(ctx)
 	if err != nil {
 		t.Fatalf("DocCollectionCount: %v", err)
 	}
@@ -335,21 +386,21 @@ func TestIntegrationDocCRUD(t *testing.T) {
 		t.Errorf("DocCollectionCount = %d, want >= 1", total)
 	}
 
-	if err := testTSClient.DeleteDocByPath(ctx, path); err != nil {
+	if err := client.DeleteDocByPath(ctx, path); err != nil {
 		t.Fatalf("DeleteDocByPath: %v", err)
 	}
-	fetched, _ = testTSClient.FetchDocByPath(ctx, path)
+	fetched, _ = client.FetchDocByPath(ctx, path)
 	if fetched != nil {
 		t.Error("expected nil after DeleteDocByPath")
 	}
 
-	if err := testTSClient.UpsertDoc(ctx, doc); err != nil {
+	if err := client.UpsertDoc(ctx, doc); err != nil {
 		t.Fatalf("UpsertDoc (re-upsert): %v", err)
 	}
-	if err := testTSClient.DeleteDocsByCollection(ctx, testColl); err != nil {
+	if err := client.DeleteDocsByCollection(ctx, testColl); err != nil {
 		t.Fatalf("DeleteDocsByCollection: %v", err)
 	}
-	fetched, _ = testTSClient.FetchDocByPath(ctx, path)
+	fetched, _ = client.FetchDocByPath(ctx, path)
 	if fetched != nil {
 		t.Error("expected nil after DeleteDocsByCollection")
 	}
@@ -442,6 +493,21 @@ func TestIntegrationTextSearch(t *testing.T) {
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
+	tape := maybeNewTape(t, "testdata/002_text_search.json")
+	if tape != nil {
+		tape.Start()
+		defer func() {
+			if err := tape.Stop(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+	}
+
+	client := testTSClient
+	if tape != nil {
+		client = newTapeClient(t, tape)
+	}
+
 	chunks := []ChunkDocument{
 		{
 			Collection:  testColl,
@@ -464,11 +530,11 @@ func TestIntegrationTextSearch(t *testing.T) {
 			Embedding:   []float64{0.5, 0.6, 0.7, 0.8},
 		},
 	}
-	if err := testTSClient.UpsertChunks(ctx, chunks); err != nil {
+	if err := client.UpsertChunks(ctx, chunks); err != nil {
 		t.Fatalf("UpsertChunks: %v", err)
 	}
 
-	results, err := testTSClient.TextSearch(ctx, HybridSearchParams{
+	results, err := client.TextSearch(ctx, HybridSearchParams{
 		Query:       "fox",
 		Collections: []string{testColl},
 		GroupLimit:  10,
@@ -486,7 +552,7 @@ func TestIntegrationTextSearch(t *testing.T) {
 		}
 	}
 
-	results, err = testTSClient.TextSearch(ctx, HybridSearchParams{
+	results, err = client.TextSearch(ctx, HybridSearchParams{
 		Query:       "nonexistenttermzzz",
 		Collections: []string{testColl},
 		GroupLimit:  10,
@@ -499,7 +565,7 @@ func TestIntegrationTextSearch(t *testing.T) {
 		t.Errorf("expected 0 results for nonexistent term, got %d", len(results))
 	}
 
-	results, err = testTSClient.TextSearch(ctx, HybridSearchParams{
+	results, err = client.TextSearch(ctx, HybridSearchParams{
 		Query:      "",
 		FilterBy:   fmt.Sprintf("collection:=%s", testColl),
 		GroupLimit: 10,
@@ -518,6 +584,21 @@ func TestIntegrationHybridSearch(t *testing.T) {
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
+	tape := maybeNewTape(t, "testdata/003_hybrid_search.json")
+	if tape != nil {
+		tape.Start()
+		defer func() {
+			if err := tape.Stop(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+	}
+
+	client := testTSClient
+	if tape != nil {
+		client = newTapeClient(t, tape)
+	}
+
 	chunks := []ChunkDocument{
 		{
 			Collection:  testColl,
@@ -530,11 +611,11 @@ func TestIntegrationHybridSearch(t *testing.T) {
 			Embedding:   []float64{0.9, 0.1, 0.1, 0.1},
 		},
 	}
-	if err := testTSClient.UpsertChunks(ctx, chunks); err != nil {
+	if err := client.UpsertChunks(ctx, chunks); err != nil {
 		t.Fatalf("UpsertChunks: %v", err)
 	}
 
-	results, err := testTSClient.HybridSearch(ctx, HybridSearchParams{
+	results, err := client.HybridSearch(ctx, HybridSearchParams{
 		Query:       "alpha",
 		QueryVector: []float64{0.8, 0.2, 0.1, 0.1},
 		Collections: []string{testColl},
@@ -548,7 +629,7 @@ func TestIntegrationHybridSearch(t *testing.T) {
 		t.Fatal("HybridSearch with vector returned 0 results")
 	}
 
-	results, err = testTSClient.HybridSearch(ctx, HybridSearchParams{
+	results, err = client.HybridSearch(ctx, HybridSearchParams{
 		Query:       "beta",
 		Collections: []string{testColl},
 		GroupLimit:  10,
@@ -567,6 +648,21 @@ func TestIntegrationVectorSearch(t *testing.T) {
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
+	tape := maybeNewTape(t, "testdata/004_vector_search.json")
+	if tape != nil {
+		tape.Start()
+		defer func() {
+			if err := tape.Stop(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+	}
+
+	client := testTSClient
+	if tape != nil {
+		client = newTapeClient(t, tape)
+	}
+
 	chunks := []ChunkDocument{
 		{
 			Collection:  testColl,
@@ -579,11 +675,11 @@ func TestIntegrationVectorSearch(t *testing.T) {
 			Embedding:   []float64{0.9, 0.1, 0.1, 0.1},
 		},
 	}
-	if err := testTSClient.UpsertChunks(ctx, chunks); err != nil {
+	if err := client.UpsertChunks(ctx, chunks); err != nil {
 		t.Fatalf("UpsertChunks: %v", err)
 	}
 
-	results, err := testTSClient.VectorSearch(ctx, HybridSearchParams{
+	results, err := client.VectorSearch(ctx, HybridSearchParams{
 		QueryVector: []float64{0.85, 0.15, 0.1, 0.1},
 		Collections: []string{testColl},
 		GroupLimit:  10,
@@ -712,7 +808,22 @@ func TestIntegrationEmptyCollectionSearch(t *testing.T) {
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
-	results, err := testTSClient.TextSearch(ctx, HybridSearchParams{
+	tape := maybeNewTape(t, "testdata/006_empty_results.json")
+	if tape != nil {
+		tape.Start()
+		defer func() {
+			if err := tape.Stop(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+	}
+
+	client := testTSClient
+	if tape != nil {
+		client = newTapeClient(t, tape)
+	}
+
+	results, err := client.TextSearch(ctx, HybridSearchParams{
 		Query:       "anything",
 		Collections: []string{testColl},
 		GroupLimit:  10,
@@ -725,7 +836,7 @@ func TestIntegrationEmptyCollectionSearch(t *testing.T) {
 		t.Errorf("expected 0 results on empty collection, got %d", len(results))
 	}
 
-	paths, err := testTSClient.SearchDistinctPaths(ctx, "collection:=ts-int-test")
+	paths, err := client.SearchDistinctPaths(ctx, "collection:=ts-int-test")
 	if err != nil {
 		t.Fatalf("SearchDistinctPaths on empty: %v", err)
 	}

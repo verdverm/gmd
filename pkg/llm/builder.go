@@ -2,6 +2,7 @@ package llm
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
@@ -10,10 +11,11 @@ import (
 )
 
 type ProviderConfig struct {
-	Name     string
-	BaseURL  string
-	Auth     string
-	AuthData map[string]string
+	Name       string
+	BaseURL    string
+	Auth       string
+	AuthData   map[string]string
+	HTTPClient *http.Client
 }
 
 type RoleConfig struct {
@@ -67,6 +69,11 @@ func BuildClient(provider ProviderConfig) (*openai.Client, error) {
 	}
 
 	client := openai.NewClient(opts...)
+
+	if provider.HTTPClient != nil {
+		client = openai.NewClient(append(opts, option.WithHTTPClient(provider.HTTPClient))...)
+	}
+
 	return &client, nil
 }
 

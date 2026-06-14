@@ -45,7 +45,7 @@ Examples:
 			return fmt.Errorf("EXA_API_KEY environment variable is not set")
 		}
 
-		exaClient := exa.New(config.Web.EXA.APIKey)
+		exaClient := exa.New(config.Web.EXA.APIKey, nil)
 
 		llmClient, err := llmConfigFromConfig(config)
 		if err != nil {

@@ -15,9 +15,9 @@ func NewBrowserAdapter(cfg web.ProviderConfig) (*BrowserAdapter, error) {
 	apiKey, _ := cfg.Extra["api_key"].(string)
 	baseURL, _ := cfg.Extra["base_url"].(string)
 	if baseURL != "" {
-		return &BrowserAdapter{client: exaclient.NewWithServer(apiKey, baseURL)}, nil
+		return &BrowserAdapter{client: exaclient.NewWithServer(apiKey, baseURL, cfg.HTTPClient)}, nil
 	}
-	return &BrowserAdapter{client: exaclient.New(apiKey)}, nil
+	return &BrowserAdapter{client: exaclient.New(apiKey, cfg.HTTPClient)}, nil
 }
 
 func (a *BrowserAdapter) GetContent(ctx context.Context, url string, opts *web.GetContentOptions) (*web.GetContentResult, error) {

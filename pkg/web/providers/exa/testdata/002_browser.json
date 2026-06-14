@@ -1,0 +1,42 @@
+[
+  {
+    "request": {
+      "method": "POST",
+      "url": "https://api.exa.ai/contents",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": "{\"urls\":[\"https://example.com\"],\"text\":{\"maxCharacters\":5000}}"
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Expose-Headers": "PAYMENT-REQUIRED,PAYMENT-RESPONSE,payment-required,payment-response",
+        "Cf-Cache-Status": "DYNAMIC",
+        "Cf-Ray": "a0b74794cf057678-SEA",
+        "Content-Security-Policy": "frame-ancestors 'self'",
+        "Content-Type": "application/json; charset=utf-8",
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Cross-Origin-Resource-Policy": "same-origin",
+        "Date": "Sun, 14 Jun 2026 06:29:15 GMT",
+        "Etag": "W/\"2f0-Eo2RUXOoh1ixFZ/kC6K0SlLSiM4\"",
+        "Origin-Agent-Cluster": "?1",
+        "Referrer-Policy": "no-referrer",
+        "Server": "cloudflare",
+        "Server-Timing": "cfCacheStatus;desc=\"DYNAMIC\"",
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+        "Vary": "Origin",
+        "X-Content-Type-Options": "nosniff",
+        "X-Dns-Prefetch-Control": "off",
+        "X-Download-Options": "noopen",
+        "X-Exa-Queue-Ms": "0",
+        "X-Exa-Queued": "false",
+        "X-Frame-Options": "DENY",
+        "X-Permitted-Cross-Domain-Policies": "none",
+        "X-Xss-Protection": "0"
+      },
+      "body": "{\"requestId\":\"f9c307dafa92d7ae3bb1927104bb398b\",\"results\":[{\"id\":\"https://example.com\",\"title\":\"Example Domain\",\"url\":\"https://example.com\",\"author\":null,\"text\":\"Example Domain\\n\\n# Example Domain\\n\\nThis domain is for use in documentation examples without needing permission. Avoid use in operations.\",\"favicon\":\"data:,\",\"entities\":[{\"id\":\"https://exa.ai/library/organization/qmfkd8nk6b1\",\"type\":\"company\",\"version\":1,\"properties\":{\"name\":\"Selbstständig\",\"foundedYear\":null,\"description\":\"sss\",\"workforce\":{\"total\":11136},\"headquarters\":null,\"financials\":null,\"webTraffic\":null}}]}],\"statuses\":[{\"id\":\"https://example.com\",\"status\":\"success\",\"source\":\"cached\"}],\"costDollars\":{\"total\":0.001,\"contents\":{\"text\":0.001}},\"searchTime\":16.588007999933325}"
+    }
+  }
+]

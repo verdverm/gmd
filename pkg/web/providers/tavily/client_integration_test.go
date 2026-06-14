@@ -5,10 +5,12 @@ package tavily
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"testing"
 
 	"github.com/verdverm/gmd/pkg/config"
+	"github.com/verdverm/gmd/pkg/testutil"
 	"github.com/verdverm/gmd/pkg/web"
 )
 
@@ -18,6 +20,14 @@ func TestMain(m *testing.M) {
 		fmt.Fprintf(os.Stderr, "tavily integration: config load failed (%v)\n", err)
 	}
 	os.Exit(m.Run())
+}
+
+func maybeNewTape(t *testing.T, filePath string) *testutil.Tape {
+	t.Helper()
+	if os.Getenv("GMD_NORECORD") == "1" {
+		return nil
+	}
+	return testutil.NewTape(filePath, "https://api.tavily.com", nil, testutil.ModeRecord)
 }
 
 func requireTavilyKey(t *testing.T) string {
@@ -35,11 +45,24 @@ func requireTavilyKey(t *testing.T) string {
 func TestSearchClient_Integration(t *testing.T) {
 	apiKey := requireTavilyKey(t)
 
+	tape := maybeNewTape(t, "testdata/001_search.json")
+	var httpClient *http.Client
+	if tape != nil {
+		tape.Start()
+		defer func() {
+			if err := tape.Stop(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+		httpClient = &http.Client{Transport: tape.Transport()}
+	}
+
 	c, err := NewSearchClient(web.ProviderConfig{
 		Name: "tavily",
 		Extra: map[string]any{
 			"api_key": apiKey,
 		},
+		HTTPClient: httpClient,
 	})
 	if err != nil {
 		t.Fatalf("NewSearchClient: %v", err)

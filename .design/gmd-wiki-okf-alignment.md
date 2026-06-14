@@ -1,6 +1,6 @@
 # GMD Wiki — Open Knowledge Format (OKF) Alignment
 
-**Date:** 2026-06-13 (created), 2026-06-13 (reviewed — v2)
+**Date:** 2026-06-13 (created), 2026-06-13 (reviewed — v3)
 **Phase:** Design — reviewed, ready for implementation planning
 **OKF Version:** 0.1 (Draft)
 **OKF SPEC:** https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md
@@ -70,12 +70,22 @@ variants deprecated aliases.
   A `gmd wiki doctor` check reports wikis still using underscore-prefixed files and
   offers rename via `--fix`.
 - **All meta-file skip sites**: The codebase has several places that hardcode
-  `strings.HasPrefix(base, "_")` to skip meta files. These must be updated to check
-  against `WikiConfig.IndexFile`/`WikiConfig.LogFile` instead:
+  `strings.HasPrefix(base, "_")` to skip meta files. These must be updated to skip
+  files matching the configured `IndexFile`/`LogFile` names instead of the `_` prefix
+  heuristic. This is a behavioral change: currently ALL `_`-prefixed `.md` files are
+  skipped; after the change, only files named `index.md` and `log.md` (or their
+  configured equivalents) are skipped. Any other `_`-prefixed files (e.g.,
+  `_draft.md`) become regular concept files, which is correct per OKF — only
+  `index.md` and `log.md` are reserved filenames.
+
+  Sites needing update:
   - `pkg/wiki/graph.go:41` (BuildGraph skip)
   - `pkg/wiki/lint.go:152` (lintContent skip)
-  - `pkg/wiki/watch.go:87` (checkWiki skip)
-  - Note: `pkg/wiki/lint.go:67` (lintStructure) already checks config names correctly.
+  - `pkg/wiki/watch.go:88` (checkWiki skip — note line 88, not 87)
+  - `pkg/wiki/lint.go:97-110` (broken-link source walk in lintStructure — currently
+    has NO skip guard at all, must be added)
+  - Note: `pkg/wiki/lint.go:67` (lintStructure first walk) already checks config
+    names correctly with an `IndexFile`/`LogFile` carve-out.
 - **Dual-file race condition**: When both `_index.md` and `index.md` exist, the agent
   must not create a second conflicting index. Every read site must use the same
   fallback logic (try canonical name, fallback to underscored). Read sites:
@@ -180,7 +190,8 @@ title. No code changes required, but the terminology should align with OKF.
 - `gmd wiki create` writes this into the initial `index.md`.
 - GMD detects `okf_version` on import and warns when a bundle targets a
   version the tool doesn't fully support.
-- Missing `okf_version` means OKF v0.0 (pre-spec) — consume best-effort.
+- Missing `okf_version` means pre-spec (treat as unknown version per OKF §11) —
+  consume best-effort.
 
 ### 3.7 Body Convention Sections
 
@@ -240,6 +251,7 @@ WikiConfig: Source & {
     indexFile:   string | *"index.md"       // was "_index.md"
     logFile:     string | *"log.md"         // was "_log.md"
     okfVersion:  string | *"0.1"            // NEW: declared OKF version for this wiki
+    layout:      string | *"categorized"     // NEW: "categorized" | "flat"
     graphLinks:  bool | *true
     excludeFromDefault?: bool | *false
     sourceRefs?: [...string]
@@ -285,9 +297,11 @@ Apply runtime defaults:
 
 **Current:** `ExtractWikilinks()` parses only `[[...]]` syntax.
 **Change:** Add `ExtractMarkdownLinks()` that captures standard markdown links
-targeting `.md` files. Both populate the `Links` field. The extractor should
-normalize to concept IDs (strip leading `/`, strip `.md` suffix).
-Relative links require source-directory context passed by the caller.
+targeting `.md` files. Both extractors return raw link targets (page names for
+wikilinks, file paths for markdown links). Normalization to concept IDs
+(stripping `/`, `.md`, resolving relatives) and deduplication across both link
+types happens at the resolution layer (see §7.3). Relative link resolution
+requires source-directory context passed by the caller.
 
 ```go
 // New regex for standard markdown links pointing to .md files
@@ -295,16 +309,18 @@ var mdLinkRe = regexp.MustCompile(`\[([^\]]*)\]\(([^)]+\.md)\)`)
 
 // ExtractMarkdownLinks extracts all markdown links targeting .md files.
 // sourceDir is the directory of the source file for resolving relative links.
-func ExtractMarkdownLinks(content string, sourceDir string) []string {
-    // "/path/to/file.md" → "path/to/file"
-    // "./file.md" → "sourceDir/file" (resolved against sourceDir)
-    // "../other/file.md" → resolved against sourceDir
-    // Deduplicated by resolved concept ID
+// Returns raw link targets (may include leading "/" or "./" prefixes).
+func ExtractMarkdownLinks(content string) []string {
+    // "/path/to/file.md", "./other.md", "../nested/concept.md"
+    // Returns deduplicated list of raw link targets.
 }
 
-// NormalizeConceptID converts a link target to a unified concept ID
-func NormalizeConceptID(linkTarget string) string {
-    // Strip leading "/" and trailing ".md"
+// NormalizeConceptID converts a raw link target to a unified concept ID.
+// Used by the resolution layer (not the extractor).
+// "/path/to/file.md" → "path/to/file"
+// "./file.md" → resolved relative to sourceDir → "sourceDir/file"
+func NormalizeConceptID(linkTarget string, sourceDir string) string {
+    // Strip leading "/" and trailing ".md", resolve "./" and "../" relatives.
 }
 ```
 
@@ -332,10 +348,21 @@ func NormalizeConceptID(linkTarget string) string {
 - Add `description`, `timestamp` to saved page frontmatter.
 
 **Update `appendLogFile()` (agent.go:272):**
-- Align heading format with OKF: `## YYYY-MM-DD` (date only) in the OKF canonical
-  format output. GMD keeps `## [YYYY-MM-DD HH:MM] action | source` as the internal
-  format for `log.md` entries (valid OKF extension since the body format is
-  convention, not requirement in OKF §7).
+- Write OKF-compatible headings: `## YYYY-MM-DD` (date only) with
+  `* **action**: detail` entry format.
+- This replaces the current `## [YYYY-MM-DD HH:MM] action | source` heading
+  format. GMD's richer time-and-action heading is not valid per OKF §7
+  (which mandates `YYYY-MM-DD` date-only headings). The action and source
+  information moves into the log entry body text.
+- Note: the existing `appendLogFile()` reads the current log via `LogFilePath()`
+  and appends — the heading format change applies to new entries only.
+
+**Update `packageDoc()` (agent.go):**
+- This function constructs markdown output from the LLM's JSON response.
+  It must be updated to include new frontmatter fields (`description`, `timestamp`,
+  `resource`) and use standard markdown links (not `[[wikilinks]]`) in body text.
+  It must also produce OKF conventional body sections (`# Schema`, `# Examples`,
+  `# Citations`) when the LLM response includes them.
 
 ### 7.3 Link Resolution (`pkg/wiki/graph.go`)
 
@@ -362,16 +389,17 @@ normalized.
 
 **Add OKF conformance check functions (called from `Lint()` with new `LintOKFOpts`):**
 - `lintOKFConformance()`: Walk all `.md` files in wiki directory (single pass).
-  For each page: check frontmatter exists, `type` is non-empty, reserved files
-  follow structure. Report violations. This walk must also skip configured meta
-  files (`IndexFile`/`LogFile`) — there is a second walk in `lintStructure()`
-  (lint.go:97-110) for broken-link source collection that currently has no
-  meta-file skip guard and would include `index.md`/`log.md` entries incorrectly.
-  Both walks need the guard.
+  For each page: check frontmatter exists, `type` is non-empty.
+  Check reserved files (`index.md`, `log.md`) follow structure.
+  **Check subdirectory `index.md` files have NO frontmatter** (OKF §6 prohibits
+  frontmatter on non-root index files; only bundle-root `index.md` may have
+  `okf_version` per OKF §11). Report violations.
+  This walk must skip configured meta files (`IndexFile`/`LogFile`).
 - `lintBrokenMarkdownLinks()`: Extend existing `lintStructure()` broken-link
   detection to cover markdown `.md` links. The current broken-link check
   (`lint.go:91-112`) only tests `[[wikilinks]]`. Refactor to a single pass
-  that checks both link types.
+  that checks both link types. The second walk (`lint.go:97-110`) currently has
+  no meta-file skip guard — this must be added (see §7.8).
 - `lintMissingDescriptions()`: Flag pages without a `description` frontmatter
   field (soft warning, not error).
 - `lintStaleTimestamp()`: Flag pages whose file mtime is newer than frontmatter
@@ -391,22 +419,29 @@ normalized.
 - **Wiki file stats**: New: count pages, index entries, log entries, track
   last ingest timestamp from log.
 
-### 7.6 Embedded Templates (`pkg/wiki/embeds/`)
+### 7.6 Embedded Templates
 
-**Update `wiki_schema.md`:**
+**`pkg/wiki/embeds/wiki_schema.md`:**
 - Replace `_index.md` with `index.md`, `_log.md` with `log.md` throughout.
 - Replace `[[wikilinks]]` in examples with standard markdown links.
 - Add OKF cross-reference: mention that the wiki follows OKF v0.1 conventions.
 - Add `description`, `resource`, `timestamp` to the frontmatter schema example.
 
-**Update `ingest_system.md`:**
+**`pkg/wiki/embeds/ingest_system.md`:**
 - Use standard markdown links in template examples.
 - Add `# Citations` section generation instructions.
 - Add `# Schema`, `# Examples` conventional section instructions.
 - Add `description` and `timestamp` to required frontmatter output.
 
-**Update `query_system.md`:**
+**`pkg/wiki/embeds/query_system.md`:**
 - Use standard markdown links in citation examples.
+
+**`pkg/context/skills/embeds/gmd-wiki/SKILL.md`:**
+- Replace `_index.md` → `index.md`, `_log.md` → `log.md` in all references.
+- Update wikilink examples to use standard markdown links.
+
+**`pkg/context/agentsmd/embeds/full.md`:**
+- Replace `_index.md` → `index.md`, `_log.md` → `log.md` in documentation.
 
 ### 7.7 Wiki Creation (`cmd/gmd/wiki_create.go`)
 
@@ -417,13 +452,20 @@ normalized.
 - Line 98: Replace hardcoded `AddIgnorePatterns` call similarly.
 - The scaffolded `index.md` content must include frontmatter with `okf_version`.
 
-### 7.8 Meta-File Skip Guards (ultiple files)
+### 7.8 Meta-File Skip Guards (multiple files)
 
-Update all `strings.HasPrefix(filepath.Base(path), "_")` guards to check
-against `WikiConfig.IndexFile`/`WikiConfig.LogFile`:
+Replace all `strings.HasPrefix(filepath.Base(path), "_")` guards with
+name-based checks against `WikiConfig.IndexFile`/`WikiConfig.LogFile`.
+This is a behavioral change: only files matching the configured reserved
+names are skipped; all other `_`-prefixed `.md` files become regular concept
+files (correct per OKF — only `index.md` and `log.md` are reserved).
+
+Sites needing update:
 - `pkg/wiki/graph.go:41` — `BuildGraph()` skip
 - `pkg/wiki/lint.go:152` — `lintContent()` skip
-- `pkg/wiki/watch.go:87` — `checkWiki()` skip
+- `pkg/wiki/watch.go:88` — `checkWiki()` skip
+- `pkg/wiki/lint.go:97-110` — broken-link source walk in `lintStructure()`
+  (currently has **no** skip guard — must be added)
 
 ### 7.9 CUE Schema (`pkg/config/embeds/types.cue`)
 
@@ -450,11 +492,19 @@ type WikiConfig struct {
 }
 ```
 
-### 7.11 Wiki Init (`pkg/wiki/wiki.go`)
+### 7.11 Wiki Init and File Access (`pkg/wiki/wiki.go`)
 
 - `Init()`: Scaffold `index.md` (with `okf_version` frontmatter) and `log.md`.
-- `readIndexFile()` / `readLogFile()`: Fallback logic — try canonical name,
-  fall back to underscored name.
+  Currently creates `# Wiki Index` and `# Wiki Log` content; update both for
+  OKF conventions.
+- **New function `readIndexFile()`**: Try canonical name first
+  (`IndexFilePath()`), fall back to underscored name if canonical doesn't
+  exist. Returns content and a boolean indicating whether fallback was used.
+- **New function `readLogFile()`**: Same fallback logic for log files.
+- These replace direct `os.ReadFile(IndexFilePath())` calls in `loadIndexContext()`
+  (agent.go:400), `appendLogFile()` (agent.go:272), `updateIndexFile()`
+  (agent.go:218), and `lintGaps()` (lint.go:190). All read sites use the same
+  fallback logic to prevent dual-file race conditions (see §3.1).
 - `createWikiPage()` (agent.go:174): Include `description`, `timestamp`,
   `resource` in frontmatter when applicable.
 
@@ -532,19 +582,30 @@ This enables Path B (external agent) OKF workflows.
 
 ---
 
-## 9. Implementation Plan
+## 9. Risks and Mitigations
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| **Existing `_index.md` wikis break** during P0 if skip guards are replaced before fallback reads are implemented. | High | Bundle skip guard replacement and `readIndexFile()` fallback into the same phase (P0). All read sites use the fallback; write sites always write to canonical name. |
+| **`_`-prefix skip guard replacement exposes unintended files.** Previously ALL `_`-prefixed `.md` files were skipped. After P0, only `index.md`/`log.md` are skipped. Any `_draft-concept.md` files in existing wikis become visible to graph building, lint, and watch. | Medium | `gmd wiki doctor` reports `_`-prefixed files that aren't `_index.md` or `_log.md` as advisories. Existing wikis with such files should audit them before upgrading. |
+| **LLM prompt changes cause regression** in ingest quality. Switching from `[[wikilinks]]` to markdown links in prompts changes LLM output format. | Medium | Update prompts in P2 (after resolution infrastructure exists in P1). Keep `[[wikilinks]]` as an accepted input format indefinitely. Phase prompt rollout gradually (ingest first, query second). |
+| **Half-migrated state between phases.** Between P0 and P1, new wikis use `index.md`/`log.md` and OKF frontmatter but still emit `[[wikilinks]]` in body text. | Low | This is a valid intermediate state per the migration plan (§8 Phase 1). Lint tolerates both link types. |
+| **Dual link format overhead.** Parsing both `[[wikilinks]]` and markdown links adds complexity to graph building, lint, and chunking. | Low | Combined extraction is a single additional regex pass. Both extractors return simple string slices. Normalization and dedup happen at the resolution layer, which is new code regardless. |
+| **`layout: "flat"` not yet implemented.** Schema field added in P0 but behavior deferred past P3. | Low | Default is `"categorized"` (existing behavior). `"flat"` is documented as a future option. No code path uses the field before implementation.---
+
+## 10. Implementation Plan
 
 | Phase | Scope | Key Files | Dependencies |
 |---|---|---|---|
-| **P0: Foundation** | 1. Rename defaults: `indexFile` → `"index.md"`, `logFile` → `"log.md"` in config + CUE<br>2. Add `okfVersion` to CUE schema + config defaults<br>3. Update `embeds/wiki_schema.md` (OKF names, markdown links, new fields)<br>4. Update `wiki create` scaffolding + hardcoded ignore patterns<br>5. Update all `_`-prefix skip guards in graph.go, lint.go, watch.go<br>6. Add fallback reads: `readIndexFile()`, `readLogFile()` try canonical → underscored<br>7. `Init()` writes `okf_version` in `index.md` frontmatter | `types.cue`, `config.go`, `wiki_create.go`, `wiki.go`, `wiki_schema.md`, `graph.go:41`, `lint.go:152`, `watch.go:87` | None |
-| **P1: Links** | 1. Implement `ExtractMarkdownLinks()` in `chunking/markdown.go`<br>2. Update `BuildGraph()` for dual link types + relative resolution<br>3. Update broken-link detection in `lintStructure()` for markdown links<br>4. Update `ingest_system.md` prompt: markdown links, `# Citations`, `# Schema`, `# Examples`, `description`<br>5. Update `query_system.md` prompt: markdown link citations<br>6. Update `updateIndexFile()`: OKF index entry format<br>7. Update `saveQueryResult()`: `# Citations` instead of `## Sources`, add `description`/`timestamp`<br>8. Update `createWikiPage()`: include `description`, `timestamp`, `resource` | `markdown.go`, `graph.go`, `lint.go`, `ingest_system.md`, `query_system.md`, `agent.go` | P0 |
-| **P2: Conformance** | 1. Implement `pkg/wiki/okf.go`: `ValidateOKF()`, `ExportOKF()`, `ImportOKF()`<br>2. Add `--okf` flag to `gmd wiki lint` (calls `ValidateOKF()`)<br>3. Add doctor checks: underscore files, missing `okf_version`, missing `type`, stale `timestamp`<br>4. Add logic for page-name → file-path registry (needed by both ExportOKF and graph resolution)<br>5. Update `appendLogFile()` format alignment | `okf.go` (new), `lint.go`, `doctor.go`, `agent.go` | P1 |
-| **P3: Exchange** | 1. Add `gmd wiki okf export` CLI + `ExportOKF()` implementation<br>2. Add `gmd wiki okf import` CLI + `ImportOKF()` implementation<br>3. `[[wikilinks]]` → markdown link conversion in export (uses page registry)<br>4. OKF bundle → wiki page mapping in import<br>5. Add MCP tools: `okf_validate`, `okf_export`, `okf_import` | `wiki_okf_export.go` (new), `wiki_okf_import.go` (new), `okf.go`, `wiki_tools.go` | P2 |
-| **P4: Hardening** | 1. Full test coverage (unit + integration with minimal OKF bundle fixture)<br>2. `gmd wiki lint --strict` — non-zero exit on OKF violations<br>3. Docs update (agentsmd content, CLI help text)<br>4. `index.md` synthesis for OKF bundles without one | Tests, `agentsmd/`, CLI help | P3 |
+| **P0: Foundation** | 1. Rename defaults: `indexFile` → `"index.md"`, `logFile` → `"log.md"` in CUE + Go config<br>2. Add `okfVersion` + `layout` to CUE schema + Go config defaults<br>3. Update `embeds/wiki_schema.md` (OKF names, markdown links, new fields)<br>4. Update `wiki create` scaffolding + hardcoded ignore patterns (use config values)<br>5. Replace all `_`-prefix skip guards with name-based checks. Add missing guard at `lint.go:97-110`. (graph.go:41, lint.go:152, watch.go:88, lint.go:97-110)<br>6. Add `readIndexFile()` / `readLogFile()` fallback functions (try canonical → underscored)<br>7. `Init()` writes `okf_version` in `index.md` frontmatter<br>8. Update `SKILL.md` and `agentsmd/full.md` embedded docs (`_index.md` → `index.md`) | `types.cue`, `config.go`, `wiki_create.go`, `wiki.go`, `wiki_schema.md`, `graph.go`, `lint.go`, `watch.go`, `SKILL.md`, `full.md` | None |
+| **P1: Links & Resolution** | 1. Implement `ExtractMarkdownLinks()` in `chunking/markdown.go`<br>2. Implement `NormalizeConceptID()` link target resolution<br>3. Build **page-name → file-path registry** (scan wiki dir, parse H1/title per page)<br>4. Update `BuildGraph()` for dual link types: extract wikilinks + markdown links, resolve both to concept IDs via registry, deduplicate, build unified graph<br>5. Update broken-link detection in `lintStructure()` for both link types (single pass)<br>6. Update `updateIndexFile()`: OKF `* [Title](url) - description` entry format<br>7. Update `saveQueryResult()` inline code: `# Citations` instead of `## Sources`, add `description`/`timestamp`<br>8. Update `createWikiPage()` and `packageDoc()`: include `description`, `timestamp`, `resource`, standard links<br>9. Update `appendLogFile()`: OKF `## YYYY-MM-DD` heading format, `* **action**: detail` entries | `markdown.go`, `graph.go`, `lint.go`, `agent.go` | P0 |
+| **P2: Conformance** | 1. Implement `pkg/wiki/okf.go`: `ValidateOKF()`<br>2. Add `--okf` flag to `gmd wiki lint` (calls `ValidateOKF()`)<br>3. Add doctor checks: underscore files, missing `okf_version`, missing `type`, stale `timestamp`<br>4. **Subdirectory index.md no-frontmatter enforcement** (OKF §6): lint and doctor check that non-root `index.md` files have no frontmatter; ingest agent must not write frontmatter to subdirectory index files<br>5. Update embedded ingest/query prompts: markdown links, `# Citations`, `# Schema`, `# Examples`, `description`<br>6. Add frontmatter preservation: import/export must preserve unknown frontmatter keys (OKF §4.1) | `okf.go` (new), `lint.go`, `doctor.go`, `ingest_system.md`, `query_system.md`, frontmatter parser | P1 |
+| **P3: Exchange** | 1. Add `gmd wiki okf export <name> [--output <dir>]` CLI command + `ExportOKF()`<br>2. Add `gmd wiki okf import <bundle-path> [--as <wiki-name>]` CLI command + `ImportOKF()`<br>3. `[[wikilinks]]` → markdown link conversion in export (uses page registry from P1)<br>4. OKF bundle → wiki page mapping in import (respects `layout` config)<br>5. Ingest agent OKF bundle detection: when source is an OKF bundle directory<br>6. Add MCP tools: `okf_validate`, `okf_export`, `okf_import`<br>7. Wire `okf` subcommand group under `wiki` in cobra | `wiki_okf_export.go` (new), `wiki_okf_import.go` (new), `okf.go`, `wiki_tools.go`, cmd wiring | P2 |
+| **P4: Hardening** | 1. Full test coverage (unit + integration with minimal OKF bundle fixture)<br>2. `gmd wiki lint --strict` — non-zero exit on OKF violations<br>3. Docs update (agentsmd content, CLI help text, `docs/configuration.md`)<br>4. `index.md` synthesis for OKF bundles without one (import path)<br>5. Strip `log.md` heading to strict OKF format on export (see §11 Q8) | Tests, `agentsmd/`, CLI help, `docs/configuration.md` | P3 |
 
 ---
 
-## 10. Open Questions
+## 11. Open Questions
 
 1. **Should `[[wikilinks]]` be fully deprecated in favor of markdown links?**
    Pro: cleaner alignment, one link syntax. Con: [[wikilinks]] are more concise
@@ -579,11 +640,11 @@ This enables Path B (external agent) OKF workflows.
 
 6. **What about the `description` field — should GMD auto-generate it?**
    Currently, the ingest agent doesn't produce a `description` field. The one-line
-   summary in `_index.md`/`index.md` entries serves the same purpose.
-   **Lean:** The ingest prompt should instruct the LLM to include a `description`
-   in frontmatter. The `index.md` entry should reuse the frontmatter `description`
-   as its summary text rather than having the LLM produce the summary twice
-   (once in `description`, once in `index_updates.summary`). The ingest JSON
+   summary in index entries serves the same purpose.
+   **Decision (per §3.7 / §7.2):** The ingest prompt instructs the LLM to include a
+   `description` in frontmatter. The `index.md` entry reuses the frontmatter
+   `description` as its summary text rather than having the LLM produce the summary
+   twice (once in `description`, once in `index_updates.summary`). The ingest JSON
    contract's `IndexUpdates[].Summary` field becomes optional — if empty, the
    agent copies from the corresponding page's `description`.
 
@@ -594,12 +655,12 @@ This enables Path B (external agent) OKF workflows.
 
 8. **Should `log.md` heading format strictly match OKF (`## YYYY-MM-DD` date-only)
    or keep GMD's richer `## [YYYY-MM-DD HH:MM] action | source` format?**
-   OKF §7 says date headings MUST use `YYYY-MM-DD` form but the entry format
-   (bold words, detail text) is convention, not requirement. GMD's extended
-   heading is a valid structural extension. **Lean:** Keep GMD's format in
-   `log.md` (more useful for agent operations). The heading includes the OKF
-   date prefix in valid ISO 8601 form. If exporting a bundle and strict OKF
-   is requested, the export step strips the time and action prefix.
+   OKF §7 says date headings MUST use `YYYY-MM-DD` form; GMD's extended heading
+   violates this requirement.
+   **Decision (per §7.2):** `appendLogFile()` writes strict OKF `## YYYY-MM-DD`
+   headings with `* **action**: detail` entry format. The action and source
+   information moves into the entry body text. On export for strict OKF, existing
+   GMD-format log entries are normalized.
 
 ---
 

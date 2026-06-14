@@ -326,9 +326,9 @@ Every provider creates a private `*http.Client` internally. When `cfg.HTTPClient
 
 | Package | Constructor | Change |
 |---|---|---|
-| `pkg/web/providers/tavily` | `NewSearchClient(cfg)` → line 36 | Use `cfg.HTTPClient` if non-nil |
-| `pkg/web/providers/searxng` | `NewSearchClient(cfg)` → line 30 | Use `cfg.HTTPClient` if non-nil |
-| `pkg/web/providers/cloudflare` | `NewBrowserClient(cfg)` → line 40 | Use `cfg.HTTPClient` if non-nil |
+| `pkg/web/providers/tavily` | `NewSearchClient(cfg)` → client.go:36 | Use `cfg.HTTPClient` if non-nil |
+| `pkg/web/providers/searxng` | `NewSearchClient(cfg)` → client.go:30 | Use `cfg.HTTPClient` if non-nil |
+| `pkg/web/providers/cloudflare` | `NewBrowserClient(cfg)` → client.go:27 | Use `cfg.HTTPClient` if non-nil |
 | `pkg/web/providers/exa` | `NewSearchAdapter(cfg)` → search.go:16 | Pass through to exaclient |
 | `pkg/web/providers/exa` | `NewBrowserAdapter(cfg)` → browser.go:14 | Pass through to exaclient |
 
@@ -391,7 +391,7 @@ Remaining: cloudflare, Makefile.
 | `pkg/web/exa/` | `client.go` | `New()` and `NewWithServer()` accept optional `*http.Client` |
 | `pkg/web/providers/tavily/` | `client.go` | Uses `cfg.HTTPClient` if non-nil, else default `http.Client{Timeout: 30s}` |
 | `pkg/web/providers/searxng/` | `client.go` | Same pattern as tavily |
-| `pkg/web/providers/cloudflare/` | `browser.go` | Same pattern |
+| `pkg/web/providers/cloudflare/` | `client.go` | Same pattern |
 | `pkg/web/providers/exa/` | `search.go`, `browser.go` | Pass `cfg.HTTPClient` to exa client constructors |
 | `cmd/gmd/` | `web_agent.go` | Updated `exa.New()` call to pass `nil` |
 
@@ -606,7 +606,7 @@ CI runs `make ci` which does `test` (replay) then `test.integration` (record). I
 
 ### `pkg/web/providers/local/`
 
-This package exists in the tree but has no HTTP client yet. When it gains one, the same `cfg.HTTPClient` injection pattern applies.
+There is no standalone `local` package yet — `pkg/web/builders/builders.go` registers a stub that returns `ErrProviderNotFound`. When a real local client is implemented, the same `cfg.HTTPClient` injection pattern applies.
 
 ### Web Crawl Tape Size
 
@@ -653,6 +653,4 @@ The `Exchange` struct has no version field. If fields are added (e.g., `Response
 | JSON marshal failure during Stop() | Low | Error returned from Stop(); test code checks it (defer func pattern) |
 | `pkg/web/providers/local/` unaddressed | Low | No HTTP client yet; tape pattern applies when one is added |
 
-## Large Response Policy
 
-If a response body exceeds 1MB during recording, the tape truncates and logs a warning. Response bodies that large are typically web crawl results or file downloads — not useful for structural assertion tests. The size guard prevents tape file bloat.

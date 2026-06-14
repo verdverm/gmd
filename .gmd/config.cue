@@ -30,13 +30,15 @@ Config: {
 		}
 		profiles: {
 			default: {
+				// _qwen: "Qwen/Qwen3.6-27B-FP8"
+				_qwen: "Qwen/Qwen3.6-35B-A3B-FP8"
 				embedding:     { provider: "vllm8001", model: "google/embeddinggemma-300m" }
 				expansion:     { provider: "vllm8002", model: "Qwen/Qwen3-1.7B" }
 				rerank:        { provider: "vllm8003", model: "Qwen/Qwen3-Reranker-0.6B" }
-				summarizing:   { provider: "vllm8000", model: "Qwen/Qwen3.6-27B-FP8" }
-				general_big:   { provider: "vllm8000", model: "Qwen/Qwen3.6-27B-FP8" }
-				general_mid:   { provider: "vllm8000", model: "Qwen/Qwen3.6-27B-FP8" }
-				general_small: { provider: "vllm8000", model: "Qwen/Qwen3.6-27B-FP8" }
+				summarizing:   { provider: "vllm8000", model: _qwen }
+				general_big:   { provider: "vllm8000", model: _qwen }
+				general_mid:   { provider: "vllm8000", model: _qwen }
+				general_small: { provider: "vllm8000", model: _qwen }
 			}
 		}
 	}

@@ -4,11 +4,13 @@ created: 2026-06-14 | phase: brainstorming (0 — ideation)
 
 ## Context
 
-gmd sits on top of Typesense (v26-era APIs in the active codebase, v30 docs now analyzed). Typesense v30 ships
-substantial new surface area: conversational RAG, natural language search, JOINs, curation sets, synonym sets,
-stemming dictionaries, analytics, federation enhancements, MMR diversity, and more. Meanwhile IDEAS.md catalogs
-60+ feature ideas drawn from upstream qmd issues/PRs and Typesense-native capabilities, and SCRATCH.md surfaces
-additional developer notes on agent tooling, SQLite, and operational gaps.
+gmd targets Typesense v30.2 (k8s manifest, testserver Docker image) and uses the v4 Go client
+(`typesense-go/v4 v4.0.0-alpha2`), which was built specifically for v30 and exposes the full v30 API surface:
+synonym_sets, curation_sets, conversations (RAG), nl_search_models, analytics, stemming dictionaries,
+stopwords, presets, aliases. However, gmd's active code only exercises the basic search/index/multi-search
+APIs — none of the v30-specific features are wired up yet. Meanwhile IDEAS.md catalogs 60+ feature ideas
+drawn from upstream qmd issues/PRs and Typesense-native capabilities, and SCRATCH.md surfaces additional
+developer notes on agent tooling, SQLite, and operational gaps.
 
 **Sources analyzed:**
 - `docs/typesense/` — full API reference (v30.2) + usage guides (106 files)
@@ -748,17 +750,28 @@ features follow a similar model?
 - **Curation providers:** Auto-generated rules from LLM analysis, manual CUE config.
 - **Analytics providers:** Typesense-native vs external (Amplitude, GA) for richer analytics.
 
-### 8.5 Version Compatibility & Migration
+### 8.5 Version Compatibility & API Adoption
 
-gmd is on Typesense v26-era APIs. v30 introduces breaking changes:
-- Synonyms and overrides moved to global synonym_sets / curation_sets
-- Analytics rules format changed
-- New API key action names (synonym_sets:* vs synonyms:*, curation_sets:* vs overrides:*)
+gmd already targets Typesense v30.2 — the server Docker image, k8s manifest, and Go client
+(`typesense-go/v4 v4.0.0-alpha2`) are all v30-native. There is no server or client upgrade needed.
+The gap is purely in code adoption: gmd's `pkg/ts` uses only basic search/index/multi-search APIs
+that also existed in v26, while the v4 client exposes the full v30 surface (synonym_sets,
+curation_sets, conversations, analytics, etc.) that gmd hasn't wired up yet.
+
+The v4 client is generated from the Typesense OpenAPI spec via `oapi-codegen`, making it a thin
+HTTP wrapper rather than hand-maintained code. This is both a strength (API surface stays in sync
+with the spec) and a note: v4.0.0-alpha2 has not been promoted to stable, and the latest tagged
+commit is October 2025. However, as a generated passthrough, staleness is less of a concern than
+it would be for hand-written logic — the generated code mirrors whatever API spec was current at
+generation time, and the Typesense v30 API is stable.
 
 **Questions:**
-- Does gmd need to support multiple Typesense versions, or can we require v30+?
-- If gmd is deployed with Typesense Cloud, version is managed. Self-hosted users need documentation.
-- How do we handle the migration path for existing gmd installations?
+- When (if ever) will typesense-go v4 be promoted out of alpha? Is there risk of being stuck on
+  an alpha tag, or is the tag stability cosmetic given the generated nature of the client?
+- If the Typesense v31 API adds breaking changes, gmd would need the client re-generated against
+  the updated spec. Is the generation toolchain reproducible in gmd's own repo if needed?
+- Self-hosted users currently pull `typesense/typesense:30.2`. Should gmd pin a minimum Typesense
+  server version (30.x) and enforce it at startup?
 
 ---
 
@@ -770,7 +783,7 @@ just framing for the next phase.
 ### Foundation (Enables Other Features)
 - Frontmatter extraction pipeline (2.1) — unlocks faceting, filtering, sorting, grouping, A/B testing
 - Schema evolution support (4.3) — enables iterative schema changes, especially for frontmatter
-- Typesense version upgrade path (8.6) — required for v30 features (synonym_sets, curation_sets, RAG, NL search, analytics)
+- Typesense v30 API adoption (8.5) — wiring up the already-available v30 API surfaces in the v4 client
 - Text processing config (1.6) — token separators, infix, stopwords set the baseline for code/doc search quality
 
 ### High Impact, Moderate Effort
@@ -808,7 +821,7 @@ just framing for the next phase.
 
 These chains inform ordering if multiple enhancements are pursued:
 
-1. **Typesense v30 upgrade (8.6) →** everything below: synonym_sets, curation_sets, RAG, NL search, analytics, JOINs all require v30 API surface.
+1. **API adoption (8.5) →** everything below: synonym_sets, curation_sets, RAG, NL search, analytics, JOINs are already available in the v4 client but need code wiring in gmd.
 2. **Frontmatter extraction (2.1) → Faceting (2.2) + Filtering (2.3) + Grouping by metadata (2.4) + A/B testing (3.4).** Cannot filter/facet/group on fields that aren't indexed.
 3. **Analytics server flags (prerequisite) → Analytics rules (3.1) → Counters (3.2) → Popularity ranking (1.5-A).** Analytics infra must exist before any analytics-driven features.
 4. **Scoped API keys (6.2) → Multi-user gmd (6.2-A) → Personalization (niche).** Without scoped keys, multi-tenancy is insecure.
@@ -827,7 +840,7 @@ These chains inform ordering if multiple enhancements are pursued:
 
 Before detailed designs for individual enhancements, these cross-cutting questions should be settled:
 
-1. **Typesense v30 upgrade path** — gating decision for most new features
+1. **Typesense v30 API adoption path** — gating decision for most new features (already available client-side, just unwired)
 2. **"Thin middleware" vs "thick pipeline"** — determines whether gmd invests in or removes Go-side search intelligence
 3. **CUE config idiom** — thin passthrough vs semantic abstraction affects every configurable feature's design
 4. **Single-user vs multi-user** — determines relevance of analytics, popularity, personalization, scoped keys
@@ -836,8 +849,9 @@ Before detailed designs for individual enhancements, these cross-cutting questio
 
 ## Open Questions (Cross-Cutting)
 
-1. **Typesense version target:** Should gmd require v30+ and drop support for earlier versions,
-   or maintain backward compatibility?
+1. **Typesense version target:** gmd already requires v30.2 (server + client). The question is not
+   whether to upgrade, but when to adopt the v30-specific API features already available in the v4 client.
+   Should we require a minimum v30.x server version, or stay flexible on older servers by feature-detecting?
 2. **Server-side features (analytics, RAG, NL search) require Typesense server flags.** Should
    `gmd init` / `gmd serve` configure these, or document them as prerequisites?
 3. **API key management:** gmd currently uses a single admin-level API key. If we adopt scoped

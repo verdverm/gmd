@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/verdverm/gmd/pkg/web"
+	"github.com/verdverm/gmd/pkg/web/persist"
 )
 
 var (
@@ -61,6 +63,28 @@ Examples:
 		pages, err := bp.Crawl(ctx, args[0], crawlOpts)
 		if err != nil {
 			return fmt.Errorf("crawling: %w", err)
+		}
+
+		if !webNoPersist && cfg.Web.Persistence != nil && cfg.Web.Persistence.Enabled {
+			persistDir := resolvePersistDir(cmd, cfg)
+			caller := webCaller
+			if caller == "" {
+				caller = "human"
+			}
+			meta := persist.Metadata{
+				Caller: caller,
+				Flags: map[string]any{
+					"depth":      float64(webCrawlDepth),
+					"maxPages":   float64(webCrawlMaxPages),
+					"sameDomain": webCrawlSameDomain,
+					"include":    webCrawlInclude,
+					"exclude":    webCrawlExclude,
+					"json":       webCrawlJSON,
+				},
+			}
+			if err := persist.Crawl(persistDir, args[0], pages, meta); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: persist failed: %v\n", err)
+			}
 		}
 
 		if webCrawlJSON {

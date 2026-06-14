@@ -219,6 +219,14 @@ WebSearchConfig: {
 	synthesis_prompt:  string | *""      // path to custom system prompt file
 }
 
+// WebPersistenceConfig controls automatic persistence of web results to disk.
+// dir is relative to cfg.ProjectRoot when inside a project.
+// When no project root is found, dir is ignored and UserCacheDir/gmd/web/ is used.
+WebPersistenceConfig: {
+	enabled:  bool   | *true
+	dir:      string | *".gmd/web"
+}
+
 // WebConfig groups all web search provider configurations.
 WebConfig: {
 	group?:  string | *"default"
@@ -229,6 +237,7 @@ WebConfig: {
 	local?:     LocalConfig
 	cloudflare?: CloudflareConfig
 	search:    WebSearchConfig
+	persistence?: WebPersistenceConfig
 }
 
 // AgentHarnessConfig defines a named executable harness (e.g., opencode, claude).

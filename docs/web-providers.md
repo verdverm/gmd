@@ -273,3 +273,44 @@ Cost: $0.001530 query (exa)
 
 Different billing models (per-query, per-minute, credit-based) are distinguished by the
 `unit` field.
+
+## Result Persistence
+
+All `gmd web fetch`, `crawl`, `search`, and `agent` commands automatically persist results
+to disk by default. Results are written to a configurable directory (`web.persistence.dir`,
+default `.gmd/web/`) under timestamped subdirectories.
+
+### Directory layout
+
+```
+.gmd/web/
+  fetch/<timestamp>-<slug>/        # result.json, metadata.json, content.md
+  crawl/<timestamp>-<slug>/        # result.json, metadata.json, pages/*.md
+  search/<timestamp>-<slug>/       # result.json, metadata.json, query.txt, answer.md, results/*.md, raw/<provider>.json
+  agent/<timestamp>-<slug>/        # result.json, metadata.json, query.txt, answer.md, steps/*.json, sources/*.md
+```
+
+### Configuration
+
+```cue
+web: {
+  persistence: {
+    enabled: true          // default: true
+    dir:     ".gmd/web"   // default: ".gmd/web", relative to project root
+  }
+}
+```
+
+When no project root is found, the global cache directory is used (e.g. `~/Library/Caches/gmd/web/` on macOS).
+
+### Flags
+
+- `--no-persist` — skip persisting results for this invocation
+- `--persist-dir <path>` — override the persistence directory
+- `--caller <name>` — tag results for attribution (default: `"human"`)
+
+### metadata.json
+
+Each persistence directory includes a `metadata.json` capturing every CLI flag and
+configuration parameter, enabling full reproducibility. A persisted result can be
+exactly reproduced by reading its `metadata.json` and passing the same flags.

@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/verdverm/gmd/pkg/config"
@@ -15,6 +15,9 @@ var (
 	webProviderGroup   string
 	webSearchProvider  string
 	webBrowserProvider string
+	webNoPersist       bool
+	webPersistDir      string
+	webCaller          string
 )
 
 var webCmd = &cobra.Command{
@@ -35,23 +38,6 @@ Workflows:
   5. Research: gmd web research "comprehensive topic analysis" --depth deep
 
 Providers: exa, tavily, searxng (search); exa, cloudflare, local (browser).`,
-}
-
-func slugify(s string) string {
-	s = strings.ToLower(s)
-	var result strings.Builder
-	for _, r := range s {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
-			result.WriteRune(r)
-		} else if r == ' ' || r == '_' {
-			result.WriteRune('-')
-		}
-	}
-	out := result.String()
-	if len(out) > 60 {
-		out = out[:60]
-	}
-	return strings.Trim(out, "-")
 }
 
 func printCost(cost *web.CostSummary) {
@@ -130,10 +116,37 @@ func makeProviderConfig(name string, webCfg config.WebConfig) web.ProviderConfig
 	return pc
 }
 
+// resolvePersistDir returns the absolute persistence directory.
+func resolvePersistDir(cmd *cobra.Command, cfg *config.Config) string {
+	if cfg.Web.Persistence == nil {
+		cfg.Web.Persistence = &config.WebPersistenceConfig{Enabled: true, Dir: ".gmd/web"}
+	}
+	dir := cfg.Web.Persistence.Dir
+	if cmd.Flags().Changed("persist-dir") {
+		dir = webPersistDir
+	}
+	if !filepath.IsAbs(dir) {
+		if cfg.ProjectRoot != "" {
+			dir = filepath.Join(cfg.ProjectRoot, dir)
+		} else {
+			cacheDir, err := os.UserCacheDir()
+			if err != nil {
+				cacheDir = filepath.Join(os.TempDir(), "gmd")
+			}
+			dir = filepath.Join(cacheDir, "gmd", "web")
+		}
+	}
+	return dir
+}
+
 func init() {
 	webCmd.PersistentFlags().StringVar(&webProviderGroup, "provider-group", "", "Provider group preset (overrides configured group)")
 	webCmd.PersistentFlags().StringVar(&webSearchProvider, "search-provider", "", "Search provider override, comma-separated (exa, tavily, searxng)")
 	webCmd.PersistentFlags().StringVar(&webBrowserProvider, "browser-provider", "", "Browser provider override (exa, cloudflare, local)")
+
+	webCmd.PersistentFlags().BoolVar(&webNoPersist, "no-persist", false, "Skip persisting results to disk")
+	webCmd.PersistentFlags().StringVar(&webPersistDir, "persist-dir", "", "Override persistence directory")
+	webCmd.PersistentFlags().StringVar(&webCaller, "caller", "human", "Caller identifier for attribution")
 
 	rootCmd.AddCommand(webCmd)
 }

@@ -180,7 +180,7 @@ func TestMultiSearch_Integration(t *testing.T) {
 		t.Skip("no search providers available")
 	}
 
-	results, err := MultiSearch(context.Background(), "golang standard library features",
+	results, _, _, err := MultiSearch(context.Background(), "golang standard library features",
 		providers, web.SearchOptions{Query: "golang standard library features", NumResults: 3})
 	if err != nil {
 		t.Fatalf("MultiSearch: %v", err)

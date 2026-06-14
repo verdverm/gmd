@@ -21,14 +21,16 @@ type Config struct {
 
 // Result is the output of a fused multi-provider search.
 type Result struct {
-	Answer  string
-	Results []web.SearchResult
-	Costs   []web.CostSummary
+	Answer   string
+	Results  []web.SearchResult
+	Costs    []web.CostSummary
+	Raw      map[string][]web.SearchResult // per-provider raw results (before dedup)
+	Failures map[string]string             // provider name to error string
 }
 
 // Run executes a multi-provider search with parallel fan-out, dedup, and optional synthesis.
 func Run(ctx context.Context, query string, providers []web.SearchProvider, opts web.SearchOptions, cfg Config) (*Result, error) {
-	allResults, err := MultiSearch(ctx, query, providers, opts)
+	allResults, rawResults, failures, err := MultiSearch(ctx, query, providers, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -60,9 +62,11 @@ func Run(ctx context.Context, query string, providers []web.SearchProvider, opts
 	}
 
 	return &Result{
-		Answer:  answer,
-		Results: deduped,
-		Costs:   costs,
+		Answer:   answer,
+		Results:  deduped,
+		Costs:    costs,
+		Raw:      rawResults,
+		Failures: failures,
 	}, nil
 }
 
@@ -70,9 +74,11 @@ func Run(ctx context.Context, query string, providers []web.SearchProvider, opts
 // Each result is tagged with its provider name in Extra["_provider"].
 // Partial failures are tolerated: if some providers fail, results from successful
 // providers are still returned. An error is returned only if all providers fail.
-func MultiSearch(ctx context.Context, query string, providers []web.SearchProvider, opts web.SearchOptions) ([]web.SearchResult, error) {
+// rawResults is a map of provider name to raw []SearchResult (before dedup).
+// failures is a map of provider name to error string for providers that failed.
+func MultiSearch(ctx context.Context, query string, providers []web.SearchProvider, opts web.SearchOptions) ([]web.SearchResult, map[string][]web.SearchResult, map[string]string, error) {
 	if len(providers) == 0 {
-		return nil, fmt.Errorf("no search providers configured")
+		return nil, nil, nil, fmt.Errorf("no search providers configured")
 	}
 
 	type providerResult struct {
@@ -100,29 +106,37 @@ func MultiSearch(ctx context.Context, query string, providers []web.SearchProvid
 	}()
 
 	var all []web.SearchResult
-	var errs []string
+	rawResults := make(map[string][]web.SearchResult)
+	failures := make(map[string]string)
 	for pr := range ch {
 		if pr.err != nil {
-			errs = append(errs, fmt.Sprintf("%s: %v", pr.name, pr.err))
+			failures[pr.name] = pr.err.Error()
 			continue
 		}
-		for _, r := range pr.results {
+		raw := make([]web.SearchResult, len(pr.results))
+		for i, r := range pr.results {
 			if r.Extra == nil {
 				r.Extra = make(map[string]any)
 			}
 			r.Extra["_provider"] = pr.name
+			raw[i] = r
 			all = append(all, r)
 		}
+		rawResults[pr.name] = raw
 	}
 
 	if len(all) == 0 {
-		if len(errs) > 0 {
-			return nil, fmt.Errorf("all providers failed: %s", strings.Join(errs, "; "))
+		if len(failures) > 0 {
+			errs := make([]string, 0, len(failures))
+			for name, msg := range failures {
+				errs = append(errs, fmt.Sprintf("%s: %s", name, msg))
+			}
+			return nil, rawResults, failures, fmt.Errorf("all providers failed: %s", strings.Join(errs, "; "))
 		}
-		return nil, fmt.Errorf("no results from any provider")
+		return nil, rawResults, failures, fmt.Errorf("no results from any provider")
 	}
 
-	return all, nil
+	return all, rawResults, failures, nil
 }
 
 // Dedup removes duplicate results based on the configured method.

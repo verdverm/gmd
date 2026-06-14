@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -26,6 +27,7 @@ type AgentConfig struct {
 type AgentResult struct {
 	Answer  string
 	Sources []AgentSource
+	Steps   []json.RawMessage
 }
 
 type AgentSource struct {
@@ -52,6 +54,7 @@ func NewAgent(exaClient *exa.Client, llmClient *llm.Client, cfg AgentConfig) *Ag
 
 func (a *Agent) Run(ctx context.Context, query string) (*AgentResult, error) {
 	allResults := make([]exa.SearchResult, 0)
+	var steps []json.RawMessage
 
 	searchResp, err := a.exaClient.Search(ctx, exa.SearchRequest{
 		Query:      query,
@@ -67,6 +70,10 @@ func (a *Agent) Run(ctx context.Context, query string) (*AgentResult, error) {
 	}
 	allResults = append(allResults, searchResp.Results...)
 
+	if data, err := json.Marshal(searchResp); err == nil {
+		steps = append(steps, data)
+	}
+
 	for step := 1; step < a.maxSteps; step++ {
 		decision, queries, err := a.analyzeResults(ctx, query, allResults)
 		if err != nil {
@@ -76,6 +83,7 @@ func (a *Agent) Run(ctx context.Context, query string) (*AgentResult, error) {
 			break
 		}
 
+		var stepResponses []json.RawMessage
 		for _, q := range queries {
 			q = strings.TrimSpace(q)
 			if q == "" {
@@ -94,6 +102,14 @@ func (a *Agent) Run(ctx context.Context, query string) (*AgentResult, error) {
 				return nil, fmt.Errorf("follow-up search %q: %w", q, err)
 			}
 			allResults = append(allResults, sr.Results...)
+			if data, err := json.Marshal(sr); err == nil {
+				stepResponses = append(stepResponses, data)
+			}
+		}
+
+		if len(stepResponses) > 0 {
+			combined, _ := json.Marshal(stepResponses)
+			steps = append(steps, combined)
 		}
 	}
 
@@ -146,6 +162,7 @@ func (a *Agent) Run(ctx context.Context, query string) (*AgentResult, error) {
 	return &AgentResult{
 		Answer:  answer,
 		Sources: sources,
+		Steps:   steps,
 	}, nil
 }
 

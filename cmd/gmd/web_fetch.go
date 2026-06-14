@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/verdverm/gmd/pkg/web"
+	"github.com/verdverm/gmd/pkg/web/persist"
 )
 
 var (
@@ -61,6 +62,30 @@ Examples:
 				return fmt.Errorf("fetching %s: %w", urlStr, err)
 			}
 
+			if !webNoPersist && cfg.Web.Persistence != nil && cfg.Web.Persistence.Enabled {
+				persistDir := resolvePersistDir(cmd, cfg)
+				caller := webCaller
+				if caller == "" {
+					caller = "human"
+				}
+				meta := persist.Metadata{
+					Caller: caller,
+					Flags: map[string]any{
+						"format":     webFetchFormat,
+						"maxChars":   float64(webFetchMaxChars),
+						"highlights": webFetchHighlights,
+						"summary":    webFetchSummary,
+						"maxAge":     float64(webFetchMaxAge),
+						"json":       webFetchJSON,
+						"output":     webFetchOutput,
+						"outdir":     webFetchOutdir,
+					},
+				}
+				if err := persist.Fetch(persistDir, urlStr, result, meta); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: persist failed: %v\n", err)
+				}
+			}
+
 			if webFetchJSON {
 				data, _ := json.MarshalIndent(result, "", "  ")
 				fmt.Println(string(data))
@@ -85,7 +110,7 @@ Examples:
 				if err := os.MkdirAll(webFetchOutdir, 0755); err != nil {
 					return fmt.Errorf("creating output directory: %w", err)
 				}
-				filename := slugify(title)
+				filename := web.Sluggify(title)
 				if filename == "" {
 					filename = "page"
 				}

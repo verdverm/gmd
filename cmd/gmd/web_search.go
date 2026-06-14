@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/verdverm/gmd/pkg/config"
 	"github.com/verdverm/gmd/pkg/llm"
 	"github.com/verdverm/gmd/pkg/web"
 	"github.com/verdverm/gmd/pkg/web/fusion"
+	"github.com/verdverm/gmd/pkg/web/persist"
 )
 
 var (
@@ -135,6 +138,31 @@ Examples:
 			return fmt.Errorf("searching: %w", err)
 		}
 
+		if !webNoPersist && config.Web.Persistence != nil && config.Web.Persistence.Enabled {
+			persistDir := resolvePersistDir(cmd, config)
+			caller := webCaller
+			if caller == "" {
+				caller = "human"
+			}
+			providerNames := config.Web.ResolveSearchProviders(webSearchProvider)
+			meta := persist.Metadata{
+				Caller:        caller,
+				ProviderGroup: config.Web.Group,
+				Providers:     providerNames,
+				LLMProfile:    config.LLM.Profile,
+				Flags:         searchFlagsMap(dedup, synthesize, synthesisPrompt),
+			}
+			if llmClient != nil {
+				resolved := resolveSearchLLMModel(config)
+				if resolved != "" {
+					meta.LLMModel = resolved
+				}
+			}
+			if err := persist.Search(persistDir, args[0], result, result.Raw, meta); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: persist failed: %v\n", err)
+			}
+		}
+
 		if webSearchJSON {
 			data, _ := json.MarshalIndent(result, "", "  ")
 			fmt.Println(string(data))
@@ -215,4 +243,44 @@ func init() {
 	webSearchCmd.Flags().BoolVar(&webSearchNoSynthesize, "no-synthesize", false, "Disable synthesis (overrides --synthesize)")
 
 	webCmd.AddCommand(webSearchCmd)
+}
+
+func searchFlagsMap(dedup string, synthesize bool, synthesisPrompt string) map[string]any {
+	return map[string]any{
+		"dedup":             dedup,
+		"synthesize":        synthesize,
+		"synthesisPrompt":   synthesisPrompt,
+		"limit":             float64(webSearchLimit),
+		"text":              webSearchText,
+		"type":              webSearchType,
+		"highlights":        webSearchHighlights,
+		"maxChars":          float64(webSearchMaxChars),
+		"noAutoprompt":      webSearchNoAutoprompt,
+		"domains":           webSearchDomains,
+		"excludeDomains":    webSearchExcludeDom,
+		"dateStart":         webSearchDateStart,
+		"dateEnd":           webSearchDateEnd,
+		"additionalQueries": webSearchAdditionalQueries,
+		"systemPrompt":      webSearchSystemPrompt,
+		"noModeration":      webSearchNoModeration,
+		"json":              webSearchJSON,
+		"noSynthesize":      webSearchNoSynthesize,
+		"category":          webSearchCategory,
+	}
+}
+
+func resolveSearchLLMModel(cfg *config.Config) string {
+	profileName := cfg.LLM.Profile
+	if profile, ok := cfg.LLM.Profiles[profileName]; ok {
+		if role := profile.Summarizing; role != nil && role.Model != "" {
+			return role.Model
+		}
+		if role := profile.GeneralMid; role != nil && role.Model != "" {
+			return role.Model
+		}
+		if role := profile.GeneralBig; role != nil && role.Model != "" {
+			return role.Model
+		}
+	}
+	return ""
 }

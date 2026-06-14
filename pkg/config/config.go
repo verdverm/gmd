@@ -35,14 +35,15 @@ type Config struct {
 
 // WebConfig groups all web search provider configurations.
 type WebConfig struct {
-	Group      string                      `json:"group"`
-	Groups     map[string]WebProviderGroup `json:"groups,omitempty"`
-	EXA        EXAConfig                   `json:"exa,omitempty"`
-	Tavily     TavilyConfig                `json:"tavily,omitempty"`
-	SearXNG    SearXNGConfig               `json:"searxng,omitempty"`
-	Local      LocalConfig                 `json:"local,omitempty"`
-	Cloudflare CloudflareConfig            `json:"cloudflare,omitempty"`
-	Search     WebSearchConfig             `json:"search,omitempty"`
+	Group       string                      `json:"group"`
+	Groups      map[string]WebProviderGroup `json:"groups,omitempty"`
+	EXA         EXAConfig                   `json:"exa,omitempty"`
+	Tavily      TavilyConfig                `json:"tavily,omitempty"`
+	SearXNG     SearXNGConfig               `json:"searxng,omitempty"`
+	Local       LocalConfig                 `json:"local,omitempty"`
+	Cloudflare  CloudflareConfig            `json:"cloudflare,omitempty"`
+	Search      WebSearchConfig             `json:"search,omitempty"`
+	Persistence *WebPersistenceConfig       `json:"persistence,omitempty"`
 }
 
 // EXAConfig maps from the CUE EXAConfig schema.
@@ -91,6 +92,12 @@ type WebSearchConfig struct {
 	Dedup           string `json:"dedup,omitempty"`
 	Synthesize      bool   `json:"synthesize"`
 	SynthesisPrompt string `json:"synthesis_prompt,omitempty"`
+}
+
+// WebPersistenceConfig controls automatic persistence of web results to disk.
+type WebPersistenceConfig struct {
+	Enabled bool   `json:"enabled"`
+	Dir     string `json:"dir"`
 }
 
 // AgentConfig defines configuration for launching external AI agent harnesses.
@@ -687,6 +694,14 @@ func Load(cwd string) (*Config, error) {
 		cfg.Wikis[name] = wc
 	}
 
+	// Apply defaults for web persistence when block was absent (nil pointer).
+	if cfg.Web.Persistence == nil {
+		cfg.Web.Persistence = &WebPersistenceConfig{
+			Enabled: true,
+			Dir:     ".gmd/web",
+		}
+	}
+
 	// API key fallback from env var (used by gmd env for display)
 	cfg.LLM.APIKey = os.Getenv("OPENAI_API_KEY")
 
@@ -875,6 +890,11 @@ func mergeConfigs(dst, src *Config) {
 	}
 	mergeStringField(&src.Web.Search.SynthesisPrompt, &dst.Web.Search.SynthesisPrompt)
 	mergeStringField(&src.Web.SearXNG.BaseURL, &dst.Web.SearXNG.BaseURL)
+	// Merge Persistence: nil means absent in source, keep destination.
+	// Non-nil means block was present; CUE filled defaults, trust it fully.
+	if src.Web.Persistence != nil {
+		dst.Web.Persistence = src.Web.Persistence
+	}
 
 	// Merge Agent config
 	mergeStringField(&src.Agent.DefaultHarness, &dst.Agent.DefaultHarness)
@@ -914,6 +934,12 @@ func (c *Config) AgentHarnessNames() []string {
 
 func mergeStringField(src, dst *string) {
 	if *src != "" {
+		*dst = *src
+	}
+}
+
+func mergeBoolField(src, dst *bool) {
+	if *src {
 		*dst = *src
 	}
 }

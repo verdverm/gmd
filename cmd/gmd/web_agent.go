@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/verdverm/gmd/pkg/web"
 	"github.com/verdverm/gmd/pkg/web/exa"
+	"github.com/verdverm/gmd/pkg/web/persist"
 )
 
 var (
@@ -70,6 +72,30 @@ Examples:
 		result, err := agent.Run(ctx, args[0])
 		if err != nil {
 			return fmt.Errorf("agent: %w", err)
+		}
+
+		if !webNoPersist && config.Web.Persistence != nil && config.Web.Persistence.Enabled {
+			persistDir := resolvePersistDir(cmd, config)
+			meta := persist.Metadata{
+				Caller:     "gmd-agent",
+				LLMProfile: config.LLM.Profile,
+				Flags: map[string]any{
+					"maxSteps":       float64(maxSteps),
+					"resultsPerStep": float64(webAgentLimit),
+					"fetchText":      webAgentText,
+					"depth":          webAgentDepth,
+					"json":           webAgentJSON,
+					"output":         webAgentOutput,
+				},
+			}
+			if profile, ok := config.LLM.Profiles[config.LLM.Profile]; ok {
+				if role := profile.Summarizing; role != nil && role.Model != "" {
+					meta.LLMModel = role.Model
+				}
+			}
+			if err := persist.Agent(persistDir, args[0], result, result.Steps, meta); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: persist failed: %v\n", err)
+			}
 		}
 
 		if webAgentJSON {

@@ -1,0 +1,59 @@
+[
+  {
+    "request": {
+      "method": "POST",
+      "url": "http://localhost:18108/collections/chunks/documents?action=upsert",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": "{\"chunk_seq\":0,\"collection\":\"ts-int-test\",\"content\":\"Content of chunk 0 for list/doc1.md.\",\"embedding\":[0,0.5,0.1,0.2],\"hash\":\"hash-list/doc1.md-0\",\"path\":\"list/doc1.md\",\"title\":\"Doc list/doc1.md chunk 0\",\"total_chunks\":1}"
+    },
+    "response": {
+      "status_code": 201,
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json; charset=utf-8"
+      },
+      "body": "{\"chunk_seq\":0,\"collection\":\"ts-int-test\",\"content\":\"Content of chunk 0 for list/doc1.md.\",\"embedding\":[0,0.5,0.1,0.2],\"hash\":\"hash-list/doc1.md-0\",\"id\":\"15\",\"path\":\"list/doc1.md\",\"title\":\"Doc list/doc1.md chunk 0\",\"total_chunks\":1}"
+    }
+  },
+  {
+    "request": {
+      "method": "POST",
+      "url": "http://localhost:18108/collections/chunks/documents?action=upsert",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": "{\"chunk_seq\":0,\"collection\":\"ts-int-test\",\"content\":\"Content of chunk 0 for list/doc2.md.\",\"embedding\":[0,0.5,0.1,0.2],\"hash\":\"hash-list/doc2.md-0\",\"path\":\"list/doc2.md\",\"title\":\"Doc list/doc2.md chunk 0\",\"total_chunks\":1}"
+    },
+    "response": {
+      "status_code": 201,
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json; charset=utf-8"
+      },
+      "body": "{\"chunk_seq\":0,\"collection\":\"ts-int-test\",\"content\":\"Content of chunk 0 for list/doc2.md.\",\"embedding\":[0,0.5,0.1,0.2],\"hash\":\"hash-list/doc2.md-0\",\"id\":\"16\",\"path\":\"list/doc2.md\",\"title\":\"Doc list/doc2.md chunk 0\",\"total_chunks\":1}"
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "http://localhost:18108/collections/chunks/documents/search?filter_by=collection%3A%3D%5Bts-int-test%5D\u0026group_by=collection%2Cpath\u0026group_limit=1\u0026page=1\u0026per_page=250\u0026q=\u0026query_by=content",
+      "headers": {},
+      "body": ""
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Accept-Ranges": "none",
+        "Access-Control-Allow-Origin": "*",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json; charset=utf-8",
+        "Vary": "accept-encoding"
+      },
+      "body": "{\"facet_counts\":[],\"found\":2,\"found_docs\":2,\"grouped_hits\":[{\"found\":1,\"group_key\":[\"ts-int-test\",\"list/doc2.md\"],\"hits\":[{\"document\":{\"chunk_seq\":0,\"collection\":\"ts-int-test\",\"content\":\"Content of chunk 0 for list/doc2.md.\",\"embedding\":[0,0.5,0.1,0.2],\"hash\":\"hash-list/doc2.md-0\",\"id\":\"16\",\"path\":\"list/doc2.md\",\"title\":\"Doc list/doc2.md chunk 0\",\"total_chunks\":1},\"highlight\":{},\"highlights\":[],\"text_match\":100,\"text_match_info\":{\"best_field_score\":\"0\",\"best_field_weight\":12,\"fields_matched\":4,\"num_tokens_dropped\":1,\"score\":\"100\",\"tokens_matched\":0,\"typo_prefix_score\":255}}]},{\"found\":1,\"group_key\":[\"ts-int-test\",\"list/doc1.md\"],\"hits\":[{\"document\":{\"chunk_seq\":0,\"collection\":\"ts-int-test\",\"content\":\"Content of chunk 0 for list/doc1.md.\",\"embedding\":[0,0.5,0.1,0.2],\"hash\":\"hash-list/doc1.md-0\",\"id\":\"15\",\"path\":\"list/doc1.md\",\"title\":\"Doc list/doc1.md chunk 0\",\"total_chunks\":1},\"highlight\":{},\"highlights\":[],\"text_match\":100,\"text_match_info\":{\"best_field_score\":\"0\",\"best_field_weight\":12,\"fields_matched\":4,\"num_tokens_dropped\":1,\"score\":\"100\",\"tokens_matched\":0,\"typo_prefix_score\":255}}]}],\"out_of\":2,\"page\":1,\"request_params\":{\"collection_name\":\"chunks\",\"first_q\":\"\",\"per_page\":250,\"q\":\"\"},\"search_cutoff\":false,\"search_time_ms\":0}"
+    }
+  }
+]

@@ -14,8 +14,6 @@ import (
 	"github.com/verdverm/gmd/pkg/ts/testserver"
 )
 
-const testColl = "ts-int-test"
-
 var testTSClient *Client
 var testServerURL string
 
@@ -83,40 +81,26 @@ func newTapeClient(t *testing.T, tape *testutil.Tape) *Client {
 	})
 }
 
-func makeTestChunks(path string, n int) []ChunkDocument {
-	chunks := make([]ChunkDocument, n)
-	for i := 0; i < n; i++ {
-		chunks[i] = ChunkDocument{
-			Collection:  testColl,
-			Path:        path,
-			Title:       fmt.Sprintf("Doc %s chunk %d", path, i),
-			Content:     fmt.Sprintf("Content of chunk %d for %s.", i, path),
-			Hash:        fmt.Sprintf("hash-%s-%d", path, i),
-			ChunkSeq:    i,
-			TotalChunks: n,
-			Embedding:   []float64{float64(i), float64(i+1) * 0.5, 0.1, 0.2},
-		}
-	}
-	return chunks
-}
-
-func makeTestDoc(path string) DocDocument {
-	return DocDocument{
-		Collection: testColl,
-		Path:       path,
-		Title:      fmt.Sprintf("Full doc %s", path),
-		Content:    fmt.Sprintf("Full document content for %s.", path),
-		Hash:       fmt.Sprintf("doc-hash-%s", path),
-	}
-}
-
-// --- Schema ---
-
 func TestIntegrationGetSchemaFields(t *testing.T) {
 	requireTS(t)
 	ctx := context.Background()
 
-	fields, err := testTSClient.GetSchemaFields(ctx)
+	tape := maybeNewTape(t, "testdata/007_schema_fields.json")
+	if tape != nil {
+		tape.Start()
+		defer func() {
+			if err := tape.Stop(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+	}
+
+	client := testTSClient
+	if tape != nil {
+		client = newTapeClient(t, tape)
+	}
+
+	fields, err := client.GetSchemaFields(ctx)
 	if err != nil {
 		t.Fatalf("GetSchemaFields: %v", err)
 	}
@@ -139,13 +123,28 @@ func TestIntegrationExtraFields(t *testing.T) {
 	requireTS(t)
 	ctx := context.Background()
 
-	if err := testTSClient.EnsureSchema(ctx, 4, []SchemaField{
+	tape := maybeNewTape(t, "testdata/008_extra_fields.json")
+	if tape != nil {
+		tape.Start()
+		defer func() {
+			if err := tape.Stop(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+	}
+
+	client := testTSClient
+	if tape != nil {
+		client = newTapeClient(t, tape)
+	}
+
+	if err := client.EnsureSchema(ctx, 4, []SchemaField{
 		{Name: "version", Type: "string"},
 	}); err != nil {
 		t.Fatalf("EnsureSchema with extra fields: %v", err)
 	}
 
-	fields, err := testTSClient.GetSchemaFields(ctx)
+	fields, err := client.GetSchemaFields(ctx)
 	if err != nil {
 		t.Fatalf("GetSchemaFields: %v", err)
 	}
@@ -270,6 +269,21 @@ func TestIntegrationChunkDynamicFields(t *testing.T) {
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
+	tape := maybeNewTape(t, "testdata/009_dynamic_fields.json")
+	if tape != nil {
+		tape.Start()
+		defer func() {
+			if err := tape.Stop(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+	}
+
+	client := testTSClient
+	if tape != nil {
+		client = newTapeClient(t, tape)
+	}
+
 	chunk := ChunkDocument{
 		Collection:  testColl,
 		Path:        "dynamic-fields.md",
@@ -284,7 +298,7 @@ func TestIntegrationChunkDynamicFields(t *testing.T) {
 			"priority":     5,
 		},
 	}
-	if err := testTSClient.UpsertChunks(ctx, []ChunkDocument{chunk}); err != nil {
+	if err := client.UpsertChunks(ctx, []ChunkDocument{chunk}); err != nil {
 		t.Fatalf("UpsertChunks with dynamic fields: %v", err)
 	}
 }
@@ -293,6 +307,21 @@ func TestIntegrationChunkLinks(t *testing.T) {
 	requireTS(t)
 	ctx := context.Background()
 	defer cleanupTestData(t)
+
+	tape := maybeNewTape(t, "testdata/010_chunk_links.json")
+	if tape != nil {
+		tape.Start()
+		defer func() {
+			if err := tape.Stop(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+	}
+
+	client := testTSClient
+	if tape != nil {
+		client = newTapeClient(t, tape)
+	}
 
 	chunk := ChunkDocument{
 		Collection:  testColl,
@@ -305,11 +334,11 @@ func TestIntegrationChunkLinks(t *testing.T) {
 		Embedding:   []float64{0.1, 0.2, 0.3, 0.4},
 		Links:       []string{"other-page.md", "another-page.md"},
 	}
-	if err := testTSClient.UpsertChunks(ctx, []ChunkDocument{chunk}); err != nil {
+	if err := client.UpsertChunks(ctx, []ChunkDocument{chunk}); err != nil {
 		t.Fatalf("UpsertChunks with links: %v", err)
 	}
 
-	fetched, err := testTSClient.FetchChunksByPath(ctx, "links-chunk.md")
+	fetched, err := client.FetchChunksByPath(ctx, "links-chunk.md")
 	if err != nil {
 		t.Fatalf("FetchChunksByPath: %v", err)
 	}
@@ -411,6 +440,21 @@ func TestIntegrationDocLinks(t *testing.T) {
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
+	tape := maybeNewTape(t, "testdata/011_doc_links.json")
+	if tape != nil {
+		tape.Start()
+		defer func() {
+			if err := tape.Stop(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+	}
+
+	client := testTSClient
+	if tape != nil {
+		client = newTapeClient(t, tape)
+	}
+
 	doc := DocDocument{
 		Collection: testColl,
 		Path:       "doc-with-links.md",
@@ -419,11 +463,11 @@ func TestIntegrationDocLinks(t *testing.T) {
 		Hash:       "doc-hash-links",
 		Links:      []string{"ref1.md", "ref2.md"},
 	}
-	if err := testTSClient.UpsertDoc(ctx, doc); err != nil {
+	if err := client.UpsertDoc(ctx, doc); err != nil {
 		t.Fatalf("UpsertDoc: %v", err)
 	}
 
-	fetched, err := testTSClient.FetchDocByPath(ctx, "doc-with-links.md")
+	fetched, err := client.FetchDocByPath(ctx, "doc-with-links.md")
 	if err != nil {
 		t.Fatalf("FetchDocByPath: %v", err)
 	}
@@ -446,6 +490,21 @@ func TestIntegrationFetchDocs(t *testing.T) {
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
+	tape := maybeNewTape(t, "testdata/012_fetch_docs.json")
+	if tape != nil {
+		tape.Start()
+		defer func() {
+			if err := tape.Stop(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+	}
+
+	client := testTSClient
+	if tape != nil {
+		client = newTapeClient(t, tape)
+	}
+
 	paths := []string{
 		"alpha/one.md",
 		"alpha/two.md",
@@ -453,12 +512,12 @@ func TestIntegrationFetchDocs(t *testing.T) {
 	}
 	for _, p := range paths {
 		doc := makeTestDoc(p)
-		if err := testTSClient.UpsertDoc(ctx, doc); err != nil {
+		if err := client.UpsertDoc(ctx, doc); err != nil {
 			t.Fatalf("UpsertDoc %q: %v", p, err)
 		}
 	}
 
-	results, err := testTSClient.FetchDocs(ctx, "alpha/one.md")
+	results, err := client.FetchDocs(ctx, "alpha/one.md")
 	if err != nil {
 		t.Fatalf("FetchDocs exact: %v", err)
 	}
@@ -469,7 +528,7 @@ func TestIntegrationFetchDocs(t *testing.T) {
 		t.Errorf("Path = %q, want %q", results[0].Path, "alpha/one.md")
 	}
 
-	results, err = testTSClient.FetchDocs(ctx, "alpha/*")
+	results, err = client.FetchDocs(ctx, "alpha/*")
 	if err != nil {
 		t.Fatalf("FetchDocs glob: %v", err)
 	}
@@ -477,7 +536,7 @@ func TestIntegrationFetchDocs(t *testing.T) {
 		t.Fatalf("glob match: expected 2, got %d", len(results))
 	}
 
-	results, err = testTSClient.FetchDocs(ctx, "alpha/")
+	results, err = client.FetchDocs(ctx, "alpha/")
 	if err != nil {
 		t.Fatalf("FetchDocs prefix: %v", err)
 	}
@@ -703,14 +762,29 @@ func TestIntegrationSearchDistinctPaths(t *testing.T) {
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
+	tape := maybeNewTape(t, "testdata/013_search_distinct_paths.json")
+	if tape != nil {
+		tape.Start()
+		defer func() {
+			if err := tape.Stop(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+	}
+
+	client := testTSClient
+	if tape != nil {
+		client = newTapeClient(t, tape)
+	}
+
 	paths := []string{"distinct/a.md", "distinct/b.md", "other/c.md"}
 	for _, p := range paths {
-		if err := testTSClient.UpsertChunks(ctx, makeTestChunks(p, 1)); err != nil {
+		if err := client.UpsertChunks(ctx, makeTestChunks(p, 1)); err != nil {
 			t.Fatalf("UpsertChunks %q: %v", p, err)
 		}
 	}
 
-	allPaths, err := testTSClient.SearchDistinctPaths(ctx, "")
+	allPaths, err := client.SearchDistinctPaths(ctx, "")
 	if err != nil {
 		t.Fatalf("SearchDistinctPaths: %v", err)
 	}
@@ -718,7 +792,7 @@ func TestIntegrationSearchDistinctPaths(t *testing.T) {
 		t.Fatalf("expected >= 3 distinct paths, got %d", len(allPaths))
 	}
 
-	filtered, err := testTSClient.SearchDistinctPaths(ctx, "collection:=ts-int-test")
+	filtered, err := client.SearchDistinctPaths(ctx, "collection:=ts-int-test")
 	if err != nil {
 		t.Fatalf("SearchDistinctPaths (filtered): %v", err)
 	}
@@ -732,14 +806,29 @@ func TestIntegrationListDocuments(t *testing.T) {
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
+	tape := maybeNewTape(t, "testdata/014_list_documents.json")
+	if tape != nil {
+		tape.Start()
+		defer func() {
+			if err := tape.Stop(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+	}
+
+	client := testTSClient
+	if tape != nil {
+		client = newTapeClient(t, tape)
+	}
+
 	paths := []string{"list/doc1.md", "list/doc2.md"}
 	for _, p := range paths {
-		if err := testTSClient.UpsertChunks(ctx, makeTestChunks(p, 1)); err != nil {
+		if err := client.UpsertChunks(ctx, makeTestChunks(p, 1)); err != nil {
 			t.Fatalf("UpsertChunks %q: %v", p, err)
 		}
 	}
 
-	results, err := testTSClient.ListDocuments(ctx, []string{testColl})
+	results, err := client.ListDocuments(ctx, []string{testColl})
 	if err != nil {
 		t.Fatalf("ListDocuments: %v", err)
 	}
@@ -753,12 +842,27 @@ func TestIntegrationSearchChunksByPath(t *testing.T) {
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
+	tape := maybeNewTape(t, "testdata/015_search_chunks_by_path.json")
+	if tape != nil {
+		tape.Start()
+		defer func() {
+			if err := tape.Stop(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+	}
+
+	client := testTSClient
+	if tape != nil {
+		client = newTapeClient(t, tape)
+	}
+
 	path := "search-by-path.md"
-	if err := testTSClient.UpsertChunks(ctx, makeTestChunks(path, 2)); err != nil {
+	if err := client.UpsertChunks(ctx, makeTestChunks(path, 2)); err != nil {
 		t.Fatalf("UpsertChunks: %v", err)
 	}
 
-	results, err := testTSClient.SearchChunksByPath(ctx, fmt.Sprintf("path:=%s", path), 10)
+	results, err := client.SearchChunksByPath(ctx, fmt.Sprintf("path:=%s", path), 10)
 	if err != nil {
 		t.Fatalf("SearchChunksByPath: %v", err)
 	}
@@ -778,7 +882,22 @@ func TestIntegrationNonExistentPaths(t *testing.T) {
 	requireTS(t)
 	ctx := context.Background()
 
-	count, err := testTSClient.CountByPath(ctx, "nonexistent-path.md")
+	tape := maybeNewTape(t, "testdata/016_non_existent_paths.json")
+	if tape != nil {
+		tape.Start()
+		defer func() {
+			if err := tape.Stop(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+	}
+
+	client := testTSClient
+	if tape != nil {
+		client = newTapeClient(t, tape)
+	}
+
+	count, err := client.CountByPath(ctx, "nonexistent-path.md")
 	if err != nil {
 		t.Fatalf("CountByPath: %v", err)
 	}
@@ -786,7 +905,7 @@ func TestIntegrationNonExistentPaths(t *testing.T) {
 		t.Errorf("expected 0, got %d", count)
 	}
 
-	hash, err := testTSClient.GetHashByPath(ctx, "nonexistent-path.md")
+	hash, err := client.GetHashByPath(ctx, "nonexistent-path.md")
 	if err != nil {
 		t.Fatalf("GetHashByPath: %v", err)
 	}
@@ -794,7 +913,7 @@ func TestIntegrationNonExistentPaths(t *testing.T) {
 		t.Errorf("expected empty hash, got %q", hash)
 	}
 
-	doc, err := testTSClient.FetchDocByPath(ctx, "nonexistent-path.md")
+	doc, err := client.FetchDocByPath(ctx, "nonexistent-path.md")
 	if err != nil {
 		t.Fatalf("FetchDocByPath: %v", err)
 	}

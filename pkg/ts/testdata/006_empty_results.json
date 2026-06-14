@@ -1,0 +1,40 @@
+[
+  {
+    "request": {
+      "method": "GET",
+      "url": "http://localhost:18108/collections/chunks/documents/search?filter_by=collection%3A%3D%5Bts-int-test%5D\u0026group_by=collection%2Cpath\u0026group_limit=10\u0026page=1\u0026per_page=10\u0026q=anything\u0026query_by=content",
+      "headers": {},
+      "body": ""
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Accept-Ranges": "none",
+        "Access-Control-Allow-Origin": "*",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json; charset=utf-8",
+        "Vary": "accept-encoding"
+      },
+      "body": "{\"facet_counts\":[],\"found\":0,\"found_docs\":0,\"grouped_hits\":[],\"out_of\":0,\"page\":1,\"request_params\":{\"collection_name\":\"chunks\",\"first_q\":\"anything\",\"per_page\":10,\"q\":\"anything\"},\"search_cutoff\":false,\"search_time_ms\":0}"
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "http://localhost:18108/collections/chunks/documents/search?filter_by=collection%3A%3Dts-int-test\u0026group_by=path\u0026group_limit=1\u0026page=1\u0026per_page=250\u0026q=\u0026query_by=content",
+      "headers": {},
+      "body": ""
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Accept-Ranges": "none",
+        "Access-Control-Allow-Origin": "*",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json; charset=utf-8",
+        "Vary": "accept-encoding"
+      },
+      "body": "{\"facet_counts\":[],\"found\":0,\"found_docs\":0,\"grouped_hits\":[],\"out_of\":0,\"page\":1,\"request_params\":{\"collection_name\":\"chunks\",\"first_q\":\"\",\"per_page\":250,\"q\":\"\"},\"search_cutoff\":false,\"search_time_ms\":0}"
+    }
+  }
+]

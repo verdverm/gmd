@@ -1,10 +1,40 @@
 package ts
 
 import (
+	"fmt"
 	"math"
 	"strings"
 	"testing"
 )
+
+const testColl = "ts-int-test"
+
+func makeTestChunks(path string, n int) []ChunkDocument {
+	chunks := make([]ChunkDocument, n)
+	for i := 0; i < n; i++ {
+		chunks[i] = ChunkDocument{
+			Collection:  testColl,
+			Path:        path,
+			Title:       fmt.Sprintf("Doc %s chunk %d", path, i),
+			Content:     fmt.Sprintf("Content of chunk %d for %s.", i, path),
+			Hash:        fmt.Sprintf("hash-%s-%d", path, i),
+			ChunkSeq:    i,
+			TotalChunks: n,
+			Embedding:   []float64{float64(i), float64(i+1) * 0.5, 0.1, 0.2},
+		}
+	}
+	return chunks
+}
+
+func makeTestDoc(path string) DocDocument {
+	return DocDocument{
+		Collection: testColl,
+		Path:       path,
+		Title:      fmt.Sprintf("Full doc %s", path),
+		Content:    fmt.Sprintf("Full document content for %s.", path),
+		Hash:       fmt.Sprintf("doc-hash-%s", path),
+	}
+}
 
 func TestBuildCollectionFilter(t *testing.T) {
 	tests := []struct {

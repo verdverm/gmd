@@ -1,0 +1,173 @@
+[
+  {
+    "request": {
+      "method": "POST",
+      "url": "http://localhost:18108/collections/documents/documents?action=upsert",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": "{\"collection\":\"ts-int-test\",\"content\":\"Full document content for doc-crud.md.\",\"hash\":\"doc-hash-doc-crud.md\",\"path\":\"doc-crud.md\",\"title\":\"Full doc doc-crud.md\"}"
+    },
+    "response": {
+      "status_code": 201,
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json; charset=utf-8"
+      },
+      "body": "{\"collection\":\"ts-int-test\",\"content\":\"Full document content for doc-crud.md.\",\"hash\":\"doc-hash-doc-crud.md\",\"id\":\"0\",\"path\":\"doc-crud.md\",\"title\":\"Full doc doc-crud.md\"}"
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "http://localhost:18108/collections/documents/documents/search?filter_by=path%3A%3Ddoc-crud.md\u0026per_page=1\u0026q=\u0026query_by=content",
+      "headers": {},
+      "body": ""
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Accept-Ranges": "none",
+        "Access-Control-Allow-Origin": "*",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json; charset=utf-8",
+        "Vary": "accept-encoding"
+      },
+      "body": "{\"facet_counts\":[],\"found\":1,\"hits\":[{\"document\":{\"collection\":\"ts-int-test\",\"content\":\"Full document content for doc-crud.md.\",\"hash\":\"doc-hash-doc-crud.md\",\"id\":\"0\",\"path\":\"doc-crud.md\",\"title\":\"Full doc doc-crud.md\"},\"highlight\":{},\"highlights\":[],\"text_match\":100,\"text_match_info\":{\"best_field_score\":\"0\",\"best_field_weight\":12,\"fields_matched\":4,\"num_tokens_dropped\":1,\"score\":\"100\",\"tokens_matched\":0,\"typo_prefix_score\":255}}],\"out_of\":1,\"page\":1,\"request_params\":{\"collection_name\":\"documents\",\"first_q\":\"\",\"per_page\":1,\"q\":\"\"},\"search_cutoff\":false,\"search_time_ms\":0}"
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "http://localhost:18108/collections/documents/documents/search?filter_by=collection%3A%3Dts-int-test\u0026per_page=0\u0026q=\u0026query_by=content",
+      "headers": {},
+      "body": ""
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Accept-Ranges": "none",
+        "Access-Control-Allow-Origin": "*",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json; charset=utf-8",
+        "Vary": "accept-encoding"
+      },
+      "body": "{\"facet_counts\":[],\"found\":1,\"hits\":[],\"out_of\":1,\"page\":1,\"request_params\":{\"collection_name\":\"documents\",\"first_q\":\"\",\"per_page\":0,\"q\":\"\"},\"search_cutoff\":false,\"search_time_ms\":0}"
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "http://localhost:18108/collections",
+      "headers": {},
+      "body": ""
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Accept-Ranges": "none",
+        "Access-Control-Allow-Origin": "*",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json; charset=utf-8",
+        "Vary": "accept-encoding"
+      },
+      "body": "[{\"created_at\":1781420617,\"curation_sets\":[],\"default_sorting_field\":\"\",\"enable_nested_fields\":false,\"fields\":[{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"collection\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"path\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"title\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"content\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"hash\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"links\",\"optional\":true,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string[]\"}],\"name\":\"documents\",\"num_documents\":1,\"symbols_to_index\":[],\"synonym_sets\":[],\"token_separators\":[]},{\"created_at\":1781420617,\"curation_sets\":[],\"default_sorting_field\":\"\",\"enable_nested_fields\":false,\"fields\":[{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"collection\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"path\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"title\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"content\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"hash\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"chunk_seq\",\"optional\":false,\"sort\":true,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"int32\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"total_chunks\",\"optional\":false,\"sort\":true,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"int32\"},{\"facet\":false,\"hnsw_params\":{\"M\":16,\"ef_construction\":200},\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"embedding\",\"num_dim\":4,\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"float[]\",\"vec_dist\":\"cosine\"},{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"links\",\"optional\":true,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string[]\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"version\",\"optional\":true,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"}],\"name\":\"chunks\",\"num_documents\":0,\"symbols_to_index\":[],\"synonym_sets\":[],\"token_separators\":[]}]"
+    }
+  },
+  {
+    "request": {
+      "method": "DELETE",
+      "url": "http://localhost:18108/collections/documents/documents?batch_size=10000\u0026filter_by=path%3A%3Ddoc-crud.md",
+      "headers": {},
+      "body": ""
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Accept-Ranges": "none",
+        "Access-Control-Allow-Origin": "*",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json",
+        "Vary": "accept-encoding"
+      },
+      "body": "{\"num_deleted\":1}"
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "http://localhost:18108/collections/documents/documents/search?filter_by=path%3A%3Ddoc-crud.md\u0026per_page=1\u0026q=\u0026query_by=content",
+      "headers": {},
+      "body": ""
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Accept-Ranges": "none",
+        "Access-Control-Allow-Origin": "*",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json; charset=utf-8",
+        "Vary": "accept-encoding"
+      },
+      "body": "{\"facet_counts\":[],\"found\":0,\"hits\":[],\"out_of\":0,\"page\":1,\"request_params\":{\"collection_name\":\"documents\",\"first_q\":\"\",\"per_page\":1,\"q\":\"\"},\"search_cutoff\":false,\"search_time_ms\":0}"
+    }
+  },
+  {
+    "request": {
+      "method": "POST",
+      "url": "http://localhost:18108/collections/documents/documents?action=upsert",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": "{\"collection\":\"ts-int-test\",\"content\":\"Full document content for doc-crud.md.\",\"hash\":\"doc-hash-doc-crud.md\",\"path\":\"doc-crud.md\",\"title\":\"Full doc doc-crud.md\"}"
+    },
+    "response": {
+      "status_code": 201,
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json; charset=utf-8"
+      },
+      "body": "{\"collection\":\"ts-int-test\",\"content\":\"Full document content for doc-crud.md.\",\"hash\":\"doc-hash-doc-crud.md\",\"id\":\"1\",\"path\":\"doc-crud.md\",\"title\":\"Full doc doc-crud.md\"}"
+    }
+  },
+  {
+    "request": {
+      "method": "DELETE",
+      "url": "http://localhost:18108/collections/documents/documents?batch_size=10000\u0026filter_by=collection%3A%3Dts-int-test",
+      "headers": {},
+      "body": ""
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Accept-Ranges": "none",
+        "Access-Control-Allow-Origin": "*",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json",
+        "Vary": "accept-encoding"
+      },
+      "body": "{\"num_deleted\":1}"
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "http://localhost:18108/collections/documents/documents/search?filter_by=path%3A%3Ddoc-crud.md\u0026per_page=1\u0026q=\u0026query_by=content",
+      "headers": {},
+      "body": ""
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Accept-Ranges": "none",
+        "Access-Control-Allow-Origin": "*",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json; charset=utf-8",
+        "Vary": "accept-encoding"
+      },
+      "body": "{\"facet_counts\":[],\"found\":0,\"hits\":[],\"out_of\":0,\"page\":1,\"request_params\":{\"collection_name\":\"documents\",\"first_q\":\"\",\"per_page\":1,\"q\":\"\"},\"search_cutoff\":false,\"search_time_ms\":0}"
+    }
+  }
+]

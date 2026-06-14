@@ -1,0 +1,61 @@
+[
+  {
+    "request": {
+      "method": "GET",
+      "url": "http://localhost:18108/collections",
+      "headers": {},
+      "body": ""
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Accept-Ranges": "none",
+        "Access-Control-Allow-Origin": "*",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json; charset=utf-8",
+        "Vary": "accept-encoding"
+      },
+      "body": "[{\"created_at\":1781420617,\"curation_sets\":[],\"default_sorting_field\":\"\",\"enable_nested_fields\":false,\"fields\":[{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"collection\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"path\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"title\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"content\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"hash\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"links\",\"optional\":true,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string[]\"}],\"name\":\"documents\",\"num_documents\":0,\"symbols_to_index\":[],\"synonym_sets\":[],\"token_separators\":[]},{\"created_at\":1781420617,\"curation_sets\":[],\"default_sorting_field\":\"\",\"enable_nested_fields\":false,\"fields\":[{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"collection\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"path\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"title\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"content\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"hash\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"chunk_seq\",\"optional\":false,\"sort\":true,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"int32\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"total_chunks\",\"optional\":false,\"sort\":true,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"int32\"},{\"facet\":false,\"hnsw_params\":{\"M\":16,\"ef_construction\":200},\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"embedding\",\"num_dim\":4,\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"float[]\",\"vec_dist\":\"cosine\"},{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"links\",\"optional\":true,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string[]\"}],\"name\":\"chunks\",\"num_documents\":0,\"symbols_to_index\":[],\"synonym_sets\":[],\"token_separators\":[]}]"
+    }
+  },
+  {
+    "request": {
+      "method": "PATCH",
+      "url": "http://localhost:18108/collections/chunks",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": "{\"fields\":[{\"facet\":false,\"name\":\"version\",\"optional\":true,\"sort\":false,\"type\":\"string\"}]}"
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Accept-Ranges": "none",
+        "Access-Control-Allow-Origin": "*",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json; charset=utf-8",
+        "Vary": "accept-encoding"
+      },
+      "body": "{\"fields\":[{\"async_reference\":false,\"cascade_delete\":true,\"embed\":null,\"facet\":false,\"hnsw_params\":{\"M\":16,\"ef_construction\":200},\"index\":true,\"infix\":false,\"locale\":\"\",\"model_config\":{},\"name\":\"version\",\"nested\":false,\"nested_array\":0,\"num_dim\":0,\"optional\":true,\"range_index\":false,\"reference\":\"\",\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"symbols_to_index\":[],\"token_separators\":[],\"truncate_len\":100,\"type\":\"string\",\"vec_dist\":\"cosine\"}]}"
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "http://localhost:18108/collections",
+      "headers": {},
+      "body": ""
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Accept-Ranges": "none",
+        "Access-Control-Allow-Origin": "*",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json; charset=utf-8",
+        "Vary": "accept-encoding"
+      },
+      "body": "[{\"created_at\":1781420617,\"curation_sets\":[],\"default_sorting_field\":\"\",\"enable_nested_fields\":false,\"fields\":[{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"collection\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"path\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"title\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"content\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"hash\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"links\",\"optional\":true,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string[]\"}],\"name\":\"documents\",\"num_documents\":0,\"symbols_to_index\":[],\"synonym_sets\":[],\"token_separators\":[]},{\"created_at\":1781420617,\"curation_sets\":[],\"default_sorting_field\":\"\",\"enable_nested_fields\":false,\"fields\":[{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"collection\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"path\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"title\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"content\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"hash\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"chunk_seq\",\"optional\":false,\"sort\":true,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"int32\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"total_chunks\",\"optional\":false,\"sort\":true,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"int32\"},{\"facet\":false,\"hnsw_params\":{\"M\":16,\"ef_construction\":200},\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"embedding\",\"num_dim\":4,\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"float[]\",\"vec_dist\":\"cosine\"},{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"links\",\"optional\":true,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string[]\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"version\",\"optional\":true,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"}],\"name\":\"chunks\",\"num_documents\":0,\"symbols_to_index\":[],\"synonym_sets\":[],\"token_separators\":[]}]"
+    }
+  }
+]

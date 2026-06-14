@@ -1,6 +1,6 @@
 # GMD Wiki — Open Knowledge Format (OKF) Alignment
 
-**Date:** 2026-06-13 (created), 2026-06-13 (updated — v4)
+**Date:** 2026-06-13 (created), 2026-06-13 (updated — v5)
 **Phase:** Design — updated per feedback
 **OKF Version:** 0.1 (Draft)
 **OKF SPEC:** https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md
@@ -128,10 +128,9 @@ sources: [source-page.md]
   write, not produced by the LLM agent. The agent is not asked to include it.
 - `status` and `sources` remain as GMD extensions.
 
-**Config schema:** `WikiConfig.frontmatter` is a simple map of field name → validation
-config. Required fields (`type`) are enforced by the schema. Optional fields with known
-validation (`title`, `description`, `resource`, `tags`, `timestamp`, `status`, `sources`)
-have validation constraints in the schema. Unknown fields pass through per OKF §4.1.
+**Config schema:** `WikiConfig.frontmatter` is a simple CUE struct. Required fields use
+CUE's `!` marker (e.g., `type!: string`). Only `type` is required. All other fields
+are optional. Unknown fields pass through via `...` per OKF §4.1.
 
 ### 3.4 Citations Section
 
@@ -233,58 +232,26 @@ WikiConfig: Source & {
     graphLinks:  bool | *true
     excludeFromDefault?: bool | *false
     sourceRefs?: [...string]
-    frontmatter?: {                        // NEW: simple map, field name → validation
-        [string]: {
-            required:   bool
-            validation: string  // CUE validation expression (e.g. "=~\"^.{1,500}$\"")
-        }
+    frontmatter?: {                        // NEW: OKF frontmatter schema
+        type!:       string               // REQUIRED by OKF — any non-empty string
+        title?:      string
+        description?: string
+        resource?:   string
+        tags?:       [...string]
+        timestamp?:  string
+        status?:     string               // free-form, no fixed enum
+        sources?:    [...string]
+        ...                               // unknown fields pass through (OKF §4.1)
     }
 }
 ```
 
-Frontmatter field schema defaults (`pipeline.cue` or embedded defaults):
-
-```cue
-frontmatter: {
-    "type": {
-        required:   true
-        validation: "=~\"^.{1,100}$\""  // non-empty, max 100 chars
-    }
-    "title": {
-        required:   false
-        validation: "=~\"^.{1,200}$\""
-    }
-    "description": {
-        required:   false
-        validation: "=~\"^.{1,500}$\""
-    }
-    "resource": {
-        required:   false
-        validation: "=~\"^https?://.*$\""  // must be a URL
-    }
-    "tags": {
-        required:   false
-        validation: "[...string]"  // must be a list of strings
-    }
-    "timestamp": {
-        required:   false
-        validation: "=~\"^\\\\d{4}-\\\\d{2}-\\\\d{2}T\\\\d{2}:\\\\d{2}:\\\\d{2}Z$\""  // ISO 8601
-    }
-    "status": {
-        required:   false
-        validation: "\"draft\" | \"reviewed\" | \"final\""
-    }
-    "sources": {
-        required:   false
-        validation: "[...string]"
-    }
-}
-```
-
-- `type` is the only required field. Required fields are enforced by the schema
-  — pages without `type` frontmatter fail validation.
-- Optional fields have `validation` expressions for well-known types.
-- Unknown fields (not in the map) pass through without validation per OKF §4.1.
+- `type!` is the only required field. CUE's `!` marker enforces it.
+- No regexp constraints on string lengths. CUE's `string` type is sufficient.
+- `status` is a plain `string` — no fixed enum, no known value set.
+- `...` at the end allows any additional frontmatter keys through without validation.
+- The whole `frontmatter?` block is optional — if omitted, no frontmatter schema
+  is applied (beyond what `ValidateOKF()` checks for `type` presence).
 
 ### 5.2 Config defaults (`pkg/config/config.go`)
 
@@ -485,23 +452,26 @@ Sites needing update:
 
 ### 7.9 CUE Schema (`pkg/config/embeds/types.cue`)
 
-Add `okfVersion` and `frontmatter` fields to `WikiConfig`:
+Add `okfVersion` and update `frontmatter` in `WikiConfig`:
 
 ```cue
 WikiConfig: Source & {
     // ... existing fields ...
     okfVersion:  string | *"0.1"            // NEW: declared OKF version
-    frontmatter?: {                          // NEW: field name → validation config
-        [string]: {
-            required:   bool
-            validation: string  // CUE validation expression
-        }
+    frontmatter?: {                          // OKF frontmatter schema
+        type!:       string                  // REQUIRED by OKF
+        title?:      string
+        description?: string
+        resource?:   string
+        tags?:       [...string]
+        timestamp?:  string
+        status?:     string                  // free-form, no fixed enum
+        sources?:    [...string]
+        ...                                  // unknown fields pass through
     }
     // ...
 }
 ```
-
-Frontmatter defaults (`pipeline.cue` or embedded) per §5.1.
 
 ### 7.10 Go Config Struct (`pkg/config/config.go`)
 
@@ -510,13 +480,25 @@ Add corresponding fields to `WikiConfig` Go struct (currently at line 550):
 type WikiConfig struct {
     SourceConfig
     // ... existing fields ...
-    OkfVersion  string              `json:"okfVersion"`  // default "0.1"
-    Frontmatter map[string]FieldDef `json:"frontmatter"`  // NEW
+    OkfVersion  string            `json:"okfVersion"`  // default "0.1"
+    Frontmatter *WikiFrontmatter   `json:"frontmatter"` // NEW — nil if not configured
 }
 
-type FieldDef struct {
-    Required   bool   `json:"required"`
-    Validation string `json:"validation"`
+// WikiFrontmatter holds OKF frontmatter fields for wiki page validation.
+// Only Type is required. Unknown fields in page frontmatter are preserved
+// (ParseFrontmatter() returns map[string]interface{} which naturally
+// captures all keys). The Extra map holds any frontmatter keys defined
+// in CUE config beyond the well-known set below.
+type WikiFrontmatter struct {
+    Type        string                 `json:"type"`
+    Title       string                 `json:"title,omitempty"`
+    Description string                 `json:"description,omitempty"`
+    Resource    string                 `json:"resource,omitempty"`
+    Tags        []string               `json:"tags,omitempty"`
+    Timestamp   string                 `json:"timestamp,omitempty"`
+    Status      string                 `json:"status,omitempty"`
+    Sources     []string               `json:"sources,omitempty"`
+    Extra       map[string]interface{} `json:"-"` // unknown keys, populated via custom UnmarshalJSON
 }
 ```
 

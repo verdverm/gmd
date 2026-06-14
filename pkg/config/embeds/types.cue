@@ -138,8 +138,9 @@ Source: {
 WikiConfig: Source & {
 	wikiDir:     string | *"wiki"        // subdirectory for wiki content pages
 	rawDir:      string | *"raw"         // subdirectory for raw source material
-	indexFile:   string | *"_index.md"
-	logFile:     string | *"_log.md"
+	indexFile:   string | *"index.md"
+	logFile:     string | *"log.md"
+	okfVersion:  string | *"0.1"
 	graphLinks:  bool | *true
 	excludeFromDefault?: bool | *false    // opt-out of default (unscoped) searches
 
@@ -149,11 +150,18 @@ WikiConfig: Source & {
 	// unknown names and circular references.
 	sourceRefs?: [...string]
 
-	// Wiki-specific frontmatter configuration. Separate from #Source.fields
-	// (which controls Typesense field indexing) so wiki frontmatter keys never
-	// collide with gmd's own indexing field names.
+	// OKF frontmatter fields. Only type is required (OKF §4.1).
+	// Unknown fields pass through via ... per OKF extensibility.
 	frontmatter?: {
-		fields: [string]: FrontmatterField
+		type!:        string               // REQUIRED by OKF — any non-empty string
+		title?:       string
+		description?: string
+		resource?:    string
+		tags?:        [...string]
+		timestamp?:   string
+		status?:      string               // free-form, no fixed enum
+		sources?:     [...string]
+		...                                // unknown fields pass through (OKF §4.1)
 	}
 }
 

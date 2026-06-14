@@ -19,8 +19,8 @@ func newTestWikiAgent(t *testing.T) (*Wiki, *Agent) {
 		SourceConfig: config.SourceConfig{Path: tmpDir},
 		WikiDir:      "wiki",
 		RawDir:       "raw",
-		IndexFile:    "_index.md",
-		LogFile:      "_log.md",
+		IndexFile:    "index.md",
+		LogFile:      "log.md",
 		GraphLinks:   true,
 	})
 	if err != nil {
@@ -421,8 +421,8 @@ func TestIntegrationSearchOverlap_WithResults(t *testing.T) {
 		SourceConfig: config.SourceConfig{Path: tmpDir},
 		WikiDir:      "wiki",
 		RawDir:       "raw",
-		IndexFile:    "_index.md",
-		LogFile:      "_log.md",
+		IndexFile:    "index.md",
+		LogFile:      "log.md",
 		GraphLinks:   true,
 	}
 	w, err := NewWiki("test-wiki", tmpDir, wc)
@@ -467,8 +467,8 @@ func TestIntegrationQuery_Basic(t *testing.T) {
 		SourceConfig: config.SourceConfig{Path: tmpDir},
 		WikiDir:      "wiki",
 		RawDir:       "raw",
-		IndexFile:    "_index.md",
-		LogFile:      "_log.md",
+		IndexFile:    "index.md",
+		LogFile:      "log.md",
 		GraphLinks:   true,
 	}
 	w, err := NewWiki("test-wiki", tmpDir, wc)
@@ -515,8 +515,8 @@ func TestIntegrationQuery_DefaultLimit(t *testing.T) {
 		SourceConfig: config.SourceConfig{Path: tmpDir},
 		WikiDir:      "wiki",
 		RawDir:       "raw",
-		IndexFile:    "_index.md",
-		LogFile:      "_log.md",
+		IndexFile:    "index.md",
+		LogFile:      "log.md",
 		GraphLinks:   true,
 	}
 	w, err := NewWiki("test-wiki", tmpDir, wc)
@@ -560,8 +560,8 @@ func TestIntegrationQuery_WithSave(t *testing.T) {
 		SourceConfig: config.SourceConfig{Path: tmpDir},
 		WikiDir:      "wiki",
 		RawDir:       "raw",
-		IndexFile:    "_index.md",
-		LogFile:      "_log.md",
+		IndexFile:    "index.md",
+		LogFile:      "log.md",
 		GraphLinks:   true,
 	}
 	w, err := NewWiki("test-wiki", tmpDir, wc)
@@ -604,8 +604,8 @@ func TestIntegrationIngest_CreatesPagesAndUpdatesIndex(t *testing.T) {
 		SourceConfig: config.SourceConfig{Path: tmpDir},
 		WikiDir:      "wiki",
 		RawDir:       "raw",
-		IndexFile:    "_index.md",
-		LogFile:      "_log.md",
+		IndexFile:    "index.md",
+		LogFile:      "log.md",
 		GraphLinks:   true,
 	}
 	w, err := NewWiki("test-wiki", tmpDir, wc)

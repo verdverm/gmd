@@ -20,9 +20,9 @@ func TestIntegrationLintStructure_NoIssues(t *testing.T) {
 	result := &LintResult{}
 	agent.lintStructure(context.Background(), result)
 
-	// _index and _log are created by Init and are orphans (no one links to them)
+	// index and log are skipped by lintStructure, entities/foo has no inbound links
 	for _, o := range result.Orphans {
-		if o == "_index" || o == "_log" || o == "entities/foo" {
+		if o == "index" || o == "log" || o == "entities/foo" {
 			continue
 		}
 		t.Errorf("unexpected orphan: %s", o)
@@ -43,7 +43,7 @@ func TestIntegrationLintStructure_Orphans(t *testing.T) {
 	result := &LintResult{}
 	agent.lintStructure(context.Background(), result)
 
-	// _index and _log are created by Init and will always appear as orphans
+	// index and log are skipped — only content pages appear in orphans
 	// entities/a links to entities/b, so entities/b is NOT orphaned (has inbound link)
 	// entities/a is orphaned because nothing links to it
 	foundA := false
@@ -98,18 +98,17 @@ func TestIntegrationLintStructure_SkipPrefixedFiles(t *testing.T) {
 	_, agent := newTestWikiAgent(t)
 
 	os.MkdirAll(filepath.Join(agent.wiki.WikiPath, "entities"), 0755)
-	// _draft.md should be skipped by lintStructure
-	os.WriteFile(filepath.Join(agent.wiki.WikiPath, "entities", "_draft.md"), []byte("# Draft\n"), 0644)
-	// index and log files should not be skipped (they start with _ but are the index/log)
+	// index.md and log.md are reserved and skipped by lintStructure
+	os.WriteFile(filepath.Join(agent.wiki.WikiPath, "entities", "index.md"), []byte("# Draft\n"), 0644)
 	os.WriteFile(filepath.Join(agent.wiki.WikiPath, "entities", "real.md"), []byte("# Real\n"), 0644)
 
 	result := &LintResult{}
 	agent.lintStructure(context.Background(), result)
 
-	// _draft should not be orphaned (it's skipped)
+	// entities/index.md is reserved and should be skipped (not listed as orphan)
 	for _, o := range result.Orphans {
-		if o == "entities/_draft" {
-			t.Error("_draft should be skipped and not listed as orphan")
+		if o == "entities/index" {
+			t.Error("entities/index.md should be skipped and not listed as orphan")
 		}
 	}
 }

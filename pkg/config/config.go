@@ -549,14 +549,29 @@ type PipelineConfig struct {
 // WikiConfig maps from the CUE WikiConfig schema.
 type WikiConfig struct {
 	SourceConfig
-	WikiDir            string             `json:"wikiDir"`
-	RawDir             string             `json:"rawDir"`
-	IndexFile          string             `json:"indexFile"`
-	LogFile            string             `json:"logFile"`
-	GraphLinks         bool               `json:"graphLinks"`
-	ExcludeFromDefault bool               `json:"excludeFromDefault"`
-	SourceRefs         []string           `json:"sourceRefs,omitempty"`
-	Frontmatter        *FrontmatterConfig `json:"frontmatter,omitempty"`
+	WikiDir            string           `json:"wikiDir"`
+	RawDir             string           `json:"rawDir"`
+	IndexFile          string           `json:"indexFile"`
+	LogFile            string           `json:"logFile"`
+	OkfVersion         string           `json:"okfVersion"`
+	GraphLinks         bool             `json:"graphLinks"`
+	ExcludeFromDefault bool             `json:"excludeFromDefault"`
+	SourceRefs         []string         `json:"sourceRefs,omitempty"`
+	Frontmatter        *WikiFrontmatter `json:"frontmatter,omitempty"`
+}
+
+// WikiFrontmatter holds OKF frontmatter fields for wiki page validation.
+// Only Type is required. Unknown fields in page frontmatter are preserved.
+type WikiFrontmatter struct {
+	Type        string                 `json:"type"`
+	Title       string                 `json:"title,omitempty"`
+	Description string                 `json:"description,omitempty"`
+	Resource    string                 `json:"resource,omitempty"`
+	Tags        []string               `json:"tags,omitempty"`
+	Timestamp   string                 `json:"timestamp,omitempty"`
+	Status      string                 `json:"status,omitempty"`
+	Sources     []string               `json:"sources,omitempty"`
+	Extra       map[string]interface{} `json:"-"`
 }
 
 // FrontmatterConfig maps from the CUE frontmatter field config.
@@ -661,10 +676,13 @@ func Load(cwd string) (*Config, error) {
 			wc.RawDir = "raw"
 		}
 		if wc.IndexFile == "" {
-			wc.IndexFile = "_index.md"
+			wc.IndexFile = "index.md"
 		}
 		if wc.LogFile == "" {
-			wc.LogFile = "_log.md"
+			wc.LogFile = "log.md"
+		}
+		if wc.OkfVersion == "" {
+			wc.OkfVersion = "0.1"
 		}
 		cfg.Wikis[name] = wc
 	}

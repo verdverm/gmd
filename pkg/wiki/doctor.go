@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/verdverm/gmd/pkg/config"
@@ -13,14 +14,17 @@ import (
 )
 
 type DoctorResult struct {
-	WikiName     string
-	PageCount    int
-	SourceCount  int
-	TSConnected  bool
-	LLMStatus    []llm.EndpointStatus
-	Agents       []AgentStatus
-	Errors       []string
-	FixesApplied []string
+	WikiName      string
+	PageCount     int
+	SourceCount   int
+	TSConnected   bool
+	LLMStatus     []llm.EndpointStatus
+	Agents        []AgentStatus
+	Errors        []string
+	FixesApplied  []string
+	OKFIssues     []string
+	MissingOKFVer bool
+	PagesNoType   int
 }
 
 type AgentStatus struct {
@@ -51,38 +55,75 @@ func Doctor(ctx context.Context, wiki *Wiki, cfg *config.Config, tsClient *ts.Cl
 	home, err := os.UserHomeDir()
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("home directory: %v", err))
-		return result, nil
-	}
-	skillNames, err := skills.ListSkillNames()
-	if err != nil {
-		result.Errors = append(result.Errors, fmt.Sprintf("list skills: %v", err))
-		return result, nil
-	}
-
-	for _, name := range cfg.AgentHarnessNames() {
-		installed, err := skills.CheckHarnessInstalled(home, true, name)
+	} else {
+		skillNames, err := skills.ListSkillNames()
 		if err != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("check %s: %v", name, err))
-			continue
+			result.Errors = append(result.Errors, fmt.Sprintf("list skills: %v", err))
+		} else {
+			for _, name := range cfg.AgentHarnessNames() {
+				installed, err := skills.CheckHarnessInstalled(home, true, name)
+				if err != nil {
+					result.Errors = append(result.Errors, fmt.Sprintf("check %s: %v", name, err))
+					continue
+				}
+				skillInst := false
+				for _, sn := range skillNames {
+					si, err := skills.SkillInstalled(home, true, name, sn)
+					if err != nil {
+						result.Errors = append(result.Errors, fmt.Sprintf("check skill %s/%s: %v", name, sn, err))
+						continue
+					}
+					if si {
+						skillInst = true
+						break
+					}
+				}
+
+				result.Agents = append(result.Agents, AgentStatus{
+					Name:      name,
+					Installed: installed,
+					SkillInst: skillInst,
+				})
+			}
 		}
-		skillInst := false
-		for _, sn := range skillNames {
-			si, err := skills.SkillInstalled(home, true, name, sn)
-			if err != nil {
-				result.Errors = append(result.Errors, fmt.Sprintf("check skill %s/%s: %v", name, sn, err))
-				continue
+	}
+
+	wikiDir := wiki.WikiPath
+	if _, statErr := os.Stat(wikiDir); statErr == nil {
+		indexPath := wiki.IndexFilePath()
+		if indexData, readErr := os.ReadFile(indexPath); readErr == nil {
+			fm, _, _ := ParseFrontmatter(string(indexData))
+			if fm == nil || fm["okf_version"] == nil {
+				result.MissingOKFVer = true
 			}
-			if si {
-				skillInst = true
-				break
-			}
+		} else {
+			result.MissingOKFVer = true
 		}
 
-		result.Agents = append(result.Agents, AgentStatus{
-			Name:      name,
-			Installed: installed,
-			SkillInst: skillInst,
+		_ = filepath.Walk(wikiDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".md") {
+				return nil
+			}
+			base := filepath.Base(path)
+			if base == wiki.WikiConfig.IndexFile || base == wiki.WikiConfig.LogFile {
+				return nil
+			}
+			result.PageCount++
+			data, readErr := os.ReadFile(path)
+			if readErr != nil {
+				return nil
+			}
+			fm, _, _ := ParseFrontmatter(string(data))
+			if fm == nil || fm["type"] == nil || fm["type"] == "" {
+				result.PagesNoType++
+			}
+			return nil
 		})
+
+		rawPath := wiki.RawPath
+		if entries, readErr := os.ReadDir(rawPath); readErr == nil {
+			result.SourceCount = len(entries)
+		}
 	}
 
 	return result, nil
@@ -179,6 +220,19 @@ func FormatDoctorResult(result *DoctorResult) string {
 				b.WriteString(fmt.Sprintf("    %s: %s, %s, %s\n", a.Name, installed, skill, mcp))
 			}
 		}
+	}
+
+	b.WriteString(fmt.Sprintf("  Pages: %d\n", result.PageCount))
+	b.WriteString(fmt.Sprintf("  Raw sources: %d\n", result.SourceCount))
+
+	if result.MissingOKFVer {
+		b.WriteString("  OKF version: \u2717 missing (run 'gmd wiki doctor --fix' to add)\n")
+	} else {
+		b.WriteString("  OKF version: \u2713 declared\n")
+	}
+
+	if result.PagesNoType > 0 {
+		b.WriteString(fmt.Sprintf("  Pages missing 'type': %d\n", result.PagesNoType))
 	}
 
 	if len(result.Errors) > 0 {

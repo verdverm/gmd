@@ -51,6 +51,7 @@ type IngestAction struct {
 	Claims        []string               `json:"claims,omitempty"`
 	MergeSection  string                 `json:"merge_section,omitempty"`
 	AppendContent string                 `json:"append_content,omitempty"`
+	ConceptKind   string                 `json:"concept_kind,omitempty"`
 }
 
 type IngestReport struct {
@@ -143,6 +144,8 @@ func (a *Agent) Ingest(ctx context.Context, sourcePath string, opts IngestOpts) 
 				report.Errors = append(report.Errors, fmt.Sprintf("create %s: %v", action.Page, err))
 			} else {
 				report.CreatedPages = append(report.CreatedPages, action.Page)
+				pagePath := filepath.Join(a.wiki.WikiPath, action.Page)
+				_ = generateDescription(ctx, pagePath, a.llmClient)
 			}
 		case "update", "merge":
 			if err := a.updateWikiPage(action); err != nil {
@@ -180,6 +183,14 @@ func (a *Agent) createWikiPage(action IngestAction) error {
 	if fm == nil {
 		fm = make(map[string]interface{})
 	}
+	if fm["type"] == nil || fm["type"] == "" {
+		fm["type"] = "concept"
+	}
+	if fm["timestamp"] == nil || fm["timestamp"] == "" {
+		fm["timestamp"] = time.Now().UTC().Format(time.RFC3339)
+	}
+	delete(fm, "difficulty")
+
 	fmYAML, err := marshalYAML(fm)
 	if err != nil {
 		return fmt.Errorf("marshaling frontmatter: %w", err)
@@ -233,7 +244,12 @@ func (a *Agent) updateIndexFile(updates []struct {
 	indexStr := string(content)
 
 	for _, update := range updates {
-		line := fmt.Sprintf("- [[%s]] — %s", strings.TrimSuffix(filepath.Base(update.Page), ".md"), update.Summary)
+		pageFile := update.Page
+		if !strings.HasSuffix(pageFile, ".md") {
+			pageFile = pageFile + ".md"
+		}
+		displayName := strings.TrimSuffix(filepath.Base(update.Page), ".md")
+		line := fmt.Sprintf("* [%s](%s) - %s", displayName, pageFile, update.Summary)
 		categoryHeader := "## " + strings.Title(strings.ReplaceAll(update.Category, "_", " "))
 
 		if !strings.Contains(indexStr, categoryHeader) {
@@ -318,8 +334,8 @@ func (a *Agent) Query(ctx context.Context, question string, opts QueryOpts) (*Qu
 		if err != nil {
 			continue
 		}
-		pageName := strings.TrimSuffix(strings.TrimPrefix(r.Path, "wiki/"), ".md")
-		pageContents += fmt.Sprintf("### [[%s]]\n%s\n\n", pageName, content)
+		pageName := strings.TrimSuffix(filepath.Base(r.Path), ".md")
+		pageContents += fmt.Sprintf("### [%s](%s)\n%s\n\n", pageName, r.Path, content)
 		sources = append(sources, r.Path)
 	}
 
@@ -364,14 +380,21 @@ func (a *Agent) saveQueryResult(question, answer string, sources []string) (stri
 	}
 
 	var sourceList string
-	for _, s := range sources {
-		sourceList += fmt.Sprintf("- [[%s]]\n", strings.TrimSuffix(strings.TrimPrefix(s, "wiki/"), ".md"))
+	for i, s := range sources {
+		pageFile := s
+		if !strings.HasSuffix(pageFile, ".md") {
+			pageFile = pageFile + ".md"
+		}
+		displayName := strings.TrimSuffix(filepath.Base(s), ".md")
+		sourceList += fmt.Sprintf("%d. [%s](%s)\n", i+1, displayName, pageFile)
 	}
 
+	timestamp := time.Now().UTC().Format(time.RFC3339)
 	content := fmt.Sprintf(`---
 type: synthesis
 tags: [query-result]
 status: draft
+timestamp: %s
 sources: [%s]
 ---
 
@@ -379,9 +402,9 @@ sources: [%s]
 
 %s
 
-## Sources
+# Citations
 %s
-`, strings.Join(sources, ", "), question, answer, sourceList)
+`, timestamp, strings.Join(sources, ", "), question, answer, sourceList)
 
 	return filename, os.WriteFile(pagePath, []byte(content), 0600)
 }

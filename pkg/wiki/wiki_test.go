@@ -824,8 +824,8 @@ func TestNewWiki(t *testing.T) {
 			SourceConfig: config.SourceConfig{
 				Path: "/tmp/test-wiki",
 			},
-			IndexFile:  "_index.md",
-			LogFile:    "_log.md",
+			IndexFile:  "index.md",
+			LogFile:    "log.md",
 			GraphLinks: true,
 			WikiDir:    "wiki",
 			RawDir:     "raw",
@@ -846,10 +846,10 @@ func TestNewWiki(t *testing.T) {
 		if w.RawPath != "/tmp/test-wiki/raw" {
 			t.Errorf("RawPath = %q, want %q", w.RawPath, "/tmp/test-wiki/raw")
 		}
-		if w.Config.IndexFile != "_index.md" {
+		if w.Config.IndexFile != "index.md" {
 			t.Errorf("IndexFile = %q", w.Config.IndexFile)
 		}
-		if w.WikiConfig.IndexFile != "_index.md" {
+		if w.WikiConfig.IndexFile != "index.md" {
 			t.Errorf("IndexFile = %q", w.WikiConfig.IndexFile)
 		}
 	})
@@ -876,20 +876,20 @@ func TestNewWiki(t *testing.T) {
 }
 
 func TestWikiIndexFilePath(t *testing.T) {
-	wc := &config.WikiConfig{SourceConfig: config.SourceConfig{Path: "/tmp/test-wiki"}, WikiDir: "wiki", RawDir: "raw", IndexFile: "_index.md", LogFile: "_log.md"}
+	wc := &config.WikiConfig{SourceConfig: config.SourceConfig{Path: "/tmp/test-wiki"}, WikiDir: "wiki", RawDir: "raw", IndexFile: "index.md", LogFile: "log.md"}
 	w, _ := NewWiki("test", "/tmp/test-wiki", wc)
 	got := w.IndexFilePath()
-	want := "/tmp/test-wiki/wiki/_index.md"
+	want := "/tmp/test-wiki/wiki/index.md"
 	if got != want {
 		t.Errorf("IndexFilePath = %q, want %q", got, want)
 	}
 }
 
 func TestWikiLogFilePath(t *testing.T) {
-	wc := &config.WikiConfig{SourceConfig: config.SourceConfig{Path: "/tmp/test-wiki"}, WikiDir: "wiki", RawDir: "raw", IndexFile: "_index.md", LogFile: "_log.md"}
+	wc := &config.WikiConfig{SourceConfig: config.SourceConfig{Path: "/tmp/test-wiki"}, WikiDir: "wiki", RawDir: "raw", IndexFile: "index.md", LogFile: "log.md"}
 	w, _ := NewWiki("test", "/tmp/test-wiki", wc)
 	got := w.LogFilePath()
-	want := "/tmp/test-wiki/wiki/_log.md"
+	want := "/tmp/test-wiki/wiki/log.md"
 	if got != want {
 		t.Errorf("LogFilePath = %q, want %q", got, want)
 	}
@@ -897,7 +897,7 @@ func TestWikiLogFilePath(t *testing.T) {
 
 func TestWikiInit(t *testing.T) {
 	tmpDir := t.TempDir()
-	wc := &config.WikiConfig{SourceConfig: config.SourceConfig{Path: tmpDir}, WikiDir: "wiki", RawDir: "raw", IndexFile: "_index.md", LogFile: "_log.md"}
+	wc := &config.WikiConfig{SourceConfig: config.SourceConfig{Path: tmpDir}, WikiDir: "wiki", RawDir: "raw", IndexFile: "index.md", LogFile: "log.md", OkfVersion: "0.1"}
 	w, err := NewWiki("test", tmpDir, wc)
 	if err != nil {
 		t.Fatalf("NewWiki error: %v", err)
@@ -910,11 +910,7 @@ func TestWikiInit(t *testing.T) {
 
 	expectedDirs := []string{
 		"raw",
-		"wiki/entities",
-		"wiki/concepts",
-		"wiki/comparisons",
-		"wiki/synthesis",
-		"wiki/sources",
+		"wiki",
 	}
 	for _, dir := range expectedDirs {
 		p := filepath.Join(tmpDir, dir)
@@ -923,12 +919,12 @@ func TestWikiInit(t *testing.T) {
 		}
 	}
 
-	indexPath := filepath.Join(tmpDir, "wiki", "_index.md")
+	indexPath := filepath.Join(tmpDir, "wiki", "index.md")
 	if _, err := os.Stat(indexPath); os.IsNotExist(err) {
 		t.Errorf("expected index file %s to exist", indexPath)
 	}
 
-	logPath := filepath.Join(tmpDir, "wiki", "_log.md")
+	logPath := filepath.Join(tmpDir, "wiki", "log.md")
 	if _, err := os.Stat(logPath); os.IsNotExist(err) {
 		t.Errorf("expected log file %s to exist", logPath)
 	}
@@ -941,7 +937,7 @@ func TestWikiInit(t *testing.T) {
 
 func TestInitWiki(t *testing.T) {
 	tmpDir := t.TempDir()
-	wc := &config.WikiConfig{SourceConfig: config.SourceConfig{Path: tmpDir}, WikiDir: "wiki", RawDir: "raw", IndexFile: "_index.md", LogFile: "_log.md"}
+	wc := &config.WikiConfig{SourceConfig: config.SourceConfig{Path: tmpDir}, WikiDir: "wiki", RawDir: "raw", IndexFile: "index.md", LogFile: "log.md", OkfVersion: "0.1"}
 
 	err := InitWiki("test", tmpDir, wc)
 	if err != nil {
@@ -958,7 +954,7 @@ func TestInitWiki(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestNewAgent(t *testing.T) {
-	wc := &config.WikiConfig{SourceConfig: config.SourceConfig{Path: "/tmp/test-wiki"}, WikiDir: "wiki", RawDir: "raw", IndexFile: "_index.md", LogFile: "_log.md"}
+	wc := &config.WikiConfig{SourceConfig: config.SourceConfig{Path: "/tmp/test-wiki"}, WikiDir: "wiki", RawDir: "raw", IndexFile: "index.md", LogFile: "log.md"}
 	w, _ := NewWiki("test", "/tmp/test-wiki", wc)
 
 	a := NewAgent(w, &config.Config{}, nil, nil)
@@ -1013,7 +1009,7 @@ func TestIngestSystemPrompt(t *testing.T) {
 }
 
 func TestQuerySystemPrompt(t *testing.T) {
-	prompt := QuerySystemPrompt("## Relevant Pages\n- [[foo]]")
+	prompt := QuerySystemPrompt("## Relevant Pages\n- [foo](/wiki/foo.md)")
 	if prompt == "" {
 		t.Fatal("QuerySystemPrompt() returned empty")
 	}
@@ -1026,7 +1022,7 @@ func TestQuerySystemPrompt(t *testing.T) {
 	if !strings.Contains(prompt, "## Relevant Pages") {
 		t.Errorf("expected relevant pages content to be included")
 	}
-	if !strings.Contains(prompt, "[[page-name]]") {
+	if !strings.Contains(prompt, "standard markdown links") {
 		t.Errorf("expected citation instruction")
 	}
 }

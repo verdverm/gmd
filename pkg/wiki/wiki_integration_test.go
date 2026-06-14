@@ -23,6 +23,7 @@ var (
 	testTSClient  *ts.Client
 	testLLMClient *llm.Client
 	testCfg       *config.Config
+	testWikiDirs  = []string{"raw", "wiki"}
 )
 
 func TestMain(m *testing.M) {
@@ -114,8 +115,8 @@ func TestIntegrationDoctorRealServices(t *testing.T) {
 		SourceConfig: config.SourceConfig{Path: tmpDir},
 		WikiDir:      "wiki",
 		RawDir:       "raw",
-		IndexFile:    "_index.md",
-		LogFile:      "_log.md",
+		IndexFile:    "index.md",
+		LogFile:      "log.md",
 		GraphLinks:   true,
 	}
 	w, err := NewWiki("test-wiki", tmpDir, wc)
@@ -161,8 +162,8 @@ func TestIntegrationDoctorRealTSNilLLM(t *testing.T) {
 		SourceConfig: config.SourceConfig{Path: tmpDir},
 		WikiDir:      "wiki",
 		RawDir:       "raw",
-		IndexFile:    "_index.md",
-		LogFile:      "_log.md",
+		IndexFile:    "index.md",
+		LogFile:      "log.md",
 		GraphLinks:   true,
 	}
 	w, _ := NewWiki("test", tmpDir, wc)
@@ -460,8 +461,8 @@ func TestIntegrationWikiIndexAndSearch(t *testing.T) {
 		SourceConfig: config.SourceConfig{Path: tmpDir},
 		WikiDir:      "wiki",
 		RawDir:       "raw",
-		IndexFile:    "_index.md",
-		LogFile:      "_log.md",
+		IndexFile:    "index.md",
+		LogFile:      "log.md",
 		GraphLinks:   true,
 	}
 	w, err := NewWiki("test-wiki", tmpDir, wc)
@@ -550,8 +551,8 @@ func TestIntegrationInit_ErrorMkdirAll(t *testing.T) {
 		SourceConfig: config.SourceConfig{Path: tmpDir},
 		WikiDir:      "wiki",
 		RawDir:       "raw",
-		IndexFile:    "_index.md",
-		LogFile:      "_log.md",
+		IndexFile:    "index.md",
+		LogFile:      "log.md",
 		GraphLinks:   true,
 	})
 	err := w.Init()
@@ -562,7 +563,7 @@ func TestIntegrationInit_ErrorMkdirAll(t *testing.T) {
 
 func TestIntegrationInit_ErrorWriteIndex(t *testing.T) {
 	tmpDir := t.TempDir()
-	for _, dir := range wikiDirs {
+	for _, dir := range testWikiDirs {
 		if err := os.MkdirAll(filepath.Join(tmpDir, dir), 0755); err != nil {
 			t.Fatal(err)
 		}
@@ -578,8 +579,8 @@ func TestIntegrationInit_ErrorWriteIndex(t *testing.T) {
 		SourceConfig: config.SourceConfig{Path: tmpDir},
 		WikiDir:      "wiki",
 		RawDir:       "raw",
-		IndexFile:    "_index.md",
-		LogFile:      "_log.md",
+		IndexFile:    "index.md",
+		LogFile:      "log.md",
 		GraphLinks:   true,
 	})
 	err := w.Init()
@@ -590,12 +591,12 @@ func TestIntegrationInit_ErrorWriteIndex(t *testing.T) {
 
 func TestIntegrationInit_ErrorWriteLog(t *testing.T) {
 	tmpDir := t.TempDir()
-	for _, dir := range wikiDirs {
+	for _, dir := range testWikiDirs {
 		if err := os.MkdirAll(filepath.Join(tmpDir, dir), 0755); err != nil {
 			t.Fatal(err)
 		}
 	}
-	indexPath := filepath.Join(tmpDir, "wiki", "_index.md")
+	indexPath := filepath.Join(tmpDir, "wiki", "index.md")
 	if err := os.WriteFile(indexPath, []byte("content"), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -609,8 +610,8 @@ func TestIntegrationInit_ErrorWriteLog(t *testing.T) {
 		SourceConfig: config.SourceConfig{Path: tmpDir},
 		WikiDir:      "wiki",
 		RawDir:       "raw",
-		IndexFile:    "_index.md",
-		LogFile:      "_log.md",
+		IndexFile:    "index.md",
+		LogFile:      "log.md",
 		GraphLinks:   true,
 	})
 	err := w.Init()
@@ -621,16 +622,16 @@ func TestIntegrationInit_ErrorWriteLog(t *testing.T) {
 
 func TestIntegrationInit_ErrorWriteSchema(t *testing.T) {
 	tmpDir := t.TempDir()
-	for _, dir := range wikiDirs {
+	for _, dir := range testWikiDirs {
 		if err := os.MkdirAll(filepath.Join(tmpDir, dir), 0755); err != nil {
 			t.Fatal(err)
 		}
 	}
-	indexPath := filepath.Join(tmpDir, "wiki", "_index.md")
+	indexPath := filepath.Join(tmpDir, "wiki", "index.md")
 	if err := os.WriteFile(indexPath, []byte("content"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	logPath := filepath.Join(tmpDir, "wiki", "_log.md")
+	logPath := filepath.Join(tmpDir, "wiki", "log.md")
 	if err := os.WriteFile(logPath, []byte("content"), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -644,8 +645,8 @@ func TestIntegrationInit_ErrorWriteSchema(t *testing.T) {
 		SourceConfig: config.SourceConfig{Path: tmpDir},
 		WikiDir:      "wiki",
 		RawDir:       "raw",
-		IndexFile:    "_index.md",
-		LogFile:      "_log.md",
+		IndexFile:    "index.md",
+		LogFile:      "log.md",
 		GraphLinks:   true,
 	})
 	err := w.Init()

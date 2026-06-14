@@ -54,7 +54,12 @@ func (a *Agent) lintStructure(ctx context.Context, result *LintResult) {
 	wikiDir := a.wiki.WikiPath
 
 	allPages := make(map[string]bool)
-	wikilinks := make(map[string]int)
+	linkRefs := make(map[string]int)
+	pageNameToID := make(map[string]string)
+
+	sourceDir := func(cid string) string {
+		return filepath.Dir(filepath.Join(wikiDir, cid+".md"))
+	}
 
 	_ = filepath.Walk(wikiDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
@@ -64,7 +69,7 @@ func (a *Agent) lintStructure(ctx context.Context, result *LintResult) {
 			return nil
 		}
 		base := filepath.Base(path)
-		if strings.HasPrefix(base, "_") && base != a.wiki.WikiConfig.IndexFile && base != a.wiki.WikiConfig.LogFile {
+		if base == a.wiki.WikiConfig.IndexFile || base == a.wiki.WikiConfig.LogFile {
 			return nil
 		}
 
@@ -76,34 +81,72 @@ func (a *Agent) lintStructure(ctx context.Context, result *LintResult) {
 			return nil
 		}
 
-		_, stripped, _ := ParseFrontmatter(string(data))
-		links := chunking.ExtractWikilinks(stripped)
-		for _, link := range links {
-			wikilinks[link]++
+		fm, stripped, _ := ParseFrontmatter(string(data))
+		pn := getPageName(fm, stripped)
+		if pn != "" {
+			pageNameToID[pn] = name
+		}
+
+		wLinks := chunking.ExtractWikilinks(stripped)
+		mLinks := chunking.ExtractMarkdownLinks(stripped)
+
+		seen := make(map[string]bool)
+		for _, link := range wLinks {
+			var resolved string
+			if id, ok := pageNameToID[link]; ok {
+				resolved = id
+			} else {
+				resolved = link
+			}
+			if !seen[resolved] && resolved != name {
+				seen[resolved] = true
+				linkRefs[resolved]++
+			}
+		}
+		for _, link := range mLinks {
+			resolved := chunking.NormalizeConceptID(link, sourceDir(name))
+			if !seen[resolved] && resolved != name {
+				seen[resolved] = true
+				linkRefs[resolved]++
+			}
 		}
 
 		return nil
 	})
 
 	for page := range allPages {
-		if wikilinks[page] == 0 {
+		if linkRefs[page] == 0 {
 			result.Orphans = append(result.Orphans, page)
 		}
 	}
 
-	for target := range wikilinks {
+	for target := range linkRefs {
 		if !allPages[target] {
 			var fromPages []string
 			_ = filepath.Walk(wikiDir, func(path string, info os.FileInfo, err error) error {
 				if err != nil || info.IsDir() || !strings.HasSuffix(path, ".md") {
 					return nil
 				}
+				if filepath.Base(path) == a.wiki.WikiConfig.IndexFile || filepath.Base(path) == a.wiki.WikiConfig.LogFile {
+					return nil
+				}
 				data, _ := os.ReadFile(path)
 				_, stripped, _ := ParseFrontmatter(string(data))
-				links := chunking.ExtractWikilinks(stripped)
-				for _, link := range links {
-					if link == target {
-						fromPages = append(fromPages, pageName(wikiDir, path))
+				cid := pageName(wikiDir, path)
+
+				wLinks := chunking.ExtractWikilinks(stripped)
+				for _, link := range wLinks {
+					if id, ok := pageNameToID[link]; ok && id == target {
+						fromPages = append(fromPages, cid)
+					} else if link == target {
+						fromPages = append(fromPages, cid)
+					}
+				}
+
+				mLinks := chunking.ExtractMarkdownLinks(stripped)
+				for _, link := range mLinks {
+					if chunking.NormalizeConceptID(link, sourceDir(cid)) == target {
+						fromPages = append(fromPages, cid)
 					}
 				}
 				return nil
@@ -126,9 +169,16 @@ func (a *Agent) lintStructure(ctx context.Context, result *LintResult) {
 			continue
 		}
 		indexLinks := chunking.ExtractWikilinks(indexContent)
+		indexMLinks := chunking.ExtractMarkdownLinks(indexContent)
 		for _, link := range indexLinks {
 			if link == page && !allPages[link] {
 				result.StaleEntries = append(result.StaleEntries, link)
+			}
+		}
+		for _, link := range indexMLinks {
+			resolved := chunking.NormalizeConceptID(link, "")
+			if resolved == page && !allPages[resolved] {
+				result.StaleEntries = append(result.StaleEntries, resolved)
 			}
 		}
 	}
@@ -149,7 +199,7 @@ func (a *Agent) lintContent(ctx context.Context, result *LintResult) {
 		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".md") {
 			return nil
 		}
-		if strings.HasPrefix(filepath.Base(path), "_") {
+		if filepath.Base(path) == a.wiki.WikiConfig.IndexFile || filepath.Base(path) == a.wiki.WikiConfig.LogFile {
 			return nil
 		}
 		data, err := os.ReadFile(path)

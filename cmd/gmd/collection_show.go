@@ -128,6 +128,7 @@ Example:
 			fmt.Printf("rawDir:            %s\n", wc.RawDir)
 			fmt.Printf("indexFile:         %s\n", wc.IndexFile)
 			fmt.Printf("logFile:           %s\n", wc.LogFile)
+			fmt.Printf("okfVersion:        %s\n", wc.OkfVersion)
 			fmt.Printf("graphLinks:        %v\n", wc.GraphLinks)
 			fmt.Printf("patterns:          %v\n", wc.Patterns)
 			if len(wc.Ignore) > 0 {
@@ -154,11 +155,31 @@ Example:
 				}
 			}
 
-			if wc.Frontmatter != nil && len(wc.Frontmatter.Fields) > 0 {
+			if wc.Frontmatter != nil {
 				fmt.Println("frontmatter (wiki-only):")
-				for _, fname := range sortedKeys(wc.Frontmatter.Fields) {
-					f := wc.Frontmatter.Fields[fname]
-					fmt.Printf("  %-20s %-8s\n", fname, f.Type)
+				if wc.Frontmatter.Type != "" {
+					fmt.Printf("  type:              %s (required)\n", wc.Frontmatter.Type)
+				}
+				if wc.Frontmatter.Title != "" {
+					fmt.Printf("  title:             %s\n", wc.Frontmatter.Title)
+				}
+				if wc.Frontmatter.Description != "" {
+					fmt.Printf("  description:       %s\n", wc.Frontmatter.Description)
+				}
+				if wc.Frontmatter.Resource != "" {
+					fmt.Printf("  resource:          %s\n", wc.Frontmatter.Resource)
+				}
+				if len(wc.Frontmatter.Tags) > 0 {
+					fmt.Printf("  tags:              %v\n", wc.Frontmatter.Tags)
+				}
+				if wc.Frontmatter.Timestamp != "" {
+					fmt.Printf("  timestamp:         %s\n", wc.Frontmatter.Timestamp)
+				}
+				if wc.Frontmatter.Status != "" {
+					fmt.Printf("  status:            %s\n", wc.Frontmatter.Status)
+				}
+				if len(wc.Frontmatter.Sources) > 0 {
+					fmt.Printf("  sources:           %v\n", wc.Frontmatter.Sources)
 				}
 			}
 		}

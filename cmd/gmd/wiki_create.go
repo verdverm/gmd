@@ -79,7 +79,7 @@ Example:
 			SourceConfig: config.SourceConfig{
 				Path:     wikiPathStr,
 				Patterns: []string{wd + "/**/*.md", rd + "/**/*.md"},
-				Ignore:   []string{wd + "/_index.md", wd + "/_log.md"},
+				Ignore:   []string{wd + "/index.md", wd + "/log.md"},
 			},
 			WikiDir:    wd,
 			RawDir:     rd,
@@ -95,7 +95,7 @@ Example:
 		}
 
 		// Add ignore patterns for meta files
-		_ = config.AddIgnorePatterns(cfg, name, []string{wd + "/_index.md", wd + "/_log.md"}, false)
+		_ = config.AddIgnorePatterns(cfg, name, []string{wd + "/index.md", wd + "/log.md"}, false)
 
 		fmt.Printf("Wiki %q initialized at %s\n", name, wikiPathStr)
 		fmt.Printf("  Directory layout created under %s/\n", wikiPathStr)

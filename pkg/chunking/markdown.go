@@ -3,6 +3,7 @@ package chunking
 import (
 	"bytes"
 	"math"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -115,6 +116,33 @@ func ExtractWikilinks(content string) []string {
 	return links
 }
 
+var mdLinkRe = regexp.MustCompile(`\[([^\]]*)\]\(([^)]+\.md)\)`)
+
+func ExtractMarkdownLinks(content string) []string {
+	matches := mdLinkRe.FindAllStringSubmatch(content, -1)
+	seen := make(map[string]bool)
+	var links []string
+	for _, m := range matches {
+		target := strings.TrimSpace(m[2])
+		if !seen[target] && target != "" {
+			seen[target] = true
+			links = append(links, target)
+		}
+	}
+	return links
+}
+
+func NormalizeConceptID(linkTarget string, sourceDir string) string {
+	target := linkTarget
+	if strings.HasPrefix(target, "./") || strings.HasPrefix(target, "../") {
+		resolved := filepath.Join(sourceDir, target)
+		target = filepath.Clean(resolved)
+	}
+	target = strings.TrimPrefix(target, "/")
+	target = strings.TrimSuffix(target, ".md")
+	return target
+}
+
 var frontmatterRe = regexp.MustCompile(`^---\s*\n([\s\S]*?)\n---\s*\n`)
 
 func ExtractFrontmatter(content string) (map[string]interface{}, string) {
@@ -132,7 +160,19 @@ func ExtractFrontmatter(content string) (map[string]interface{}, string) {
 
 func ChunkMarkdownWithMeta(content string, cfg Config) ([]Chunk, []string, map[string]interface{}) {
 	fm, stripped := ExtractFrontmatter(content)
-	links := ExtractWikilinks(stripped)
+	wLinks := ExtractWikilinks(stripped)
+	mLinks := ExtractMarkdownLinks(stripped)
+	links := wLinks
+	seen := make(map[string]bool)
+	for _, l := range wLinks {
+		seen[l] = true
+	}
+	for _, l := range mLinks {
+		if !seen[l] {
+			links = append(links, l)
+			seen[l] = true
+		}
+	}
 	chunks := ChunkMarkdown(stripped, cfg)
 	for i := range chunks {
 		chunks[i].Links = links

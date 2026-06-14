@@ -8,15 +8,6 @@ import (
 	"github.com/verdverm/gmd/pkg/config"
 )
 
-var wikiDirs = []string{
-	"raw",
-	"wiki/entities",
-	"wiki/concepts",
-	"wiki/comparisons",
-	"wiki/synthesis",
-	"wiki/sources",
-}
-
 type Wiki struct {
 	Name       string
 	Path       string
@@ -46,16 +37,18 @@ func InitWiki(name, wikiPath string, cfg *config.WikiConfig) error {
 }
 
 func (w *Wiki) Init() error {
-	for _, dir := range wikiDirs {
-		p := filepath.Join(w.Path, dir)
-		if err := os.MkdirAll(p, 0755); err != nil {
-			return fmt.Errorf("creating %s: %w", p, err)
-		}
+	rawPath := filepath.Join(w.Path, w.WikiConfig.RawDir)
+	if err := os.MkdirAll(rawPath, 0755); err != nil {
+		return fmt.Errorf("creating %s: %w", rawPath, err)
+	}
+
+	if err := os.MkdirAll(w.WikiPath, 0755); err != nil {
+		return fmt.Errorf("creating %s: %w", w.WikiPath, err)
 	}
 
 	indexPath := filepath.Join(w.WikiPath, w.WikiConfig.IndexFile)
 	if _, err := os.Stat(indexPath); os.IsNotExist(err) {
-		content := "# Wiki Index\n\n## Entities\n\n## Concepts\n\n## Comparisons\n\n## Sources\n\n## Last Updated\n\n"
+		content := fmt.Sprintf("---\nokf_version: \"%s\"\n---\n\n# Wiki Index\n\n## Last Updated\n\n", w.WikiConfig.OkfVersion)
 		if err := os.WriteFile(indexPath, []byte(content), 0600); err != nil {
 			return fmt.Errorf("writing index file: %w", err)
 		}

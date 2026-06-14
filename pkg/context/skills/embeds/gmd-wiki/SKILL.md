@@ -3,7 +3,7 @@
 ## Description
 Operate a Karpathy-style LLM Wiki using GMD's search and indexing infrastructure.
 Maintains a compounding knowledge base: ingest sources, query the wiki,
-lint for health, and export results.
+lint for health, and export results. Follows Open Knowledge Format (OKF) v0.1.
 
 ## Required Tools
 - MCP: gmd_wiki_search, gmd_wiki_get, gmd_wiki_neighbors, gmd_wiki_update,
@@ -16,13 +16,13 @@ When user provides a source to ingest:
 2. Call gmd_wiki_search to find existing pages that overlap
 3. Read related wiki pages for context
 4. Extract entities, concepts, claims, contradictions
-5. Write/update wiki pages in the appropriate directories:
+5. Write/update wiki pages in appropriate directories:
    - entities/  # people, orgs, products, technologies
    - concepts/  # methodologies, architectures, theories
    - comparisons/  # X vs Y analyses
    - sources/  # summaries of ingested content
-6. Update _index.md with new/updated page entries
-7. Append entry to _log.md
+6. Update index.md with new/updated page entries
+7. Append entry to log.md
 8. Call gmd_wiki_update to re-index
 9. Report summary to user
 
@@ -30,7 +30,7 @@ When user provides a source to ingest:
 When user asks a question:
 1. Call gmd_wiki_search with the question
 2. Read top matching wiki pages with gmd_wiki_get
-3. Synthesize answer with citations using [[page]] links
+3. Synthesize answer with citations using standard markdown links
 4. Offer to save answer to wiki/synthesis/
 
 ## Page Templates
@@ -53,11 +53,11 @@ Brief description of the entity.
 - Property 2
 
 ## Relationships
-- Related to [[other-entity]]
-- Part of [[broader-concept]]
+- Related to [other entity](/wiki/entities/other-entity.md)
+- Part of [broader concept](/wiki/concepts/broader-concept.md)
 
 ## Sources
-- [[source-page]] -- key claim or quote
+- [source page](/wiki/sources/source-page.md) — key claim or quote
 ```
 
 ### Concept Page (concepts/name.md)
@@ -78,11 +78,10 @@ Clear, concise definition.
 2. Principle two
 
 ## Examples
-- Example with [[related-entity]]
+- Example with [related entity](/wiki/entities/related-entity.md)
 
 ## See Also
-- [[related-concept]]
-- [[comparison-page]]
+- [related concept](/wiki/concepts/related-concept.md)
 ```
 
 ### Comparison Page (comparisons/a-vs-b.md)
@@ -110,7 +109,7 @@ Guidance for choosing between them.
 ---
 type: source
 tags: [tag1, tag2]
-source_url: https://...
+resource: https://...
 status: draft
 ---
 # Source Title
@@ -123,37 +122,39 @@ One-paragraph summary.
 - Takeaway 2
 
 ## Entities Referenced
-- [[entity-1]]
-- [[entity-2]]
+- [entity 1](/wiki/entities/entity-1.md)
+- [entity 2](/wiki/entities/entity-2.md)
 
 ## Concepts Introduced
-- [[concept-1]]
+- [concept 1](/wiki/concepts/concept-1.md)
 
-## Claims
-> Direct quote or paraphrased claim.
+## Citations
+1. Original source at [URL](resource)
 ```
 
 ## Frontmatter Conventions
 
 | Field | Description | Example |
 |---|---|---|
-| type | Page category | entity, concept, comparison, source, synthesis |
+| type | Page category (REQUIRED by OKF) | entity, concept, comparison, source, synthesis |
+| title | Display title | Transformer Architecture |
+| description | Auto-generated summary | The transformer uses... |
+| resource | Canonical URI | https://arxiv.org/abs/1706.03762 |
 | tags | Searchable labels | [kubernetes, deployment] |
+| timestamp | ISO 8601 write time | 2026-06-13T14:30:00Z |
 | status | Review state | draft, reviewed, needs-update |
 | sources | Pages this page derives from | [source-page.md] |
-| difficulty | Complexity rating (1-5) | 3 |
-| source_url | URL of original source | https://... |
 
 ## Lint & Maintenance
 Periodically run gmd_wiki_lint to:
-- Find orphan pages (zero inbound [[wikilinks]])
-- Detect broken wikilinks (targets with no matching page)
-- Check _index.md for stale entries
+- Find orphan pages (zero inbound links)
+- Detect broken links (targets with no matching page)
+- Check index.md for stale entries
 - Flag potential contradictions between pages
 - Identify knowledge gaps
 
 When fixing issues:
-- Orphan pages: add links from related pages, or merge into parent concept
+- Orphan pages: add links from related pages
 - Broken links: create missing page, or remove the link
-- Stale entries: update or remove from _index.md
+- Stale entries: update or remove from index.md
 - Contradictions: add a note in both pages, create a comparison if warranted

@@ -381,7 +381,7 @@ See [docs/web-providers.md](docs/web-providers.md) for provider configuration de
 |---|---|
 | `gmd wiki init [--name] [--path]` | Scaffold wiki directory structure + CUE config entry |
 | `gmd wiki ingest <source>` | LLM reads source, extracts entities/concepts/claims, writes wiki pages |
-| `gmd wiki query "<question>" [--save]` | RAG search over wiki → LLM synthesis with [[page]] citations |
+| `gmd wiki query "<question>" [--save]` | RAG search over wiki → LLM synthesis with standard markdown link citations |
 | `gmd wiki graph [--format]` | Export wikilink graph as dot, mermaid, or JSON |
 | `gmd wiki lint` | Structure checks (orphans, broken links) + LLM content analysis |
 | `gmd wiki skills [list|show|write]` | Manage embedded skill templates for AI agents |
@@ -390,14 +390,9 @@ See [docs/web-providers.md](docs/web-providers.md) for provider configuration de
 Wiki layout after `gmd wiki init`:
 ```
 raw/                  Immutable source files (not indexed)
-wiki/
-  entities/           People, orgs, products, technologies
-  concepts/           Methodologies, architectures, theories
-  comparisons/        X vs Y analyses
-  synthesis/          Cross-source analysis, saved answers
-  sources/            Summaries of ingested content
-  _index.md           Content catalog (LLM-maintained)
-  _log.md             Chronological record (LLM-maintained)
+wiki/                 Wiki pages (free-form layout)
+  index.md            Content catalog (maintained by ingest agent)
+  log.md              Chronological record (maintained by ingest agent)
 WIKI_SCHEMA.md        Wiki conventions + page templates
 ```
 

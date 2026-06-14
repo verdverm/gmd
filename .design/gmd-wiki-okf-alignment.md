@@ -1,7 +1,7 @@
 # GMD Wiki — Open Knowledge Format (OKF) Alignment
 
-**Date:** 2026-06-13 (created), 2026-06-13 (updated — v5)
-**Phase:** Design — updated per feedback
+**Date:** 2026-06-13 (created), 2026-06-13 (updated — v6, implemented)
+**Phase:** Implemented
 **OKF Version:** 0.1 (Draft)
 **OKF SPEC:** https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md
 

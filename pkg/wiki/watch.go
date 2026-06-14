@@ -85,7 +85,7 @@ func (w *Watcher) checkWiki() {
 		if !strings.HasSuffix(path, ".md") {
 			return nil
 		}
-		if strings.HasPrefix(filepath.Base(path), "_") {
+		if filepath.Base(path) == w.wiki.WikiConfig.IndexFile || filepath.Base(path) == w.wiki.WikiConfig.LogFile {
 			return nil
 		}
 

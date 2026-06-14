@@ -39,9 +39,9 @@ func TestIntegrationBuildGraph_WithWikilinks(t *testing.T) {
 	os.MkdirAll(filepath.Dir(conceptPath), 0755)
 	os.WriteFile(conceptPath, []byte("---\ntype: concept\n---\n\n# Supervised Learning\n\nRelated to [[entities/machine-learning]].\n"), 0644)
 
-	// Create a _ prefixed file that should be skipped
-	skipPath := filepath.Join(agent.wiki.WikiPath, "_draft.md")
-	os.WriteFile(skipPath, []byte("[[hidden]]"), 0644)
+	// index.md is reserved and should be skipped by BuildGraph
+	indexPath := filepath.Join(agent.wiki.WikiPath, "index.md")
+	os.WriteFile(indexPath, []byte("[[hidden]]"), 0644)
 
 	g, err := agent.BuildGraph(context.Background())
 	if err != nil {
@@ -49,7 +49,7 @@ func TestIntegrationBuildGraph_WithWikilinks(t *testing.T) {
 	}
 
 	if len(g.Nodes) != 2 {
-		t.Errorf("expected 2 nodes, got %d: %v", len(g.Nodes), g.Nodes)
+		t.Errorf("expected 2 nodes (index.md skipped), got %d: %v", len(g.Nodes), g.Nodes)
 	}
 
 	foundEdge := false
@@ -127,8 +127,8 @@ func TestIntegrationNeighborsFromTS(t *testing.T) {
 		SourceConfig: config.SourceConfig{Path: tmpDir},
 		WikiDir:      "wiki",
 		RawDir:       "raw",
-		IndexFile:    "_index.md",
-		LogFile:      "_log.md",
+		IndexFile:    "index.md",
+		LogFile:      "log.md",
 		GraphLinks:   true,
 	}
 	w, err := NewWiki("test-wiki", tmpDir, wc)
@@ -139,6 +139,10 @@ func TestIntegrationNeighborsFromTS(t *testing.T) {
 		t.Fatalf("Init error: %v", err)
 	}
 	agent := NewAgent(w, testCfg, testTSClient, testLLMClient)
+
+	if err := os.MkdirAll(filepath.Join(w.WikiPath, "entities"), 0755); err != nil {
+		t.Fatal(err)
+	}
 
 	// Page A links to entities/B and entities/C
 	err = os.WriteFile(

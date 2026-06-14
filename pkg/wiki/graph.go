@@ -31,44 +31,101 @@ func (a *Agent) BuildGraph(ctx context.Context) (*Graph, error) {
 	}
 
 	wikiDir := a.wiki.WikiPath
-	err := filepath.Walk(wikiDir, func(path string, info os.FileInfo, err error) error {
+
+	pageNameToID := make(map[string]string)
+
+	type pageData struct {
+		conceptID string
+		rawLinks  []string
+	}
+	var pages []pageData
+
+	_ = filepath.Walk(wikiDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
 		if info.IsDir() || !strings.HasSuffix(path, ".md") {
 			return nil
 		}
-		if strings.HasPrefix(filepath.Base(path), "_") {
+		if filepath.Base(path) == a.wiki.WikiConfig.IndexFile || filepath.Base(path) == a.wiki.WikiConfig.LogFile {
 			return nil
 		}
 
+		conceptID := pageName(wikiDir, path)
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return nil
 		}
-
 		content := string(data)
-		_, stripped, _ := ParseFrontmatter(content)
-		links := chunking.ExtractWikilinks(stripped)
+		fm, stripped, _ := ParseFrontmatter(content)
 
-		from := pageName(wikiDir, path)
-		g.Nodes = append(g.Nodes, from)
-
-		for _, to := range links {
-			g.Edges = append(g.Edges, GraphEdge{From: from, To: to})
-			g.AdjList[from] = append(g.AdjList[from], to)
-			g.InDegree[to]++
+		pn := getPageName(fm, stripped)
+		if pn != "" {
+			pageNameToID[pn] = conceptID
 		}
+
+		wLinks := chunking.ExtractWikilinks(stripped)
+		mLinks := chunking.ExtractMarkdownLinks(stripped)
+		allLinks := make([]string, 0, len(wLinks)+len(mLinks))
+		allLinks = append(allLinks, wLinks...)
+		allLinks = append(allLinks, mLinks...)
+
+		pages = append(pages, pageData{conceptID: conceptID, rawLinks: allLinks})
+		g.Nodes = append(g.Nodes, conceptID)
 
 		return nil
 	})
 
-	if err != nil {
-		return g, err
+	sourceDir := func(cid string) string {
+		return filepath.Dir(filepath.Join(wikiDir, cid+".md"))
+	}
+
+	for _, page := range pages {
+		from := page.conceptID
+		seen := make(map[string]bool)
+		seen[from] = true
+
+		for _, rawLink := range page.rawLinks {
+			var to string
+			if strings.HasSuffix(rawLink, ".md") {
+				to = chunking.NormalizeConceptID(rawLink, sourceDir(from))
+			} else {
+				if id, ok := pageNameToID[rawLink]; ok {
+					to = id
+				} else {
+					to = rawLink
+				}
+			}
+
+			if to != "" && !seen[to] && to != from {
+				seen[to] = true
+				g.Edges = append(g.Edges, GraphEdge{From: from, To: to})
+				g.AdjList[from] = append(g.AdjList[from], to)
+				g.InDegree[to]++
+			}
+		}
 	}
 
 	sort.Strings(g.Nodes)
 	return g, nil
+}
+
+func getPageName(fm map[string]interface{}, stripped string) string {
+	if fm != nil {
+		if t, ok := fm["title"]; ok {
+			if s, ok := t.(string); ok && s != "" {
+				return s
+			}
+		}
+	}
+	lines := strings.SplitN(stripped, "\n", 2)
+	if len(lines) > 0 {
+		h1 := strings.TrimPrefix(lines[0], "# ")
+		if h1 != lines[0] && h1 != "" {
+			return h1
+		}
+	}
+	return ""
 }
 
 func (a *Agent) Neighbors(ctx context.Context, page string, direction string) ([]string, error) {

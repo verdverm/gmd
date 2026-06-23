@@ -126,7 +126,7 @@ Full map in the exploration report. Summary by call pattern:
 | Pattern | Call sites | Files |
 |---|---|---|
 | `Embed`/`EmbedBatch` | 3 | `pkg/indexer/indexer.go:279`, `pkg/search/pipeline.go:92,269` |
-| `Chat`/`Summarize` | 9 | `pkg/search/pipeline.go:255`, `pkg/wiki/agent.go:116,348`, `pkg/wiki/postprocess.go:41`, `pkg/wiki/lint.go:233,261`, `pkg/web/agent.go:179,222`, `pkg/web/fusion/fusion.go:201,249` |
+| `Chat`/`Summarize` | 10 | `pkg/search/pipeline.go:255`, `pkg/wiki/agent.go:116,348`, `pkg/wiki/postprocess.go:41`, `pkg/wiki/lint.go:233,261`, `pkg/web/agent.go:179,222`, `pkg/web/fusion/fusion.go:201,249` |
 | `Rerank` | 1 | `pkg/search/pipeline.go:373` |
 | `CheckAll`/`EndpointStatus` | 2 | `pkg/wiki/doctor.go:52`, `cmd/gmd/doctor.go:114` |
 | `BuildClient` + raw openai-go | 2 | `cmd/gmd/llm_status.go:30,36`, `cmd/gmd/llm_testcmd.go:40,70-75` |
@@ -172,7 +172,7 @@ type Reranker interface {
 **Rationale:** `model.LLM` is the ADK-native contract - implementing it means gmd's model
 can plug into ADK's `llmagent` in the future without adaptation. The `Chat`/`ChatMessages`
 helpers preserve gmd's simple `Chat(ctx, system, user) (string, error)` ergonomics for the
-~9 call sites that just want text in / text out, without forcing every consumer to build
+~10 call sites that just want text in / text out, without forcing every consumer to build
 `*genai.Content`/`*genai.Part` manually. Consumers that need tools/streaming/multi-modal
 call `GenerateContent` directly.
 
@@ -218,6 +218,18 @@ func (r *Registry) Reranker() Reranker                 // nil if rerank unset
 func (r *Registry) Roles() []string                   // sorted role names
 func (r *Registry) CheckProviders(ctx context.Context) []ProviderHealth
 func (r *Registry) Close() error                      // closes OAuth2-backed HTTP clients
+
+// RegistryOption is a functional option for NewRegistry.
+type RegistryOption func(*registryConfig)
+
+// registryConfig holds test-time overrides applied before building clients.
+type registryConfig struct {
+    providerTransports map[string]*http.Client   // provider name -> custom HTTP client
+}
+
+// WithProviderTransport injects a custom HTTP client for a specific provider.
+// Used by tests to inject tape-replay transports.
+func WithProviderTransport(provider string, client *http.Client) RegistryOption
 ```
 
 **Rationale:** eliminates the 3 switch statements (`RoleClient`/`RoleModel`/`RoleURL`),
@@ -309,6 +321,12 @@ non-standard endpoint (vLLM-specific `/rerank`); keeping it as a raw POST via op
 generic helper is the simplest correct approach. Both share the `OpenAIConfig` shape so
 auth/base-URL/HTTPClient injection is uniform. `RerankResult` is the only rerank type that
 escapes the package - it is already clean.
+
+**Batch-first `Embedder`.** The current `Client` has `Embed(ctx, text) ([]float64, error)`
+(single) and `EmbedBatch(ctx, texts) ([][]float64, error)` (batch). The new interface has
+only `Embed(ctx, texts []string) ([][]float64, error)` - batch-first. Single-embedding
+callers (`pipeline.go:92,269`) wrap in `[]string{text}` and take `[0]`. The indexer's batch
+call (`indexer.go:279`) maps directly. This eliminates the redundant single/batch split.
 
 ### D5: Eliminate duplicate config structs
 
@@ -422,33 +440,36 @@ pkg/llm/
 
 ### Consumer migration shape
 
-Each consumer stops taking `*llm.Client` and takes the specific interface(s) it needs:
+Every consumer changes. Simple consumers swap `*llm.Client` for specific interfaces
+(Phase 4-5). Wiki and web agents are rewritten as ADK `llmagent` agents with tools
+(Phases 6-8). New files created in `pkg/wiki/` and `pkg/web/`: `tools.go`, `runner.go`,
+`prompts.go`. `pkg/wiki/postprocess.go` is deleted.
 
 | Consumer | Current | New |
 |---|---|---|
 | `pkg/indexer` | `llmClient *llm.Client` -> `EmbedBatch` | `embedder llm.Embedder` -> `Embed` |
 | `pkg/search` | `llmClient *llm.Client` -> `Embed`, `Chat`, `Rerank` | `embedder llm.Embedder`, `expander llm.ChatModel`, `reranker llm.Reranker` |
-| `pkg/wiki/agent` | `llmClient *llm.Client` -> `Chat` | `chat llm.ChatModel` -> `Chat` |
-| `pkg/wiki/lint` | `llmClient *llm.Client` -> `Chat` (nil-tolerant) | `chat llm.ChatModel` (nil-tolerant; nil-check moves from whole-client to the ChatModel - see below) |
-| `pkg/wiki/postprocess` | `llmClient *llm.Client` -> `Chat` | `chat llm.ChatModel` |
-| `pkg/wiki/doctor` | `llmClient *llm.Client` -> `CheckAll` + `EndpointStatus` | `registry *llm.Registry` -> `CheckProviders` + `ProviderHealth` |
-| `pkg/wiki/watch` | `llmClient *llm.Client` (plumbing to Agent) | `chat llm.ChatModel` (plumbing to Agent) |
-| `pkg/web/agent` | `llmClient *llm.Client` -> `Chat`, `Summarize` | `chat llm.ChatModel`, `summarizer llm.ChatModel` (two roles from registry) |
-| `pkg/web/fusion` | `Config.LLMClient *llm.Client` -> `Summarize` | `Config.Summarizer llm.ChatModel` |
-| `pkg/mcp/wiki_tools` | `llmClient *llm.Client` -> wires into `wiki.NewAgent` | `chat llm.ChatModel` -> wires into `wiki.NewAgent` (functional change, not just a type swap) |
-| `cmd/gmd/search`+`query`+`vsearch` | build `*llm.Client`, pass to `search.New` | `registry.Model(RoleExpansion)`, `registry.Embedder()`, `registry.Reranker()` -> `search.New` |
-| `cmd/gmd/update`+`embed` | build `*llm.Client`, pass to `indexer.New` | `registry.Embedder()` -> `indexer.New` |
-| `cmd/gmd/wiki_*` | build `*llm.Client`, pass to `wiki.NewAgent`/`Doctor` | `registry.Model(RoleGeneralBig)` (or `*Registry` for doctor) |
-| `cmd/gmd/web_agent` | build `*llm.Client`, pass to `web.NewAgent` | `registry.Model(RoleGeneralBig)`, `registry.Model(RoleSummarizing)` |
-| `cmd/gmd/web_search` | build `*llm.Client` only if synthesize/dedup, pass to `fusion.Config` | `registry.Model(RoleSummarizing)` only if needed -> `fusion.Config.Summarizer` |
-| `cmd/gmd/doctor` | `client.CheckAll` | `registry.CheckProviders` |
-| `cmd/gmd/llm_status` | `BuildClient` + raw `client.Models.List` | `registry.CheckProviders(ctx)` |
-| `cmd/gmd/llm_testcmd` | `BuildClient` + raw `client.Chat.Completions.New` | `registry.Model(role).Chat(ctx, system, user)` |
+| `pkg/wiki/agent.go` | `llmClient *llm.Client` -> hand-rolled Chat pipelines | ADK `llmagent` with tools (ingest/query), run via `runner.Run` |
+| `pkg/wiki/lint.go` | `llmClient *llm.Client` -> pairwise Chat calls | ADK `llmagent` lint agent; `lintStructure` stays pure Go pre-pass |
+| `pkg/wiki/postprocess.go` | `llmClient *llm.Client` -> `generateDescription` | **deleted** — ingest agent writes description directly |
+| `pkg/wiki/doctor.go` | `llmClient *llm.Client` -> `CheckAll` + `EndpointStatus` | `registry *llm.Registry` -> `CheckProviders` |
+| `pkg/wiki/watch.go` | `llmClient *llm.Client` (plumbing to Agent) | `*Runner` (or deps) (plumbing to Agent) |
+| `pkg/web/agent.go` | `llmClient *llm.Client` -> Go-orchestrated loop + free-text parsing | ADK `llmagent` with `WebSearch`/`WebFetch` tools |
+| `pkg/web/fusion/fusion.go` | `Config.LLMClient *llm.Client` -> `Summarize` | `Config.Summarizer llm.ChatModel` -> `.Chat` (not an agent) |
+| `pkg/mcp/wiki_tools.go` | `llmClient *llm.Client` -> wires into `wiki.NewAgent` | `*Runner` (or deps) -> wires into `wiki.NewAgent` |
+| `cmd/gmd/search.go` (handles search, query, vsearch modes) | build `*llm.Client`, pass to `search.New` | `registry.Model(RoleExpansion)`, `registry.Embedder()`, `registry.Reranker()` -> `search.New` |
+| `cmd/gmd/update.go` (handles both update and embed) | build `*llm.Client`, pass to `indexer.New` | `registry.Embedder()` -> `indexer.New` |
+| `cmd/gmd/wiki_*.go` | build `*llm.Client`, pass to `wiki.NewAgent` | build `*Runner` (via `llm.NewRegistry`), pass to `wiki.NewAgent` |
+| `cmd/gmd/web_agent.go` | build `*llm.Client`, pass to `web.NewAgent` | wire `SearchProvider`s + `BrowserProvider` + `registry.Model` into new `NewAgent` |
+| `cmd/gmd/web_search.go` | build `*llm.Client` only if synthesize/dedup -> `fusion.Config` | `registry.Model(RoleSummarizing)` only if needed -> `fusion.Config.Summarizer` |
+| `cmd/gmd/doctor.go` | `client.CheckAll` + `client.RoleModel(...)` (lines 141-143) | `registry.CheckProviders` + `registry.Model(role)` |
+| `cmd/gmd/llm_status.go` | `BuildClient` + raw `client.Models.List` | `registry.CheckProviders(ctx)` |
+| `cmd/gmd/llm_testcmd.go` | `BuildClient` + raw `client.Chat.Completions.New` | `registry.Model(role).Chat(ctx, system, user)` |
 
 **`ChatMessage` is gone.** Consumers that build `[]llm.ChatMessage{{Role:"system",...},...}`
 switch to either:
 - `chatModel.Chat(ctx, system, user)` for the common 2-message system+user pattern (covers
-  ~7 of 9 chat call sites), or
+  ~7 of 10 chat call sites), or
 - `chatModel.ChatMessages(ctx, []*genai.Content{...})` for multi-turn, building
   `genai.Content` with `genai.NewContentFromText(text, genai.RoleUser)`.
 
@@ -481,7 +502,7 @@ type swap - the 3 call sites need their guards updated from `a.llmClient == nil`
 passes `contents` through as `req.Contents` and leaves `SystemInstruction` nil - so a
 caller wanting a system prompt via `ChatMessages` includes a `genai.Content{Role:
 "system", ...}` in the slice. The two helpers are consistent: `Chat` is the 2-message
-shortcut (system -> `SystemInstruction`), `ChatMessages` is the full-control path. All 9
+shortcut (system -> `SystemInstruction`), `ChatMessages` is the full-control path. All 10
 current chat call sites pass at most a system+user pair, so `Chat(ctx, system, user)`
 covers them (user-only sites pass `""` for system, which the helper skips if empty).
 
@@ -587,18 +608,20 @@ part types, which no current consumer does.
 
 ### Migration safety
 
-The 7 phases are ordered so that the package compiles and tests pass between phases:
+Phases are ordered so that the package compiles and tests pass between phases:
 
 - **After Phase 1-3:** `pkg/llm` has the new types (`OpenAIModel`, `Embedder`, `Reranker`,
   `Registry`) but no consumers use them yet. Old `client.go`/`builder.go` still exist.
   `make test` passes (old tests, new unit tests for conversion helpers).
-- **Phase 4-5 (consumer migration):** This is the big-bang window. Old `client.go`/
-  `builder.go`/old `config.go` are deleted (Phase 4); all consumers switch in the same
-  commit (or a short series of commits within the phase). Between individual consumer
-  edits, the tree may not compile. This is acceptable per the alpha/no-backcompat policy.
-  The risk is bounded: each consumer change is mechanical (swap `*llm.Client` -> specific
-  interface, rename `Chat`/`Embed`/`Rerank` calls).
-- **After Phase 6-7:** Tapes regenerated, docs updated, `make check` green.
+- **Phases 4-5 (consumer migration):** Old `client.go`/`builder.go`/old `config.go` are
+  deleted (Phase 4); all consumers switch in the same commit (or a short series of commits
+  within the phase). Between individual consumer edits, the tree may not compile. This is
+  acceptable per the alpha/no-backcompat policy. The risk is bounded: each consumer change
+  is mechanical (swap `*llm.Client` -> specific interface). Phase 5 wires the new CLI.
+- **Phases 6-8 (agent migration):** Wiki and web agents are rewritten as ADK `llmagent`
+  agents with tools. Highest-risk changes: hand-rolled pipelines become LLM-driven loops.
+  Tests use mock `model.LLM` instances for loop behavior.
+- **After Phase 9-10:** Tapes regenerated, docs updated, `make check` green.
 
 A transitional shim (old + new APIs coexisting) was considered and rejected: it would
 require keeping the god-struct alive during migration, doubling the maintenance surface
@@ -655,14 +678,11 @@ for a short-lived alpha project. The big-bang is cleaner here.
   compile between individual edits; acceptable per alpha policy).
 - `pkg/indexer`: `New(..., embedder llm.Embedder)`.
 - `pkg/search`: `New(..., embedder llm.Embedder, expander llm.ChatModel, reranker llm.Reranker)`.
-- `pkg/wiki/agent`: `NewAgent(..., chat llm.ChatModel)`.
-- `pkg/wiki/lint`: `NewLinter(..., chat llm.ChatModel)` (nil-tolerant; guard becomes `a.chat == nil`).
-- `pkg/wiki/postprocess`: `chat llm.ChatModel`.
 - `pkg/wiki/doctor`: `Doctor(..., registry *llm.Registry)`.
-- `pkg/wiki/watch`: update constructor threading (`chat llm.ChatModel` into `NewAgent`).
-- `pkg/web/agent`: `NewAgent(..., chat llm.ChatModel, summarizer llm.ChatModel)`.
 - `pkg/web/fusion`: `Config.Summarizer llm.ChatModel`.
-- `pkg/mcp/wiki_tools`: pass `chat llm.ChatModel` through to `wiki.NewAgent` (functional change, not just a type swap).
+- Wiki and web agent consumers get temporary constructors taking `chat llm.ChatModel` (or
+  `*Registry` for doctor). These are interfaces — they compile against the new types now
+  and stay valid through the ADK agent rewrite in Phases 6-7.
 
 ### Phase 5: Migrate cmd/gmd wiring + CLI
 
@@ -675,24 +695,55 @@ for a short-lived alpha project. The big-bang is cleaner here.
 - `cmd/gmd/llm_testcmd.go`: `registry.Model(role).Chat(ctx, "You are a test", "ping")`.
 - `cmd/gmd/doctor.go`: `registry.CheckProviders(ctx)`.
 
-### Phase 5a: Wiki ADK agent (see "ADK Agent Migration" section)
+### Phase 6: Wiki ADK agent
 
-- Write `pkg/wiki/tools.go`, `pkg/wiki/prompts.go`, `pkg/wiki/runner.go`.
-- Rewrite `pkg/wiki/agent.go`, `pkg/wiki/lint.go`.
+- Write `pkg/wiki/tools.go`: `functiontool.New` wrappers for `SearchWiki`, `ReadPage`,
+  `ReadIndex`, `CreatePage`, `UpdatePage`, `UpdateIndex`, `AppendLog`, `ListPages`,
+  `IndexPage`, `ReadSource`. Each wraps an existing Go function (`readWikiPage`,
+  `createWikiPage`, etc.) with the `tsClient`/`wiki`/`indexer` dependencies captured in
+  the tool's closure.
+- Write `pkg/wiki/prompts.go`: `Instruction` strings for ingest/query/lint agents. The
+  static parts of `ingest_system.md`/`query_system.md`/`lint_*.md` become the
+  `Instruction`; the dynamic parts (existing pages, search results) become tool results.
+- Write `pkg/wiki/runner.go`: `NewRunner(registry, wiki, tsClient, indexer, sessionSvc)`
+  builds three `llmagent` agents (ingest/query/lint) composed under a root agent, plus
+  a `runner.Runner`. Tools capture `tsClient`/`wiki`/`indexer` in closures. Expose
+  `Ingest(ctx, sourcePath)`, `Query(ctx, question)`, `Lint(ctx)` methods that create a
+  session, run, collect final event text + session state, and assemble
+  `IngestReport`/`QueryResult`/`LintResult` from tool-emitted state (NOT text parsing).
+- Rewrite `pkg/wiki/agent.go`: delete `Ingest`/`Query` pipelines, `searchOverlap`,
+  `extractKeyTerms`, `cleanJSON`, `generateDescription`. The `Agent` struct becomes a
+  thin wrapper around the ADK runner, retaining the same public `Ingest`/`Query`/`Lint`
+  method signatures. Keep `createWikiPage`/`updateWikiPage`/
+  `updateIndexFile`/`appendLogFile`/`readWikiPage`/`readSource`/`loadIndexContext` as
+  the tool implementations.
+- Rewrite `pkg/wiki/lint.go`: `lintStructure` stays pure Go. `lintContent`/`lintGaps`
+  delegate to the lint ADK agent.
 - Delete `pkg/wiki/postprocess.go`.
+- Update `cmd/gmd/wiki_*.go` and `pkg/mcp/wiki_tools.go` wiring to pass `*Runner` (or
+  deps) to `wiki.NewAgent`.
 
-### Phase 5b: Web ADK agent (see "ADK Agent Migration" section)
+### Phase 7: Web ADK agent
 
-- Write `pkg/web/tools.go`, `pkg/web/prompts.go`.
-- Rewrite `pkg/web/agent.go`.
-- Update `cmd/gmd/web_agent.go` wiring.
+- Write `pkg/web/tools.go`: `WebSearch` (wraps `SearchProvider` with inline fan-out/dedup,
+  NOT via fusion to avoid import cycle), `WebFetch` (wraps `BrowserProvider.GetContent`).
+- Write `pkg/web/prompts.go`: de-duplicated `Instruction` from `agent_system.md` +
+  `agent_synthesize.md`.
+- Rewrite `pkg/web/agent.go`: `NewAgent` takes `searchProviders []SearchProvider`,
+  `browserProvider BrowserProvider`, `chat llm.ChatModel` instead of raw `*exa.Client`
+  + `*llm.Client`. `Run` builds an `llmagent` + runner, sends the question, collects
+  events. Delete `analyzeResults`, `synthesize`, `formatResultsForLLM`, the `## ACTION`
+  parser. `AgentResult` stays (assembled from the final event).
+- Update `cmd/gmd/web_agent.go`: wire `SearchProvider`s + `BrowserProvider` +
+  `registry.Model(RoleGeneralBig)` into the new `NewAgent`.
 
-### Phase 5c: Fusion update (see "ADK Agent Migration" section)
+### Phase 8: Fusion update (not an agent)
 
-- `pkg/web/fusion/fusion.go`: `Config.LLMClient` -> `Config.Summarizer llm.ChatModel`.
-- Update `cmd/gmd/web_search.go` wiring.
+- `pkg/web/fusion/fusion.go`: `Config.LLMClient *llm.Client` ->
+  `Config.Summarizer llm.ChatModel`. `dedupLLM`/`Synthesize` call `.Chat` instead of
+  `.Summarize`. Update `cmd/gmd/web_search.go` wiring.
 
-### Phase 6: Tests + tapes (all tapes regenerated)
+### Phase 9: Tests + tapes (all tapes regenerated)
 
 - `pkg/llm/openai_model_replay_test.go`: replay `001_embed.json` / `002_chat_expand.json`
   / `003_rerank.json` via `OpenAIConfig{HTTPClient: &http.Client{Transport: tape}}`.
@@ -707,7 +758,7 @@ for a short-lived alpha project. The big-bang is cleaner here.
   `pkg/llm/testdata/*.json`, `pkg/wiki/testdata/*.json`, `pkg/web/fusion/testdata/*.json`,
   and any new tapes for the ADK agent workflows.
 
-### Phase 7: Cleanup + docs
+### Phase 10: Cleanup + docs
 
 - Verify no dead code remains: `GeneralBigChat`/`GeneralMidChat`/
   `GeneralSmallChat`/`ChatWithModel`, `ProviderClients`/`RoleClient`/`RoleURL` accessors
@@ -797,48 +848,48 @@ instruction content as their base `Instruction`.
 ```go
 // pkg/wiki/tools.go - ADK function tools wrapping existing Go functions
 
-SearchWiki(ctx, args SearchWikiArgs) (SearchWikiResult, error)
+SearchWiki(tc agent.ToolContext, args SearchWikiArgs) (SearchWikiResult, error)
   // wraps tsClient.TextSearch (or hybrid) against the wiki's collection
   // args: { query: string, limit?: int }
   // returns: { results: [{ path, title, snippet, score }] }
 
-ReadPage(ctx, args ReadPageArgs) (ReadPageResult, error)
+ReadPage(tc agent.ToolContext, args ReadPageArgs) (ReadPageResult, error)
   // wraps readWikiPage - reads a wiki page, strips frontmatter
   // args: { path: string }
   // returns: { content: string, frontmatter: map[string]any }
 
-ReadIndex(ctx, args ReadIndexArgs) (ReadIndexResult, error)
+ReadIndex(tc agent.ToolContext, args ReadIndexArgs) (ReadIndexResult, error)
   // wraps loadIndexContext - reads index.md
   // returns: { content: string }
 
-CreatePage(ctx, args CreatePageArgs) (CreatePageResult, error)
+CreatePage(tc agent.ToolContext, args CreatePageArgs) (CreatePageResult, error)
   // wraps createWikiPage - mkdir, write YAML frontmatter + body
   // args: { path, content, frontmatter }
   // returns: { path: string, created: bool }
 
-UpdatePage(ctx, args UpdatePageArgs) (UpdatePageResult, error)
+UpdatePage(tc agent.ToolContext, args UpdatePageArgs) (UpdatePageResult, error)
   // wraps updateWikiPage - merge section or append content
   // args: { path, merge_section?, append_content? }
   // returns: { path: string, updated: bool }
 
-UpdateIndex(ctx, args UpdateIndexArgs) (UpdateIndexResult, error)
+UpdateIndex(tc agent.ToolContext, args UpdateIndexArgs) (UpdateIndexResult, error)
   // wraps updateIndexFile
   // args: { updates: [{ page, summary, category }] }
 
-AppendLog(ctx, args AppendLogArgs) (AppendLogResult, error)
+AppendLog(tc agent.ToolContext, args AppendLogArgs) (AppendLogResult, error)
   // wraps appendLogFile
   // args: { entry: string }
 
-ListPages(ctx, args ListPagesArgs) (ListPagesResult, error)
+ListPages(tc agent.ToolContext, args ListPagesArgs) (ListPagesResult, error)
   // new - walks wiki dir, returns page list (currently only in lintStructure)
   // returns: { pages: [{ path, title, type }] }
 
-IndexPage(ctx, args IndexPageArgs) (IndexPageResult, error)
+IndexPage(tc agent.ToolContext, args IndexPageArgs) (IndexPageResult, error)
   // new - indexes a page into Typesense (currently done outside the package)
   // args: { path: string }
   // wraps the indexer for the wiki collection
 
-ReadSource(ctx, args ReadSourceArgs) (ReadSourceResult, error)
+ReadSource(tc agent.ToolContext, args ReadSourceArgs) (ReadSourceResult, error)
   // wraps readSource - reads a raw/ source file
   // args: { path: string }
 ```
@@ -846,6 +897,9 @@ ReadSource(ctx, args ReadSourceArgs) (ReadSourceResult, error)
 #### Wiki Ingest agent
 
 ```go
+// ptr returns a pointer to v. Helper for genai config fields that require *float32 etc.
+func ptr[T any](v T) *T { return &v }
+
 agent, _ := llmagent.New(llmagent.Config{
     Name:        "wiki-ingest",
     Model:       registry.Model(llm.RoleGeneralBig),   // the big model for complex extraction
@@ -856,7 +910,7 @@ agent, _ := llmagent.New(llmagent.Config{
         indexPageTool,
     },
     GenerateContentConfig: &genai.GenerateContentConfig{
-        Temperature: genai.Float(0.3),   // deterministic-ish for extraction
+        Temperature: ptr(float32(0.3)),   // deterministic-ish for extraction
     },
 })
 ```
@@ -887,7 +941,7 @@ agent, _ := llmagent.New(llmagent.Config{
     Tools: []tool.Tool{
         searchWikiTool, readPageTool,
     },
-    GenerateContentConfig: &genai.GenerateContentConfig{ Temperature: genai.Float(0.2) },
+    GenerateContentConfig: &genai.GenerateContentConfig{ Temperature: ptr(float32(0.2)) },
 })
 ```
 
@@ -949,14 +1003,20 @@ cleaner for the CLI (one runner, one session, route by user message).
 **Result assembly (not text parsing):** the `IngestReport`/`QueryResult`/`LintResult`
 are NOT parsed from the agent's final text response (that would reintroduce the fragile
 text parsing the migration eliminates). Instead, the tools write structured results into
-session state (`ctx.Actions().StateDelta["created_pages"] = [...]` etc.), and the runner
-reads state after the run completes. The agent's final text response is a human-readable
-summary shown to the CLI user; the typed report is assembled from tool-emitted state.
+session state (`tc.Actions().StateDelta["created_pages"] = [...]` etc., where `tc` is the
+`agent.ToolContext` parameter), and the runner reads state after the run completes. The
+agent's final text response is a human-readable summary shown to the CLI user; the typed
+report is assembled from tool-emitted state.
 
 Each CLI command (`gmd wiki ingest`, `gmd wiki query`, `gmd wiki lint`) creates a runner
 + session, sends the appropriate user message, and collects events until the final
 response. `session.InMemoryService()` is sufficient (no cross-session persistence
 needed for wiki workflows). `AutoCreateSession: true` simplifies the call.
+
+**Message construction:** `runner.Run` takes `msg *genai.Content`, not a string. The
+runner wraps user message strings via `genai.NewContentFromText(msg, genai.RoleUser)`
+before passing to `Run`. The `agent.RunConfig{}` is passed as-is (streaming mode
+defaults to `StreamingModeNone`).
 
 **Public API:** the `Agent` struct retains its `Ingest(ctx, sourcePath) (*IngestReport,
 error)`, `Query(ctx, question) (*QueryResult, error)`, `Lint(ctx) (*LintResult, error)`
@@ -988,7 +1048,7 @@ One ADK agent with `web_search` and `web_fetch` tools. The LLM drives the entire
 ```go
 // pkg/web/tools.go - ADK function tools
 
-WebSearch(ctx, args WebSearchArgs) (WebSearchResult, error)
+WebSearch(tc agent.ToolContext, args WebSearchArgs) (WebSearchResult, error)
   // wraps the SearchProvider interface (NOT raw exa.Client)
   // calls all configured SearchProviders in parallel, merges + dedups inline
   // (NOT via pkg/web/fusion - that would create an import cycle web->fusion->web.
@@ -997,7 +1057,7 @@ WebSearch(ctx, args WebSearchArgs) (WebSearchResult, error)
   // args: { query: string, num_results?: int }
   // returns: { results: [{ title, url, snippet, score }] }
 
-WebFetch(ctx, args WebFetchArgs) (WebFetchResult, error)
+WebFetch(tc agent.ToolContext, args WebFetchArgs) (WebFetchResult, error)
   // wraps the BrowserProvider interface (NOT raw exa /contents)
   // args: { url: string, max_chars?: int }
   // returns: { title, content, content_type }
@@ -1022,7 +1082,7 @@ agent, _ := llmagent.New(llmagent.Config{
         webSearchTool, webFetchTool,
     },
     GenerateContentConfig: &genai.GenerateContentConfig{
-        Temperature: genai.Float(0.4),
+        Temperature: ptr(float32(0.4)),
     },
 })
 ```
@@ -1045,77 +1105,6 @@ synthesis call. It stays as-is, but its `Config.LLMClient *llm.Client` becomes
 `Config.Summarizer llm.ChatModel`, and its `Summarize` calls become `.Chat`. The
 `dedupLLM` and `Synthesize` functions are single-shot and do not benefit from becoming
 ADK agents.
-
-### Agent migration consumer impact
-
-| Consumer | Current | New |
-|---|---|---|
-| `pkg/wiki/agent.go` | hand-rolled pipelines (Ingest/Query) | ADK `llmagent` agents with tools, run via `runner.Run` |
-| `pkg/wiki/lint.go` | pairwise `Chat` calls | ADK `llmagent` lint agent (structure stays pure Go pre-pass) |
-| `pkg/wiki/postprocess.go` | `generateDescription` (N single `Chat` calls) | deleted - the ingest agent writes `description` directly |
-| `pkg/wiki/tools.go` | (does not exist) | new - ADK `functiontool` definitions wrapping wiki Go functions |
-| `pkg/wiki/runner.go` | (does not exist) | new - ADK runner + agent factory |
-| `pkg/wiki/prompts.go` | (does not exist) | new - ADK `Instruction` strings (static parts of old prompts) |
-| `pkg/wiki/watch.go` | threads `*llm.Client` to `wiki.NewAgent` | threads `*Runner` (or deps) to `wiki.NewAgent` |
-| `pkg/mcp/wiki_tools.go` | threads `*llm.Client` to `wiki.NewAgent` | threads `*Runner` (or deps) to `wiki.NewAgent` |
-| `pkg/web/agent.go` | Go-orchestrated loop + free-text parsing | ADK `llmagent` with `WebSearch`/`WebFetch` tools |
-| `pkg/web/tools.go` | (does not exist) | new - ADK `functiontool` definitions wrapping provider interfaces |
-| `pkg/web/prompts.go` | embedded prompts | refactored - de-duplicated `Instruction` for the ADK agent |
-| `pkg/web/fusion/fusion.go` | `Config.LLMClient` -> `Summarize` | `Config.Summarizer llm.ChatModel` -> `.Chat` (not an agent) |
-| `cmd/gmd/wiki_*.go` | build `*llm.Client`, pass to `wiki.NewAgent` | build `*Runner` (via `llm.NewRegistry`), pass to `wiki.NewAgent` |
-| `cmd/gmd/web_agent.go` | build `*llm.Client`, pass to `web.NewAgent` | wire `SearchProvider`s + `BrowserProvider` + `registry.Model` into new `NewAgent` |
-
-### Agent migration implementation phases
-
-These phases are inserted into the main implementation plan after Phase 5 (cmd wiring)
-and before Phase 6 (tests), since they depend on the new `pkg/llm` types and the
-`model.LLM` interface being available.
-
-#### Phase 5a: Wiki ADK agent
-
-- Write `pkg/wiki/tools.go`: `functiontool.New` wrappers for `SearchWiki`, `ReadPage`,
-  `ReadIndex`, `CreatePage`, `UpdatePage`, `UpdateIndex`, `AppendLog`, `ListPages`,
-  `IndexPage`, `ReadSource`. Each wraps an existing Go function (`readWikiPage`,
-  `createWikiPage`, etc.) with the `tsClient`/`wiki`/`indexer` dependencies captured in
-  the tool's closure.
-- Write `pkg/wiki/prompts.go`: `Instruction` strings for ingest/query/lint agents. The
-  static parts of `ingest_system.md`/`query_system.md`/`lint_*.md` become the
-  `Instruction`; the dynamic parts (existing pages, search results) become tool results.
-- Write `pkg/wiki/runner.go`: `NewRunner(registry, wiki, tsClient, indexer, sessionSvc)`
-  builds three `llmagent` agents (ingest/query/lint) composed under a root agent, plus
-  a `runner.Runner`. Tools capture `tsClient`/`wiki`/`indexer` in closures. Expose
-  `Ingest(ctx, sourcePath)`, `Query(ctx, question)`, `Lint(ctx)` methods that create a
-  session, run, collect final event text + session state, and assemble
-  `IngestReport`/`QueryResult`/`LintResult` from tool-emitted state (NOT text parsing).
-- Rewrite `pkg/wiki/agent.go`: delete `Ingest`/`Query` pipelines, `searchOverlap`,
-  `extractKeyTerms`, `cleanJSON`, `generateDescription`. The `Agent` struct becomes a
-  thin wrapper around the ADK runner, retaining the same public `Ingest`/`Query`/`Lint`
-  method signatures. Keep `createWikiPage`/`updateWikiPage`/
-  `updateIndexFile`/`appendLogFile`/`readWikiPage`/`readSource`/`loadIndexContext` as
-  the tool implementations.
-- Rewrite `pkg/wiki/lint.go`: `lintStructure` stays pure Go. `lintContent`/`lintGaps`
-  delegate to the lint ADK agent.
-- Delete `pkg/wiki/postprocess.go`.
-
-#### Phase 5b: Web ADK agent
-
-- Write `pkg/web/tools.go`: `WebSearch` (wraps `SearchProvider` with inline fan-out/dedup,
-  NOT via fusion to avoid import cycle), `WebFetch` (wraps `BrowserProvider.GetContent`).
-- Write `pkg/web/prompts.go`: de-duplicated `Instruction` from `agent_system.md` +
-  `agent_synthesize.md`.
-- Rewrite `pkg/web/agent.go`: `NewAgent` takes `searchProviders []SearchProvider`,
-  `browserProvider BrowserProvider`, `chat llm.ChatModel` instead of raw `*exa.Client`
-  + `*llm.Client`. `Run` builds an `llmagent` + runner, sends the question, collects
-  events. Delete `analyzeResults`, `synthesize`, `formatResultsForLLM`, the `## ACTION`
-  parser. `AgentResult` stays (assembled from the final event).
-- Update `cmd/gmd/web_agent.go`: wire `SearchProvider`s + `BrowserProvider` +
-  `registry.Model(RoleGeneralBig)` into the new `NewAgent`.
-
-#### Phase 5c: Fusion update (not an agent)
-
-- `pkg/web/fusion/fusion.go`: `Config.LLMClient *llm.Client` ->
-  `Config.Summarizer llm.ChatModel`. `dedupLLM`/`Synthesize` call `.Chat` instead of
-  `.Summarize`. Update `cmd/gmd/web_search.go` wiring.
 
 ### Agent migration tests
 
@@ -1175,7 +1164,7 @@ and before Phase 6 (tests), since they depend on the new `pkg/llm` types and the
 
 1. **ADK agent migration scope.** IN SCOPE. `pkg/wiki/agent.go` and `pkg/web/agent.go`
    are migrated to ADK's `llmagent` framework as part of this rewrite. See the "ADK Agent
-   Migration" section below.
+   Migration" section above.
 
 2. **Role sizes.** All role sizes (`general_big`/`general_mid`/`general_small`) are kept
    as separate roles. No consolidation.

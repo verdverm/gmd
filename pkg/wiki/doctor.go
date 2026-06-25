@@ -18,7 +18,7 @@ type DoctorResult struct {
 	PageCount     int
 	SourceCount   int
 	TSConnected   bool
-	LLMStatus     []llm.EndpointStatus
+	LLMStatus     []llm.ProviderHealth
 	Agents        []AgentStatus
 	Errors        []string
 	FixesApplied  []string
@@ -34,7 +34,7 @@ type AgentStatus struct {
 	MCPConfigured bool
 }
 
-func Doctor(ctx context.Context, wiki *Wiki, cfg *config.Config, tsClient *ts.Client, llmClient *llm.Client) (*DoctorResult, error) {
+func Doctor(ctx context.Context, wiki *Wiki, cfg *config.Config, tsClient *ts.Client, registry *llm.Registry) (*DoctorResult, error) {
 	result := &DoctorResult{
 		WikiName: wiki.Name,
 	}
@@ -48,8 +48,8 @@ func Doctor(ctx context.Context, wiki *Wiki, cfg *config.Config, tsClient *ts.Cl
 		}
 	}
 
-	if llmClient != nil {
-		result.LLMStatus = llmClient.CheckAll(ctx)
+	if registry != nil {
+		result.LLMStatus = registry.CheckProviders(ctx)
 	}
 
 	home, err := os.UserHomeDir()

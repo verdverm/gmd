@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/verdverm/gmd/pkg/chunking"
 	"github.com/verdverm/gmd/pkg/config"
 	"github.com/verdverm/gmd/pkg/llm"
 	"github.com/verdverm/gmd/pkg/ts"
@@ -16,7 +17,7 @@ func storePath(relPath string) string {
 	return filepath.Join("wiki", relPath)
 }
 
-func indexTapedWikiPage(ctx context.Context, tsClient *ts.Client, llmClient *llm.Client, collectionKey, wikiPath, relPath string) ([]ts.ChunkDocument, error) {
+func indexTapedWikiPage(ctx context.Context, tsClient *ts.Client, embedder llm.Embedder, collectionKey, wikiPath, relPath string) ([]ts.ChunkDocument, error) {
 	fullPath := filepath.Join(wikiPath, relPath)
 	os.MkdirAll(filepath.Dir(fullPath), 0755)
 
@@ -31,9 +32,13 @@ func indexTapedWikiPage(ctx context.Context, tsClient *ts.Client, llmClient *llm
 		return nil, fmt.Errorf("delete existing: %w", err)
 	}
 
-	vec, err := llmClient.Embed(ctx, stripped)
+	vecs, err := embedder.Embed(ctx, []string{stripped})
 	if err != nil {
 		return nil, fmt.Errorf("embed content: %w", err)
+	}
+	var vec []float64
+	if len(vecs) > 0 {
+		vec = vecs[0]
 	}
 
 	tsPath := storePath(relPath)
@@ -45,6 +50,7 @@ func indexTapedWikiPage(ctx context.Context, tsClient *ts.Client, llmClient *llm
 		ChunkSeq:    0,
 		TotalChunks: 1,
 		Embedding:   vec,
+		Links:       chunking.ExtractWikilinks(stripped),
 	}
 
 	if err := tsClient.UpsertChunks(ctx, []ts.ChunkDocument{doc}); err != nil {

@@ -119,7 +119,7 @@ func availableSearchProviders(t *testing.T) []web.SearchProvider {
 	return providers
 }
 
-func llmClientOrSkip(t *testing.T) *llm.Client {
+func llmClientOrSkip(t *testing.T) llm.ChatModel {
 	t.Helper()
 
 	cfg, err := config.Load(".")
@@ -127,16 +127,17 @@ func llmClientOrSkip(t *testing.T) *llm.Client {
 		t.Skipf("config load failed: %v", err)
 	}
 
-	llmClient, err := llm.ResolveLLMConfig(cfg)
+	reg, err := llm.NewRegistry(context.Background(), cfg)
 	if err != nil {
-		t.Skipf("LLM config resolve failed: %v", err)
+		t.Skipf("LLM registry build failed: %v", err)
 	}
 
-	if llmClient.RoleModel("summarizing") == "" {
+	chat := reg.Model(llm.RoleSummarizing)
+	if chat == nil {
 		t.Skip("no LLM model configured for summarizing")
 	}
 
-	return llmClient
+	return chat
 }
 
 func TestMultiSearch_Integration(t *testing.T) {
@@ -251,15 +252,15 @@ func TestRun_Synthesis_Integration(t *testing.T) {
 		t.Skip("no search providers available")
 	}
 
-	llmClient := llmClientOrSkip(t)
-	if llmClient == nil {
+	summarizer := llmClientOrSkip(t)
+	if summarizer == nil {
 		t.Skip("llm client not available")
 	}
 
 	result, err := Run(context.Background(), "python vs javascript for web development",
 		providers,
 		web.SearchOptions{Query: "python vs javascript for web development", NumResults: 3},
-		Config{Dedup: "heuristic", Synthesize: true, LLMClient: llmClient},
+		Config{Dedup: "heuristic", Synthesize: true, Summarizer: summarizer},
 	)
 	if err != nil {
 		t.Fatalf("Run with synthesis: %v", err)
@@ -283,12 +284,12 @@ func TestRun_LLMDedup_Integration(t *testing.T) {
 		t.Skip("no search providers available")
 	}
 
-	llmClient := llmClientOrSkip(t)
+	summarizer := llmClientOrSkip(t)
 
 	result, err := Run(context.Background(), "rust programming language features",
 		providers,
 		web.SearchOptions{Query: "rust programming language features", NumResults: 3},
-		Config{Dedup: "llm", Synthesize: false, LLMClient: llmClient},
+		Config{Dedup: "llm", Synthesize: false, Summarizer: summarizer},
 	)
 	if err != nil {
 		t.Fatalf("Run with LLM dedup: %v", err)
@@ -310,7 +311,7 @@ func TestRun_CustomSynthesisPrompt_Integration(t *testing.T) {
 		t.Skip("no search providers available")
 	}
 
-	llmClient := llmClientOrSkip(t)
+	summarizer := llmClientOrSkip(t)
 
 	customPrompt := `You are a concise search synthesizer. Answer in exactly 3 bullet points. Cite sources with [](url).`
 
@@ -321,7 +322,7 @@ func TestRun_CustomSynthesisPrompt_Integration(t *testing.T) {
 			Dedup:           "heuristic",
 			Synthesize:      true,
 			SynthesisPrompt: customPrompt,
-			LLMClient:       llmClient,
+			Summarizer:      summarizer,
 		},
 	)
 	if err != nil {

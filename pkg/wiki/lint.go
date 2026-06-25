@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/verdverm/gmd/pkg/chunking"
-	"github.com/verdverm/gmd/pkg/llm"
 )
 
 type LintResult struct {
@@ -195,7 +194,7 @@ func (a *Agent) lintStructure(ctx context.Context, result *LintResult) {
 }
 
 func (a *Agent) lintContent(ctx context.Context, result *LintResult) {
-	if a.llmClient == nil {
+	if a.chat == nil {
 		return
 	}
 
@@ -230,9 +229,7 @@ func (a *Agent) lintContent(ctx context.Context, result *LintResult) {
 				truncate(pages[i].content, 2000),
 				truncate(pages[j].content, 2000),
 			)
-			resp, err := a.llmClient.Chat(ctx, []llm.ChatMessage{
-				{Role: "user", Content: prompt},
-			})
+			resp, err := a.chat.Chat(ctx, "", prompt)
 			if err != nil {
 				continue
 			}
@@ -248,7 +245,7 @@ func (a *Agent) lintContent(ctx context.Context, result *LintResult) {
 }
 
 func (a *Agent) lintGaps(ctx context.Context, result *LintResult) {
-	if a.llmClient == nil {
+	if a.chat == nil {
 		return
 	}
 
@@ -258,9 +255,7 @@ func (a *Agent) lintGaps(ctx context.Context, result *LintResult) {
 	}
 
 	prompt := LintGapPrompt(string(indexData))
-	resp, err := a.llmClient.Chat(ctx, []llm.ChatMessage{
-		{Role: "user", Content: prompt},
-	})
+	resp, err := a.chat.Chat(ctx, "", prompt)
 	if err != nil {
 		return
 	}

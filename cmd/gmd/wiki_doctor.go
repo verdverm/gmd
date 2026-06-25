@@ -41,13 +41,13 @@ Example:
 		}
 
 		tsClient := r.TSClient()
-		llmClient, err := llmConfigFromConfig(cfg)
+		registry, err := newRegistry(cfg)
 		if err != nil {
 			return fmt.Errorf("resolving LLM config: %w", err)
 		}
 
 		ctx := context.Background()
-		result, err := wiki.Doctor(ctx, w, cfg, tsClient, llmClient)
+		result, err := wiki.Doctor(ctx, w, cfg, tsClient, registry)
 		if err != nil {
 			return err
 		}

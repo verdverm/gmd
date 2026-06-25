@@ -30,17 +30,17 @@ type TSClient interface {
 type ProgressFn func(msg string)
 
 type Indexer struct {
-	cfg  *config.Config
-	ts   TSClient
-	llm  *llm.Client
-	fsys fs.FS
+	cfg      *config.Config
+	ts       TSClient
+	embedder llm.Embedder
+	fsys     fs.FS
 }
 
-func New(cfg *config.Config, tsClient TSClient, llmClient *llm.Client) *Indexer {
+func New(cfg *config.Config, tsClient TSClient, embedder llm.Embedder) *Indexer {
 	return &Indexer{
-		cfg: cfg,
-		ts:  tsClient,
-		llm: llmClient,
+		cfg:      cfg,
+		ts:       tsClient,
+		embedder: embedder,
 	}
 }
 
@@ -276,7 +276,7 @@ func (idx *Indexer) processFile(ctx context.Context, fsys fs.FS, fsPath, relPath
 	var embeddings [][]float64
 	if len(texts) > 0 {
 		var err error
-		embeddings, err = idx.llm.EmbedBatch(ctx, texts)
+		embeddings, err = idx.embedder.Embed(ctx, texts)
 		if err != nil {
 			return nil, nil, fmt.Errorf("embedding chunks: %w", err)
 		}

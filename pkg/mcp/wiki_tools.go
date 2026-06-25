@@ -21,7 +21,7 @@ type WikiTools struct {
 	agent        *wiki.Agent
 }
 
-func NewWikiTools(cfg *config.Config, tsClient *ts.Client, llmClient *llm.Client, wikiName string) *WikiTools {
+func NewWikiTools(cfg *config.Config, tsClient *ts.Client, chat llm.ChatModel, wikiName string) *WikiTools {
 	wt := &WikiTools{
 		toolHandlers: make(map[string]func(context.Context, json.RawMessage) (string, error)),
 		cfg:          cfg,
@@ -39,7 +39,7 @@ func NewWikiTools(cfg *config.Config, tsClient *ts.Client, llmClient *llm.Client
 		return wt
 	}
 
-	wt.agent = wiki.NewAgent(w, cfg, tsClient, llmClient)
+	wt.agent = wiki.NewAgent(w, cfg, tsClient, chat)
 
 	wt.toolHandlers["gmd_wiki_search"] = wt.handleSearch
 	wt.toolHandlers["gmd_wiki_get"] = wt.handleGet

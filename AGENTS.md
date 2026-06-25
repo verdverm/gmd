@@ -310,6 +310,29 @@ pkg/<name>/
 
 See `.design/test-data-capture.md` for the full design.
 
+### Test Naming Convention
+
+```
+Test<Subsystem>_<Variant>           # Unit test (no build tag)
+TestIntegration<Subsystem>_<Variant> # Integration test (//go:build integration)
+```
+
+The `_` separates the subsystem/operation from the test variant. Only one `_` allowed.
+Names must be fully descriptive — include the subsystem name even in its own package.
+No "Real" or ambiguous qualifiers in any test or tape file name.
+
+Examples:
+```
+TestWikiDoctor_FormatResultFullyConnected
+TestIntegrationWikiDoctor_WithTSAndLLM
+```
+
+Tape files follow the same naming pattern:
+```
+testdata/WikiDoctor_WithTSAndLLM.json
+testdata/WikiDoctor_WithTSNilLLM.json
+```
+
 ## Rules
 
 - Never run `gmd update`, `gmd embed`, `gmd collection create`, or `gmd wiki create` automatically.

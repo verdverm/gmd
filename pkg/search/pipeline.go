@@ -45,13 +45,15 @@ type Result struct {
 }
 
 type Pipeline struct {
-	cfg *config.Config
-	ts  *ts.Client
-	llm *llm.Client
+	cfg      *config.Config
+	ts       *ts.Client
+	embedder llm.Embedder
+	expander llm.ChatModel
+	reranker llm.Reranker
 }
 
-func New(cfg *config.Config, tsClient *ts.Client, llmClient *llm.Client) *Pipeline {
-	return &Pipeline{cfg: cfg, ts: tsClient, llm: llmClient}
+func New(cfg *config.Config, tsClient *ts.Client, embedder llm.Embedder, expander llm.ChatModel, reranker llm.Reranker) *Pipeline {
+	return &Pipeline{cfg: cfg, ts: tsClient, embedder: embedder, expander: expander, reranker: reranker}
 }
 
 func (p *Pipeline) Search(ctx context.Context, params Params, mode Mode) ([]Result, error) {
@@ -89,7 +91,7 @@ func (p *Pipeline) vectorSearch(ctx context.Context, params Params) ([]Result, e
 	if limit <= 0 {
 		limit = p.cfg.Pipeline.Output.MaxResults
 	}
-	embedding, err := p.llm.Embed(ctx, params.Query)
+	embedding, err := llm.EmbedSingle(ctx, p.embedder, params.Query)
 	if err != nil {
 		return nil, fmt.Errorf("embedding query: %w", err)
 	}
@@ -248,11 +250,10 @@ func (p *Pipeline) generateVariants(ctx context.Context, originalQuery string, i
 
 func (p *Pipeline) expandQuery(ctx context.Context, query string) (string, error) {
 	prompt := fmt.Sprintf(expansionPrompt(), query)
-	messages := []llm.ChatMessage{
-		{Role: "system", Content: "You are a search query expansion assistant. Generate precise, focused variants."},
-		{Role: "user", Content: prompt},
-	}
-	return p.llm.Chat(ctx, messages)
+	return p.expander.Chat(ctx,
+		"You are a search query expansion assistant. Generate precise, focused variants.",
+		prompt,
+	)
 }
 
 type variantResult struct {
@@ -266,7 +267,7 @@ func (p *Pipeline) searchVariants(ctx context.Context, variants []variant, colle
 	for i, v := range variants {
 		var queryVector []float64
 		if v.vecText != "" {
-			emb, err := p.llm.Embed(ctx, v.vecText)
+			emb, err := llm.EmbedSingle(ctx, p.embedder, v.vecText)
 			if err != nil {
 				return nil, fmt.Errorf("embedding variant %d: %w", i, err)
 			}
@@ -370,7 +371,7 @@ func (p *Pipeline) applyRerank(ctx context.Context, query string, candidates []f
 		documents[i] = c.result.Content
 	}
 
-	rerankResults, err := p.llm.Rerank(ctx, query, documents)
+	rerankResults, err := p.reranker.Rerank(ctx, query, documents)
 	if err != nil {
 		return err
 	}

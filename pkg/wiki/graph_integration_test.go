@@ -116,8 +116,8 @@ func TestIntegrationNeighbors_PageWithoutLinks(t *testing.T) {
 }
 
 func TestIntegrationNeighborsFromTS(t *testing.T) {
-	requireTSServices(t)
-	requireLLMServices(t)
+	c := tapeTest(t, "testdata/neighbors_from_ts.json")
+	defer c.Stop()
 
 	ctx := context.Background()
 	defer cleanupTestData(ctx, t, testCollKey)
@@ -138,13 +138,12 @@ func TestIntegrationNeighborsFromTS(t *testing.T) {
 	if err := w.Init(); err != nil {
 		t.Fatalf("Init error: %v", err)
 	}
-	agent := NewAgent(w, testCfg, testTSClient, testLLMClient)
+	agent := NewAgent(w, testCfg, c.TS, c.Chat)
 
 	if err := os.MkdirAll(filepath.Join(w.WikiPath, "entities"), 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	// Page A links to entities/B and entities/C
 	err = os.WriteFile(
 		filepath.Join(w.WikiPath, "entities", "A.md"),
 		[]byte("---\ntype: entity\n---\n# A\nLinks to [[entities/B]] and [[entities/C]].\n"),
@@ -153,12 +152,11 @@ func TestIntegrationNeighborsFromTS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = indexWikiPage(ctx, testTSClient, testCfg.CollectionKey(w.Name), w.WikiPath, "entities/A.md")
+	_, err = indexTapedWikiPage(ctx, c.TS, c.Embedder, testCfg.CollectionKey(w.Name), w.WikiPath, "entities/A.md")
 	if err != nil {
-		t.Fatalf("indexWikiPage error: %v", err)
+		t.Fatalf("indexTapedWikiPage error: %v", err)
 	}
 
-	// Page B links to entities/A
 	err = os.WriteFile(
 		filepath.Join(w.WikiPath, "entities", "B.md"),
 		[]byte("---\ntype: entity\n---\n# B\nLinks to [[entities/A]].\n"),
@@ -167,12 +165,11 @@ func TestIntegrationNeighborsFromTS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = indexWikiPage(ctx, testTSClient, testCfg.CollectionKey(w.Name), w.WikiPath, "entities/B.md")
+	_, err = indexTapedWikiPage(ctx, c.TS, c.Embedder, testCfg.CollectionKey(w.Name), w.WikiPath, "entities/B.md")
 	if err != nil {
-		t.Fatalf("indexWikiPage error: %v", err)
+		t.Fatalf("indexTapedWikiPage error: %v", err)
 	}
 
-	// Find inbound links to entities/B — should find A
 	result, err := agent.NeighborsFromTS(ctx, "entities/B")
 	if err != nil {
 		t.Fatalf("NeighborsFromTS error: %v", err)

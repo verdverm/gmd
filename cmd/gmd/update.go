@@ -7,24 +7,19 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/verdverm/gmd/pkg/indexer"
-	"github.com/verdverm/gmd/pkg/llm"
 )
-
-func makeLLMClient() (*llm.Client, error) {
-	cfg := globalRuntime.Config()
-	return llmConfigFromConfig(cfg)
-}
 
 func runIndex(msg string) error {
 	r, err := getRuntime()
 	if err != nil {
 		return err
 	}
-	llmClient, err := makeLLMClient()
+	cfg := r.Config()
+	registry, err := newRegistry(cfg)
 	if err != nil {
 		return err
 	}
-	idx := indexer.New(r.Config(), r.TSClient(), llmClient)
+	idx := indexer.New(r.Config(), r.TSClient(), registry.Embedder())
 	ctx := context.Background()
 	progress := func(m string) { fmt.Println(m) }
 	result, err := idx.UpdateAll(ctx, progress)

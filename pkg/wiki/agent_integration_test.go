@@ -389,8 +389,8 @@ func TestIntegrationSaveQueryResult(t *testing.T) {
 }
 
 func TestIntegrationSearchOverlap_WithResults(t *testing.T) {
-	requireTSServices(t)
-	requireLLMServices(t)
+	c := tapeTest(t, "testdata/search_overlap.json")
+	defer c.Stop()
 
 	ctx := context.Background()
 	defer cleanupTestData(ctx, t, testCollKey)
@@ -411,21 +411,18 @@ func TestIntegrationSearchOverlap_WithResults(t *testing.T) {
 	if err := w.Init(); err != nil {
 		t.Fatalf("Init error: %v", err)
 	}
-	agent := NewAgent(w, testCfg, testTSClient, testLLMClient)
+	agent := NewAgent(w, testCfg, c.TS, c.Chat)
 
-	// Write a wiki page with content that overlaps with the search terms
 	pageRel := "entities/overlap-test.md"
 	fullPath := filepath.Join(w.WikiPath, pageRel)
 	os.MkdirAll(filepath.Dir(fullPath), 0755)
 	os.WriteFile(fullPath, []byte("---\ntype: entity\n---\n# Machine Learning\n\nMachine learning artificial intelligence concepts.\n"), 0644)
 
-	// Index the page (reads the existing file)
-	_, err = indexWikiPage(ctx, testTSClient, testCfg.CollectionKey(w.Name), w.WikiPath, pageRel)
+	_, err = indexTapedWikiPage(ctx, c.TS, c.Embedder, testCfg.CollectionKey(w.Name), w.WikiPath, pageRel)
 	if err != nil {
-		t.Fatalf("indexWikiPage error: %v", err)
+		t.Fatalf("indexTapedWikiPage error: %v", err)
 	}
 
-	// Search for overlapping content — the indexed content matches these terms
 	overlap := agent.searchOverlap(ctx, "machine learning artificial intelligence")
 
 	if len(overlap) == 0 {
@@ -435,8 +432,8 @@ func TestIntegrationSearchOverlap_WithResults(t *testing.T) {
 }
 
 func TestIntegrationQuery_Basic(t *testing.T) {
-	requireTSServices(t)
-	requireLLMServices(t)
+	c := tapeTest(t, "testdata/query_basic.json")
+	defer c.Stop()
 
 	ctx := context.Background()
 	defer cleanupTestData(ctx, t, testCollKey)
@@ -457,19 +454,17 @@ func TestIntegrationQuery_Basic(t *testing.T) {
 	if err := w.Init(); err != nil {
 		t.Fatalf("Init error: %v", err)
 	}
-	agent := NewAgent(w, testCfg, testTSClient, testLLMClient)
+	agent := NewAgent(w, testCfg, c.TS, c.Chat)
 
-	// Create and index a wiki page
 	pageRel := "entities/query-test.md"
 	fullPath := filepath.Join(w.WikiPath, pageRel)
 	os.MkdirAll(filepath.Dir(fullPath), 0755)
 	pageContent := "---\ntype: entity\n---\n\n# Query Test\n\nThis page is about machine learning and artificial intelligence.\n"
 	os.WriteFile(fullPath, []byte(pageContent), 0644)
 
-	// Index it in TS
-	_, err = indexWikiPage(ctx, testTSClient, testCfg.CollectionKey(w.Name), w.WikiPath, pageRel)
+	_, err = indexTapedWikiPage(ctx, c.TS, c.Embedder, testCfg.CollectionKey(w.Name), w.WikiPath, pageRel)
 	if err != nil {
-		t.Fatalf("indexWikiPage error: %v", err)
+		t.Fatalf("indexTapedWikiPage error: %v", err)
 	}
 
 	result, err := agent.Query(ctx, "machine learning", QueryOpts{Save: false, Limit: 3})
@@ -483,8 +478,8 @@ func TestIntegrationQuery_Basic(t *testing.T) {
 }
 
 func TestIntegrationQuery_DefaultLimit(t *testing.T) {
-	requireTSServices(t)
-	requireLLMServices(t)
+	c := tapeTest(t, "testdata/query_default_limit.json")
+	defer c.Stop()
 
 	ctx := context.Background()
 	defer cleanupTestData(ctx, t, testCollKey)
@@ -505,19 +500,18 @@ func TestIntegrationQuery_DefaultLimit(t *testing.T) {
 	if err := w.Init(); err != nil {
 		t.Fatalf("Init error: %v", err)
 	}
-	agent := NewAgent(w, testCfg, testTSClient, testLLMClient)
+	agent := NewAgent(w, testCfg, c.TS, c.Chat)
 
 	pageRel := "entities/default-limit-test.md"
 	fullPath := filepath.Join(w.WikiPath, pageRel)
 	os.MkdirAll(filepath.Dir(fullPath), 0755)
 	os.WriteFile(fullPath, []byte("---\ntype: entity\n---\n\n# Default Limit\nContent.\n"), 0644)
 
-	_, err = indexWikiPage(ctx, testTSClient, testCfg.CollectionKey(w.Name), w.WikiPath, pageRel)
+	_, err = indexTapedWikiPage(ctx, c.TS, c.Embedder, testCfg.CollectionKey(w.Name), w.WikiPath, pageRel)
 	if err != nil {
-		t.Fatalf("indexWikiPage error: %v", err)
+		t.Fatalf("indexTapedWikiPage error: %v", err)
 	}
 
-	// Limit=0 should default to 5
 	result, err := agent.Query(ctx, "test", QueryOpts{Save: false, Limit: 0})
 	if err != nil {
 		t.Fatalf("Query error: %v", err)
@@ -528,8 +522,8 @@ func TestIntegrationQuery_DefaultLimit(t *testing.T) {
 }
 
 func TestIntegrationQuery_WithSave(t *testing.T) {
-	requireTSServices(t)
-	requireLLMServices(t)
+	c := tapeTest(t, "testdata/query_with_save.json")
+	defer c.Stop()
 
 	ctx := context.Background()
 	defer cleanupTestData(ctx, t, testCollKey)
@@ -550,16 +544,16 @@ func TestIntegrationQuery_WithSave(t *testing.T) {
 	if err := w.Init(); err != nil {
 		t.Fatalf("Init error: %v", err)
 	}
-	agent := NewAgent(w, testCfg, testTSClient, testLLMClient)
+	agent := NewAgent(w, testCfg, c.TS, c.Chat)
 
 	pageRel := "entities/query-save-test.md"
 	fullPath := filepath.Join(w.WikiPath, pageRel)
 	os.MkdirAll(filepath.Dir(fullPath), 0755)
 	os.WriteFile(fullPath, []byte("---\ntype: entity\n---\n\n# Save Test\nContent about machine learning.\n"), 0644)
 
-	_, err = indexWikiPage(ctx, testTSClient, testCfg.CollectionKey(w.Name), w.WikiPath, pageRel)
+	_, err = indexTapedWikiPage(ctx, c.TS, c.Embedder, testCfg.CollectionKey(w.Name), w.WikiPath, pageRel)
 	if err != nil {
-		t.Fatalf("indexWikiPage error: %v", err)
+		t.Fatalf("indexTapedWikiPage error: %v", err)
 	}
 
 	result, err := agent.Query(ctx, "machine learning", QueryOpts{Save: true, Limit: 3})
@@ -572,8 +566,8 @@ func TestIntegrationQuery_WithSave(t *testing.T) {
 }
 
 func TestIntegrationIngest_CreatesPagesAndUpdatesIndex(t *testing.T) {
-	requireTSServices(t)
-	requireLLMServices(t)
+	c := tapeTest(t, "testdata/ingest_create.json")
+	defer c.Stop()
 
 	ctx := context.Background()
 	defer cleanupTestData(ctx, t, testCollKey)
@@ -594,7 +588,7 @@ func TestIntegrationIngest_CreatesPagesAndUpdatesIndex(t *testing.T) {
 	if err := w.Init(); err != nil {
 		t.Fatalf("Init error: %v", err)
 	}
-	agent := NewAgent(w, testCfg, testTSClient, testLLMClient)
+	agent := NewAgent(w, testCfg, c.TS, c.Chat)
 
 	// Write source file into raw/
 	sourceContent := `# Go Channels

@@ -16,7 +16,7 @@ type Config struct {
 	Dedup           string // "heuristic", "llm", "none"
 	Synthesize      bool
 	SynthesisPrompt string // custom system prompt (overrides default)
-	LLMClient       *llm.Client
+	Summarizer      llm.ChatModel
 }
 
 // Result is the output of a fused multi-provider search.
@@ -45,7 +45,7 @@ func Run(ctx context.Context, query string, providers []web.SearchProvider, opts
 	})
 
 	var answer string
-	if cfg.Synthesize && cfg.LLMClient != nil {
+	if cfg.Synthesize && cfg.Summarizer != nil {
 		answer, err = Synthesize(ctx, query, deduped, cfg)
 		if err != nil {
 			return nil, fmt.Errorf("synthesizing: %w", err)
@@ -180,7 +180,7 @@ func dedupHeuristic(results []web.SearchResult) []web.SearchResult {
 }
 
 func dedupLLM(ctx context.Context, results []web.SearchResult, cfg Config) ([]web.SearchResult, error) {
-	if cfg.LLMClient == nil {
+	if cfg.Summarizer == nil {
 		return results, nil
 	}
 
@@ -190,15 +190,9 @@ func dedupLLM(ctx context.Context, results []web.SearchResult, cfg Config) ([]we
 		fmt.Fprintf(&sb, "[%d] %s (%s) — %s\n", i, r.Title, r.URL, truncateStr(r.Content, 300))
 	}
 
-	messages := []llm.ChatMessage{
-		{
-			Role:    "system",
-			Content: "You deduplicate search results. Output a JSON array of indices to KEEP. Example: [0, 2, 5]. Only output the array, no other text.",
-		},
-		{Role: "user", Content: sb.String()},
-	}
+	systemPrompt := "You deduplicate search results. Output a JSON array of indices to KEEP. Example: [0, 2, 5]. Only output the array, no other text."
 
-	resp, err := cfg.LLMClient.Summarize(ctx, messages)
+	resp, err := cfg.Summarizer.Chat(ctx, systemPrompt, sb.String())
 	if err != nil {
 		return dedupHeuristic(results), nil
 	}
@@ -219,7 +213,7 @@ func dedupLLM(ctx context.Context, results []web.SearchResult, cfg Config) ([]we
 
 // Synthesize produces a unified answer from search results.
 func Synthesize(ctx context.Context, query string, results []web.SearchResult, cfg Config) (string, error) {
-	if cfg.LLMClient == nil {
+	if cfg.Summarizer == nil {
 		return "", fmt.Errorf("LLM client is required for synthesis")
 	}
 
@@ -241,12 +235,9 @@ func Synthesize(ctx context.Context, query string, results []web.SearchResult, c
 		systemPrompt = searchSynthesisPrompt()
 	}
 
-	messages := []llm.ChatMessage{
-		{Role: "system", Content: systemPrompt},
-		{Role: "user", Content: fmt.Sprintf("Query: %s\n\nSearch results:\n%s\nSynthesize a comprehensive answer.", query, sb.String())},
-	}
+	userContent := fmt.Sprintf("Query: %s\n\nSearch results:\n%s\nSynthesize a comprehensive answer.", query, sb.String())
 
-	return cfg.LLMClient.Summarize(ctx, messages)
+	return cfg.Summarizer.Chat(ctx, systemPrompt, userContent)
 }
 
 func providerName(sp web.SearchProvider) string {

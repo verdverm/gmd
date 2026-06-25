@@ -7,6 +7,8 @@
 
 ## Random
 
+- truncation in fusion, where else?
+- (system and other) prompts in Go code
 - filters/facets for coll/wiki search
 - prompt processing package (what was this?)
 - work on agent/research, agentsmd -> craft new command(s) for installing/removing our agents, etc... && 'gdm agent' generally to launch and agent in various modes

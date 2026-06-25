@@ -9,8 +9,8 @@ import (
 	"github.com/verdverm/gmd/pkg/llm"
 )
 
-func generateDescription(ctx context.Context, pagePath string, llmClient *llm.Client) error {
-	if llmClient == nil {
+func generateDescription(ctx context.Context, pagePath string, chat llm.ChatModel) error {
+	if chat == nil {
 		return nil
 	}
 	data, err := os.ReadFile(pagePath)
@@ -38,9 +38,7 @@ func generateDescription(ctx context.Context, pagePath string, llmClient *llm.Cl
 	}
 
 	msg := "Generate a single-sentence description (max 150 chars) for this wiki page: " + toSummarize
-	resp, err := llmClient.Chat(ctx, []llm.ChatMessage{
-		{Role: "user", Content: msg},
-	})
+	resp, err := chat.Chat(ctx, "", msg)
 	if err != nil {
 		return fmt.Errorf("generating description: %w", err)
 	}

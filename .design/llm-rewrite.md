@@ -4,7 +4,7 @@
 |---|---|
 | Created | 2026-06-22 |
 | Last Update | 2026-06-22 |
-| Phase | Design (not yet implementing) |
+| Phase | Phases 1-5 implemented (2026-06-22); Phases 6-10 pending |
 | Supersedes | `.design/llm-providers.md` (that design was implemented; this rewrites the result) |
 
 ## Context

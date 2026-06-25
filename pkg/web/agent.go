@@ -12,7 +12,7 @@ import (
 
 type Agent struct {
 	exaClient      *exa.Client
-	llmClient      *llm.Client
+	chat           llm.ChatModel
 	maxSteps       int
 	resultsPerStep int
 	fetchText      bool
@@ -36,7 +36,7 @@ type AgentSource struct {
 	Text  string
 }
 
-func NewAgent(exaClient *exa.Client, llmClient *llm.Client, cfg AgentConfig) *Agent {
+func NewAgent(exaClient *exa.Client, chat llm.ChatModel, cfg AgentConfig) *Agent {
 	if cfg.MaxSteps <= 0 {
 		cfg.MaxSteps = 3
 	}
@@ -45,7 +45,7 @@ func NewAgent(exaClient *exa.Client, llmClient *llm.Client, cfg AgentConfig) *Ag
 	}
 	return &Agent{
 		exaClient:      exaClient,
-		llmClient:      llmClient,
+		chat:           chat,
 		maxSteps:       cfg.MaxSteps,
 		resultsPerStep: cfg.ResultsPerStep,
 		fetchText:      cfg.FetchText,
@@ -171,12 +171,9 @@ func (a *Agent) analyzeResults(ctx context.Context, query string, results []exa.
 
 	prompt := strings.ReplaceAll(agentSystemPrompt(), "{query}", query)
 
-	messages := []llm.ChatMessage{
-		{Role: "system", Content: prompt},
-		{Role: "user", Content: fmt.Sprintf("User question: %s\n\nSearch results:\n%s\n\nReview these results and decide whether to search more or synthesize an answer. Return your decision using ## ACTION (DONE or SEARCH_MORE) and if SEARCH_MORE, list queries under ## QUERIES.", query, resultsText)},
-	}
+	userContent := fmt.Sprintf("User question: %s\n\nSearch results:\n%s\n\nReview these results and decide whether to search more or synthesize an answer. Return your decision using ## ACTION (DONE or SEARCH_MORE) and if SEARCH_MORE, list queries under ## QUERIES.", query, resultsText)
 
-	resp, err := a.llmClient.Chat(ctx, messages)
+	resp, err := a.chat.Chat(ctx, prompt, userContent)
 	if err != nil {
 		return "", nil, fmt.Errorf("LLM analysis failed: %w", err)
 	}
@@ -214,12 +211,7 @@ func (a *Agent) synthesize(ctx context.Context, query string, results []exa.Sear
 	prompt := strings.ReplaceAll(agentSynthesizePrompt(), "{query}", query)
 	prompt = strings.ReplaceAll(prompt, "{results}", resultsText)
 
-	messages := []llm.ChatMessage{
-		{Role: "system", Content: prompt},
-		{Role: "user", Content: fmt.Sprintf("Synthesize a comprehensive answer to: %s", query)},
-	}
-
-	resp, err := a.llmClient.Summarize(ctx, messages)
+	resp, err := a.chat.Chat(ctx, prompt, fmt.Sprintf("Synthesize a comprehensive answer to: %s", query))
 	if err != nil {
 		return "", err
 	}

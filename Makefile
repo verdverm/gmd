@@ -50,7 +50,7 @@ test:
 	CGO_ENABLED=$(CGO_ENABLED) $(GO) test ./... -v -count=1
 
 test.integration: clean-ts
-	CGO_ENABLED=$(CGO_ENABLED) $(GO) test -p 1 ./... -v -count=1 -tags=integration
+	CGO_ENABLED=$(CGO_ENABLED) $(GO) test -p 1 ./... -v -count=1 -tags=integration -timeout 30m
 
 cover:
 	CGO_ENABLED=$(CGO_ENABLED) $(GO) test ./... -cover -count=1

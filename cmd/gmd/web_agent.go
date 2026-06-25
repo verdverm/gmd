@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/verdverm/gmd/pkg/llm"
 	"github.com/verdverm/gmd/pkg/web"
 	"github.com/verdverm/gmd/pkg/web/exa"
 	"github.com/verdverm/gmd/pkg/web/persist"
@@ -49,7 +50,7 @@ Examples:
 
 		exaClient := exa.New(config.Web.EXA.APIKey, nil)
 
-		llmClient, err := llmConfigFromConfig(config)
+		registry, err := newRegistry(config)
 		if err != nil {
 			return fmt.Errorf("resolving LLM config: %w", err)
 		}
@@ -62,7 +63,7 @@ Examples:
 			maxSteps = 5
 		}
 
-		agent := web.NewAgent(exaClient, llmClient, web.AgentConfig{
+		agent := web.NewAgent(exaClient, registry.Model(llm.RoleGeneralBig), web.AgentConfig{
 			MaxSteps:       maxSteps,
 			ResultsPerStep: webAgentLimit,
 			FetchText:      webAgentText,

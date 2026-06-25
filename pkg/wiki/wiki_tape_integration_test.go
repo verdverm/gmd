@@ -23,46 +23,17 @@ func maybeNewTape(t *testing.T, filePath string) *testutil.Tape {
 	return testutil.NewTape(filePath, "", nil, testutil.ModeRecord)
 }
 
-func buildTapedLLMClient(t *testing.T, tape *testutil.Tape) *llm.Client {
+func buildTapedRegistry(t *testing.T, tape *testutil.Tape) *llm.Registry {
 	t.Helper()
-	providers := make(map[string]llm.ProviderConfig)
-	for name, pc := range testCfg.LLM.Providers {
-		providers[name] = llm.ProviderConfig{
-			Name:       pc.Name,
-			BaseURL:    pc.BaseURL,
-			Auth:       pc.Auth,
-			AuthData:   pc.AuthData,
-			HTTPClient: &http.Client{Transport: tape.Transport()},
-		}
+	var opts []llm.RegistryOption
+	for name := range testCfg.LLM.Providers {
+		opts = append(opts, llm.WithProviderTransport(name, &http.Client{Transport: tape.Transport()}))
 	}
-
-	profileName := testCfg.LLM.Profile
-	if profileName == "" {
-		profileName = "default"
-	}
-	profileCfg := testCfg.LLM.Profiles[profileName]
-	profile := llm.Profile{}
-
-	setRole := func(target *llm.RoleConfig, rc *config.LLMRoleConfig) {
-		if rc == nil {
-			return
-		}
-		target.Provider = rc.Provider
-		target.Model = rc.Model
-	}
-	setRole(&profile.Embedding, profileCfg.Embedding)
-	setRole(&profile.Expansion, profileCfg.Expansion)
-	setRole(&profile.Rerank, profileCfg.Rerank)
-	setRole(&profile.Summarizing, profileCfg.Summarizing)
-	setRole(&profile.GeneralBig, profileCfg.GeneralBig)
-	setRole(&profile.GeneralMid, profileCfg.GeneralMid)
-	setRole(&profile.GeneralSmall, profileCfg.GeneralSmall)
-
-	client, err := llm.BuildAllClients(providers, profile)
+	reg, err := llm.NewRegistry(context.Background(), testCfg, opts...)
 	if err != nil {
-		t.Fatalf("BuildAllClients: %v", err)
+		t.Fatalf("NewRegistry: %v", err)
 	}
-	return client
+	return reg
 }
 
 func buildTapedTSCWikiClient(t *testing.T, tape *testutil.Tape) *ts.Client {
@@ -78,23 +49,35 @@ func TestIntegrationQueryFlow_Record(t *testing.T) {
 	requireTSServices(t)
 	requireLLMServices(t)
 
-	tape := maybeNewTape(t, "testdata/query_flow.json")
-	if tape == nil {
-		t.Skip("GMD_NORECORD=1, skipping tape recording")
-	}
-	tape.Start()
-	defer func() {
-		if err := tape.Stop(); err != nil {
-			t.Fatal(err)
-		}
-	}()
-
-	tapedTS := buildTapedTSCWikiClient(t, tape)
-	tapedLLM := buildTapedLLMClient(t, tape)
-
 	ctx := context.Background()
+
+	tape := maybeNewTape(t, "testdata/query_flow.json")
+
+	var (
+		tsClient  *ts.Client
+		embedder  llm.Embedder
+		chatModel llm.ChatModel
+	)
+
+	if tape != nil {
+		tape.Start()
+		defer func() {
+			if err := tape.Stop(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+		tsClient = buildTapedTSCWikiClient(t, tape)
+		reg := buildTapedRegistry(t, tape)
+		embedder = reg.Embedder()
+		chatModel = reg.Model(llm.RoleGeneralBig)
+	} else {
+		tsClient = testTSClient
+		embedder = testRegistry.Embedder()
+		chatModel = testRegistry.Model(llm.RoleGeneralBig)
+	}
+
 	defer func() {
-		if err := tapedTS.DeleteChunksByCollection(ctx, testCollKey); err != nil {
+		if err := tsClient.DeleteChunksByCollection(ctx, testCollKey); err != nil {
 			t.Logf("cleanup: %v", err)
 		}
 	}()
@@ -115,7 +98,7 @@ func TestIntegrationQueryFlow_Record(t *testing.T) {
 	if err := w.Init(); err != nil {
 		t.Fatalf("Init error: %v", err)
 	}
-	agent := NewAgent(w, testCfg, tapedTS, tapedLLM)
+	agent := NewAgent(w, testCfg, tsClient, chatModel)
 
 	pageRel := "entities/query-test.md"
 	fullPath := filepath.Join(w.WikiPath, pageRel)
@@ -123,7 +106,7 @@ func TestIntegrationQueryFlow_Record(t *testing.T) {
 	pageContent := "---\ntype: entity\n---\n\n# Query Test\n\nThis page is about machine learning and artificial intelligence.\n"
 	os.WriteFile(fullPath, []byte(pageContent), 0644)
 
-	_, err = indexTapedWikiPage(ctx, tapedTS, tapedLLM, testCfg.CollectionKey(w.Name), w.WikiPath, pageRel)
+	_, err = indexTapedWikiPage(ctx, tsClient, embedder, testCfg.CollectionKey(w.Name), w.WikiPath, pageRel)
 	if err != nil {
 		t.Fatalf("indexTapedWikiPage error: %v", err)
 	}
@@ -135,7 +118,6 @@ func TestIntegrationQueryFlow_Record(t *testing.T) {
 	if result.Answer == "" {
 		t.Error("expected non-empty answer")
 	}
-	t.Logf("Query answer (%d chars): %s", len(result.Answer), result.Answer[:minInt(len(result.Answer), 200)])
 }
 
 func TestIntegrationIngestFlow_Record(t *testing.T) {
@@ -154,7 +136,7 @@ func TestIntegrationIngestFlow_Record(t *testing.T) {
 	}()
 
 	tapedTS := buildTapedTSCWikiClient(t, tape)
-	tapedLLM := buildTapedLLMClient(t, tape)
+	tapedRegistry := buildTapedRegistry(t, tape)
 
 	ctx := context.Background()
 	defer func() {
@@ -179,7 +161,7 @@ func TestIntegrationIngestFlow_Record(t *testing.T) {
 	if err := w.Init(); err != nil {
 		t.Fatalf("Init error: %v", err)
 	}
-	agent := NewAgent(w, testCfg, tapedTS, tapedLLM)
+	agent := NewAgent(w, testCfg, tapedTS, tapedRegistry.Model(llm.RoleGeneralBig))
 
 	sourceContent := `# Go Channels
 
@@ -242,10 +224,10 @@ func TestIntegrationLintContentFlow_Record(t *testing.T) {
 		}
 	}()
 
-	tapedLLM := buildTapedLLMClient(t, tape)
+	tapedRegistry := buildTapedRegistry(t, tape)
 
 	_, agent := newTestWikiAgent(t)
-	agent.llmClient = tapedLLM
+	agent.chat = tapedRegistry.Model(llm.RoleGeneralBig)
 
 	os.MkdirAll(filepath.Join(agent.wiki.WikiPath, "entities"), 0755)
 	os.WriteFile(filepath.Join(agent.wiki.WikiPath, "entities", "a.md"), []byte("# Page A\nMachine learning is a field of AI.\n"), 0644)

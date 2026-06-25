@@ -20,17 +20,17 @@ type Agent struct {
 	wiki       *Wiki
 	cfg        *config.Config
 	tsClient   *ts.Client
-	llmClient  *llm.Client
+	chat       llm.ChatModel
 	schema     string
 	indexCache map[string]string
 }
 
-func NewAgent(wiki *Wiki, cfg *config.Config, tsClient *ts.Client, llmClient *llm.Client) *Agent {
+func NewAgent(wiki *Wiki, cfg *config.Config, tsClient *ts.Client, chat llm.ChatModel) *Agent {
 	return &Agent{
 		wiki:       wiki,
 		cfg:        cfg,
 		tsClient:   tsClient,
-		llmClient:  llmClient,
+		chat:       chat,
 		schema:     SchemaPrompt(),
 		indexCache: make(map[string]string),
 	}
@@ -108,12 +108,8 @@ func (a *Agent) Ingest(ctx context.Context, sourcePath string, opts IngestOpts) 
 	}
 
 	systemPrompt := IngestSystemPrompt(existingPages)
-	messages := []llm.ChatMessage{
-		{Role: "system", Content: systemPrompt},
-		{Role: "user", Content: sourceContent},
-	}
 
-	response, err := a.llmClient.Chat(ctx, messages)
+	response, err := a.chat.Chat(ctx, systemPrompt, sourceContent)
 	if err != nil {
 		return report, fmt.Errorf("LLM ingest: %w", err)
 	}
@@ -145,7 +141,7 @@ func (a *Agent) Ingest(ctx context.Context, sourcePath string, opts IngestOpts) 
 			} else {
 				report.CreatedPages = append(report.CreatedPages, action.Page)
 				pagePath := filepath.Join(a.wiki.WikiPath, action.Page)
-				_ = generateDescription(ctx, pagePath, a.llmClient)
+				_ = generateDescription(ctx, pagePath, a.chat)
 			}
 		case "update", "merge":
 			if err := a.updateWikiPage(action); err != nil {
@@ -340,12 +336,8 @@ func (a *Agent) Query(ctx context.Context, question string, opts QueryOpts) (*Qu
 	}
 
 	systemPrompt := QuerySystemPrompt(pageContents)
-	messages := []llm.ChatMessage{
-		{Role: "system", Content: systemPrompt},
-		{Role: "user", Content: question},
-	}
 
-	answer, err := a.llmClient.Chat(ctx, messages)
+	answer, err := a.chat.Chat(ctx, systemPrompt, question)
 	if err != nil {
 		return nil, fmt.Errorf("LLM query: %w", err)
 	}

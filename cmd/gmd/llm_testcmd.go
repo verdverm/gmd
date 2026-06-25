@@ -3,10 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"strings"
 
-	"github.com/openai/openai-go/v3"
-	"github.com/openai/openai-go/v3/shared"
 	"github.com/spf13/cobra"
 	"github.com/verdverm/gmd/pkg/config"
 	"github.com/verdverm/gmd/pkg/llm"
@@ -26,62 +23,60 @@ Example:
 			return err
 		}
 		providerName := args[0]
-		pc, ok := cfg.LLM.Providers[providerName]
-		if !ok {
+		if _, ok := cfg.LLM.Providers[providerName]; !ok {
 			return fmt.Errorf("provider %q not found", providerName)
 		}
 
-		providerCfg := llm.ProviderConfig{
-			Name:     pc.Name,
-			BaseURL:  pc.BaseURL,
-			Auth:     pc.Auth,
-			AuthData: pc.AuthData,
-		}
-		client, err := llm.BuildClient(providerCfg)
+		registry, err := newRegistry(cfg)
 		if err != nil {
-			return fmt.Errorf("building client: %w", err)
+			return fmt.Errorf("building registry: %w", err)
 		}
 
 		model := findModelForProvider(cfg, providerName)
 		if model == "" {
-			page, err := client.Models.List(context.Background())
-			if err != nil {
-				return fmt.Errorf("listing models: %w", err)
-			}
-			for _, m := range page.Data {
-				lower := strings.ToLower(m.ID)
-				if strings.Contains(lower, "chat") || strings.Contains(lower, "gpt") ||
-					strings.Contains(lower, "claude") || strings.Contains(lower, "qwen") ||
-					strings.Contains(lower, "instruct") {
-					model = m.ID
+			// Use any role's model from this provider
+			for _, role := range registry.Roles() {
+				m := registry.Model(role)
+				if m != nil {
+					model = m.Name()
 					break
 				}
-			}
-			if model == "" && len(page.Data) > 0 {
-				model = page.Data[0].ID
 			}
 		}
 		if model == "" {
 			return fmt.Errorf("no model found for provider %q", providerName)
 		}
 
+		// Find a ChatModel for this provider
+		var chatModel llm.ChatModel
+		for _, role := range registry.Roles() {
+			m := registry.Model(role)
+			if m != nil && m.Name() == model {
+				chatModel = m
+				break
+			}
+		}
+		if chatModel == nil {
+			// Fall back to any available model
+			for _, role := range registry.Roles() {
+				if m := registry.Model(role); m != nil {
+					chatModel = m
+					break
+				}
+			}
+		}
+		if chatModel == nil {
+			return fmt.Errorf("no chat model available for provider %q", providerName)
+		}
+
 		fmt.Printf("Testing %s with model %s...\n", providerName, model)
 
-		resp, err := client.Chat.Completions.New(context.Background(), openai.ChatCompletionNewParams{
-			Model: shared.ChatModel(model), //nolint:unconvert // required for string→ChatModel conversion
-			Messages: []openai.ChatCompletionMessageParamUnion{
-				openai.UserMessage("Say hello and identify yourself briefly."),
-			},
-		})
+		resp, err := chatModel.Chat(context.Background(), "", "Say hello and identify yourself briefly.")
 		if err != nil {
 			return fmt.Errorf("chat: %w", err)
 		}
 
-		if len(resp.Choices) > 0 {
-			fmt.Println(resp.Choices[0].Message.Content)
-		} else {
-			fmt.Println("No response received")
-		}
+		fmt.Println(resp)
 		return nil
 	},
 }

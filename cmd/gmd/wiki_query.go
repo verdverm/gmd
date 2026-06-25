@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/verdverm/gmd/pkg/llm"
 	"github.com/verdverm/gmd/pkg/wiki"
 )
 
@@ -40,12 +41,12 @@ Example:
 		}
 
 		tsClient := r.TSClient()
-		llmClient, err := llmConfigFromConfig(cfg)
+		registry, err := newRegistry(cfg)
 		if err != nil {
 			return fmt.Errorf("resolving LLM config: %w", err)
 		}
 
-		agent := wiki.NewAgent(w, cfg, tsClient, llmClient)
+		agent := wiki.NewAgent(w, cfg, tsClient, registry.Model(llm.RoleGeneralBig))
 
 		limit, _ := cmd.Flags().GetInt("limit")
 		save, _ := cmd.Flags().GetBool("save")

@@ -14,20 +14,20 @@ import (
 )
 
 type Watcher struct {
-	wiki      *Wiki
-	cfg       *config.Config
-	tsClient  *ts.Client
-	llmClient *llm.Client
-	agent     *Agent
+	wiki     *Wiki
+	cfg      *config.Config
+	tsClient *ts.Client
+	chat     llm.ChatModel
+	agent    *Agent
 }
 
-func NewWatcher(wiki *Wiki, cfg *config.Config, tsClient *ts.Client, llmClient *llm.Client) *Watcher {
+func NewWatcher(wiki *Wiki, cfg *config.Config, tsClient *ts.Client, chat llm.ChatModel) *Watcher {
 	return &Watcher{
-		wiki:      wiki,
-		cfg:       cfg,
-		tsClient:  tsClient,
-		llmClient: llmClient,
-		agent:     NewAgent(wiki, cfg, tsClient, llmClient),
+		wiki:     wiki,
+		cfg:      cfg,
+		tsClient: tsClient,
+		chat:     chat,
+		agent:    NewAgent(wiki, cfg, tsClient, chat),
 	}
 }
 

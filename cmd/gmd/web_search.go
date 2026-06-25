@@ -117,20 +117,20 @@ Examples:
 			synthesisPrompt = webSearchSynthesisPrompt
 		}
 
-		var llmClient *llm.Client
+		var summarizer llm.ChatModel
 		if synthesize || dedup == "llm" {
-			var err error
-			llmClient, err = llmConfigFromConfig(config)
+			registry, err := newRegistry(config)
 			if err != nil {
 				return fmt.Errorf("resolving LLM config: %w", err)
 			}
+			summarizer = registry.Model(llm.RoleSummarizing)
 		}
 
 		fcfg := fusion.Config{
 			Dedup:           dedup,
 			Synthesize:      synthesize,
 			SynthesisPrompt: synthesisPrompt,
-			LLMClient:       llmClient,
+			Summarizer:      summarizer,
 		}
 
 		result, err := fusion.Run(ctx, args[0], providers, opts, fcfg)
@@ -152,7 +152,7 @@ Examples:
 				LLMProfile:    config.LLM.Profile,
 				Flags:         searchFlagsMap(dedup, synthesize, synthesisPrompt),
 			}
-			if llmClient != nil {
+			if summarizer != nil {
 				resolved := resolveSearchLLMModel(config)
 				if resolved != "" {
 					meta.LLMModel = resolved

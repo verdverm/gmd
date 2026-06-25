@@ -119,3 +119,37 @@ func TestWebPersistenceConfig_JSONTags(t *testing.T) {
 		t.Error("Dir should be test")
 	}
 }
+
+func TestMergeProviders_Additive(t *testing.T) {
+	dst := defaultConfig()
+
+	src := &Config{
+		LLM: LLMConfig{
+			Providers: map[string]LLMProviderConfig{
+				"vllm8000": {Name: "vllm8000", BaseURL: "http://192.168.4.31:8000/v1"},
+				"vllm8001": {Name: "vllm8001", BaseURL: "http://192.168.4.31:8001/v1"},
+				"vllm8002": {Name: "vllm8002", BaseURL: "http://192.168.4.31:8002/v1"},
+				"vllm8003": {Name: "vllm8003", BaseURL: "http://192.168.4.31:8003/v1"},
+				"vertex":   {Name: "vertex", BaseURL: "https://us-central1-aiplatform.googleapis.com/v1beta1/..."},
+			},
+		},
+	}
+
+	mergeConfigs(dst, src)
+
+	for name, pc := range dst.LLM.Providers {
+		t.Logf("%s -> %s", name, pc.BaseURL)
+	}
+
+	if len(dst.LLM.Providers) != 9 {
+		t.Errorf("got %d providers, want 9 (4 defaults + 5 user): %v", len(dst.LLM.Providers), providerNames(dst))
+	}
+}
+
+func providerNames(cfg *Config) []string {
+	var names []string
+	for name := range cfg.LLM.Providers {
+		names = append(names, name)
+	}
+	return names
+}

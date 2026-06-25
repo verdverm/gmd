@@ -3,91 +3,84 @@
 package wiki
 
 import (
-	"strings"
+	"context"
 	"testing"
 
 	"github.com/verdverm/gmd/pkg/config"
-	"github.com/verdverm/gmd/pkg/llm"
 )
 
-func TestIntegrationFormatDoctorResult_FullyConnected(t *testing.T) {
-	result := &DoctorResult{
-		WikiName:    "test-wiki",
-		TSConnected: true,
-		LLMStatus: []llm.EndpointStatus{
-			{Label: "embed", URL: "http://localhost:8000/v1", OK: true, Model: "nomic-embed-text-v1.5"},
-			{Label: "chat", URL: "http://localhost:8001/v1", OK: true, Model: "llama-3.2-3b"},
-		},
-		Agents: []AgentStatus{
-			{Name: "claude", Installed: true, SkillInst: true},
-			{Name: "codex", Installed: false, SkillInst: false},
-		},
-	}
-	output := FormatDoctorResult(result)
-	if !strings.Contains(output, "test-wiki") {
-		t.Error("expected wiki name in output")
-	}
-	if !strings.Contains(output, "connected") {
-		t.Error("expected connected status")
-	}
-	if !strings.Contains(output, "embed") {
-		t.Error("expected embed LLM label")
-	}
-	if !strings.Contains(output, "claude") {
-		t.Error("expected claude agent status")
-	}
-	if !strings.Contains(output, "not detected") {
-		t.Error("expected codex not detected")
-	}
-}
+func TestIntegrationWikiDoctor_WithTSAndLLM(t *testing.T) {
+	c := tapeTest(t, "testdata/WikiDoctor_WithTSAndLLM.json")
+	defer c.Stop()
 
-func TestIntegrationFormatDoctorResult_Disconnected(t *testing.T) {
-	result := &DoctorResult{
-		WikiName:    "test-wiki",
-		TSConnected: false,
-		Errors:      []string{"Typesense: connection refused"},
+	tmpDir := t.TempDir()
+	wc := &config.WikiConfig{
+		SourceConfig: config.SourceConfig{Path: tmpDir},
+		WikiDir:      "wiki",
+		RawDir:       "raw",
+		IndexFile:    "index.md",
+		LogFile:      "log.md",
+		GraphLinks:   true,
 	}
-	output := FormatDoctorResult(result)
-	if !strings.Contains(output, "not connected") {
-		t.Error("expected not connected status")
-	}
-	if !strings.Contains(output, "connection refused") {
-		t.Error("expected error message in output")
-	}
-}
-
-func TestIntegrationFormatDoctorResult_LLMErrors(t *testing.T) {
-	result := &DoctorResult{
-		WikiName:    "test-wiki",
-		TSConnected: true,
-		LLMStatus: []llm.EndpointStatus{
-			{Label: "embed", URL: "http://localhost:8000/v1", OK: false, Model: "", Err: "connection timeout"},
-		},
-	}
-	output := FormatDoctorResult(result)
-	if !strings.Contains(output, "connection timeout") {
-		t.Error("expected connection timeout in output")
-	}
-}
-
-func TestIntegrationFormatDoctorResult_Empty(t *testing.T) {
-	result := &DoctorResult{}
-	output := FormatDoctorResult(result)
-	if output == "" {
-		t.Error("expected non-empty output")
-	}
-}
-
-func TestIntegrationDoctorFix(t *testing.T) {
-	_, agent := newTestWikiAgent(t)
-	cfg := &config.Config{}
-	fixes, err := DoctorFix(agent.wiki, cfg)
+	w, err := NewWiki("test-wiki", tmpDir, wc)
 	if err != nil {
-		t.Fatalf("DoctorFix error: %v", err)
+		t.Fatalf("NewWiki error: %v", err)
 	}
-	// May return fixes if any agents are installed on the dev machine
-	t.Logf("DoctorFix returned %d fixes", len(fixes))
-	for _, f := range fixes {
-		t.Logf("  fix: %s", f)
+	if err := w.Init(); err != nil {
+		t.Fatalf("Init error: %v", err)
+	}
+
+	result, err := Doctor(context.Background(), w, testCfg, c.TS, c.Registry)
+	if err != nil {
+		t.Fatalf("Doctor error: %v", err)
+	}
+
+	if result.WikiName != "test-wiki" {
+		t.Errorf("WikiName = %q, want %q", result.WikiName, "test-wiki")
+	}
+	if !result.TSConnected {
+		t.Error("TSConnected should be true with live client")
+	}
+	if len(result.LLMStatus) == 0 {
+		t.Fatal("expected LLM status entries")
+	}
+	for _, s := range result.LLMStatus {
+		if !s.OK {
+			t.Errorf("LLM endpoint %s (%s): %s", s.Label, s.URL, s.Err)
+		}
+		if len(s.Models) == 0 && s.OK {
+			t.Errorf("LLM endpoint %s: no models returned", s.Label)
+		}
+	}
+	if len(result.Errors) > 0 {
+		t.Errorf("unexpected errors: %v", result.Errors)
+	}
+}
+
+func TestIntegrationWikiDoctor_WithTSNilLLM(t *testing.T) {
+	c := tapeTest(t, "testdata/WikiDoctor_WithTSNilLLM.json")
+	defer c.Stop()
+
+	tmpDir := t.TempDir()
+	wc := &config.WikiConfig{
+		SourceConfig: config.SourceConfig{Path: tmpDir},
+		WikiDir:      "wiki",
+		RawDir:       "raw",
+		IndexFile:    "index.md",
+		LogFile:      "log.md",
+		GraphLinks:   true,
+	}
+	w, _ := NewWiki("test", tmpDir, wc)
+	w.Init()
+
+	result, err := Doctor(context.Background(), w, testCfg, c.TS, nil)
+	if err != nil {
+		t.Fatalf("Doctor error: %v", err)
+	}
+	if !result.TSConnected {
+		t.Error("TSConnected should be true with live TS client")
+	}
+	if len(result.LLMStatus) != 0 {
+		t.Errorf("expected 0 LLMStatus, got %d", len(result.LLMStatus))
 	}
 }

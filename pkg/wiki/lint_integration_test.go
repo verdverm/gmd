@@ -126,10 +126,11 @@ func TestIntegrationLintContent_NilLLM(t *testing.T) {
 }
 
 func TestIntegrationLintContent_WithLLM(t *testing.T) {
-	requireLLMServices(t)
+	c := tapeTest(t, "testdata/lint_content.json")
+	defer c.Stop()
 
 	_, agent := newTestWikiAgent(t)
-	agent.llmClient = testLLMClient
+	agent.chat = c.Chat
 
 	// Create a couple of pages
 	os.MkdirAll(filepath.Join(agent.wiki.WikiPath, "entities"), 0755)
@@ -157,10 +158,11 @@ func TestIntegrationLintGaps_NilLLM(t *testing.T) {
 }
 
 func TestIntegrationLintGaps_WithLLM(t *testing.T) {
-	requireLLMServices(t)
+	c := tapeTest(t, "testdata/lint_gaps.json")
+	defer c.Stop()
 
 	_, agent := newTestWikiAgent(t)
-	agent.llmClient = testLLMClient
+	agent.chat = c.Chat
 
 	// Index file was created by Init, should have basic structure
 	result := &LintResult{}
@@ -186,10 +188,11 @@ func TestIntegrationLint_WatchMode(t *testing.T) {
 }
 
 func TestIntegrationLint_Full(t *testing.T) {
-	requireLLMServices(t)
+	c := tapeTest(t, "testdata/lint_full.json")
+	defer c.Stop()
 
 	_, agent := newTestWikiAgent(t)
-	agent.llmClient = testLLMClient
+	agent.chat = c.Chat
 
 	result, err := agent.Lint(context.Background(), LintOpts{})
 	if err != nil {

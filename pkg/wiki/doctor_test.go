@@ -1,0 +1,90 @@
+package wiki
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/verdverm/gmd/pkg/config"
+	"github.com/verdverm/gmd/pkg/llm"
+)
+
+func TestWikiDoctor_FormatResultFullyConnected(t *testing.T) {
+	result := &DoctorResult{
+		WikiName:    "test-wiki",
+		TSConnected: true,
+		LLMStatus: []llm.ProviderHealth{
+			{Label: "embed", URL: "http://localhost:8000/v1", OK: true, Model: "nomic-embed-text-v1.5"},
+			{Label: "chat", URL: "http://localhost:8001/v1", OK: true, Model: "llama-3.2-3b"},
+		},
+		Agents: []AgentStatus{
+			{Name: "claude", Installed: true, SkillInst: true},
+			{Name: "codex", Installed: false, SkillInst: false},
+		},
+	}
+	output := FormatDoctorResult(result)
+	if !strings.Contains(output, "test-wiki") {
+		t.Error("expected wiki name in output")
+	}
+	if !strings.Contains(output, "connected") {
+		t.Error("expected connected status")
+	}
+	if !strings.Contains(output, "embed") {
+		t.Error("expected embed LLM label")
+	}
+	if !strings.Contains(output, "claude") {
+		t.Error("expected claude agent status")
+	}
+	if !strings.Contains(output, "not detected") {
+		t.Error("expected codex not detected")
+	}
+}
+
+func TestWikiDoctor_FormatResultDisconnected(t *testing.T) {
+	result := &DoctorResult{
+		WikiName:    "test-wiki",
+		TSConnected: false,
+		Errors:      []string{"Typesense: connection refused"},
+	}
+	output := FormatDoctorResult(result)
+	if !strings.Contains(output, "not connected") {
+		t.Error("expected not connected status")
+	}
+	if !strings.Contains(output, "connection refused") {
+		t.Error("expected error message in output")
+	}
+}
+
+func TestWikiDoctor_FormatResultLLMErrors(t *testing.T) {
+	result := &DoctorResult{
+		WikiName:    "test-wiki",
+		TSConnected: true,
+		LLMStatus: []llm.ProviderHealth{
+			{Label: "embed", URL: "http://localhost:8000/v1", OK: false, Model: "", Err: "connection timeout"},
+		},
+	}
+	output := FormatDoctorResult(result)
+	if !strings.Contains(output, "connection timeout") {
+		t.Error("expected connection timeout in output")
+	}
+}
+
+func TestWikiDoctor_FormatResultEmpty(t *testing.T) {
+	result := &DoctorResult{}
+	output := FormatDoctorResult(result)
+	if output == "" {
+		t.Error("expected non-empty output")
+	}
+}
+
+func TestWikiDoctor_Fix(t *testing.T) {
+	_, agent := newTestWikiAgent(t)
+	cfg := &config.Config{}
+	fixes, err := DoctorFix(agent.wiki, cfg)
+	if err != nil {
+		t.Fatalf("DoctorFix error: %v", err)
+	}
+	t.Logf("DoctorFix returned %d fixes", len(fixes))
+	for _, f := range fixes {
+		t.Logf("  fix: %s", f)
+	}
+}

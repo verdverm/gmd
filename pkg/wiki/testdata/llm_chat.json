@@ -1,0 +1,31 @@
+[
+  {
+    "request": {
+      "method": "POST",
+      "url": "http://192.168.4.31:8000/v1/chat/completions",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": "OpenAI/Go 3.37.0",
+        "X-Stainless-Arch": "arm64",
+        "X-Stainless-Lang": "go",
+        "X-Stainless-Os": "MacOS",
+        "X-Stainless-Package-Version": "3.37.0",
+        "X-Stainless-Retry-Count": "0",
+        "X-Stainless-Runtime": "go",
+        "X-Stainless-Runtime-Version": "go1.26.4"
+      },
+      "body": "{\"messages\":[{\"content\":\"You are a helpful assistant. Answer concisely.\",\"role\":\"system\"},{\"content\":\"Say hello world in one word.\",\"role\":\"user\"}],\"model\":\"Qwen/Qwen3.6-35B-A3B-FP8\"}"
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Content-Length": "4025",
+        "Content-Type": "application/json",
+        "Date": "Wed, 24 Jun 2026 20:57:26 GMT",
+        "Server": "uvicorn"
+      },
+      "body": "{\"id\":\"chatcmpl-a784a2f664b35210\",\"object\":\"chat.completion\",\"created\":1782334647,\"model\":\"Qwen/Qwen3.6-35B-A3B-FP8\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"\\n\\nHello\",\"refusal\":null,\"annotations\":null,\"audio\":null,\"function_call\":null,\"tool_calls\":[],\"reasoning\":\"Here's a thinking process:\\n\\n1.  **Analyze User Input:**\\n   - Request: \\\"Say hello world in one word.\\\"\\n   - Constraint: Must be exactly one word.\\n   - Content: \\\"hello world\\\" (conceptually or literally)\\n\\n2.  **Identify Key Constraints:**\\n   - Exactly one word.\\n   - Should convey \\\"hello world\\\" or be a direct response to the prompt.\\n\\n3.  **Brainstorming Options:**\\n   - \\\"Hello\\\" (one word, but misses \\\"world\\\")\\n   - \\\"World\\\" (one word, but misses \\\"hello\\\")\\n   - \\\"Helloworld\\\" (combined, but awkward/not standard)\\n   - \\\"Greetings\\\" (one word, conveys hello)\\n   - \\\"Salutations\\\" (too formal)\\n   - \\\"Hello\\\" is the most direct and universally recognized greeting that fits the \\\"hello world\\\" programming/cultural reference when constrained to one word.\\n   - Wait, the prompt says \\\"Say hello world in one word.\\\" This is a common prompt constraint. The expected answer is often just \\\"Hello\\\" or \\\"World\\\", but technically \\\"Hello\\\" captures the greeting aspect. However, sometimes the expected answer is just \\\"Hello\\\".\\n   - Let's reconsider: \\\"hello world\\\" is often used as a placeholder phrase. If forced to one word, \\\"Hello\\\" is the most logical.\\n   - Another interpretation: The user might want the exact phrase condensed to one word, but that's impossible without losing meaning. I'll stick with \\\"Hello\\\".\\n   - Wait, could it be \\\"Helloworld\\\"? No.\\n   - Could it be \\\"Greetings\\\"? Possibly, but \\\"Hello\\\" is more direct.\\n   - Actually, in programming contexts, \\\"Hello World\\\" is the first program. If asked to say it in one word, \\\"Hello\\\" is standard.\\n   - Let's just output \\\"Hello\\\".\\n\\n4.  **Check Constraints:**\\n   - One word? Yes.\\n   - Matches request? Yes, captures the greeting essence.\\n\\n5.  **Final Decision:** Output just \\\"Hello\\\". (Or maybe \\\"World\\\"? No, Hello is better.)\\n   - Wait, what if they literally want \\\"Helloworld\\\"? Unlikely.\\n   - I'll go with \\\"Hello\\\". It's concise and meets the constraint.✅\\n   - Double-check: \\\"Say hello world in one word.\\\" -\u003e \\\"Hello\\\" is one word. Perfect.✅\\n   - Output: Hello. \\n   - Self-Correction/Refinement during thought: Could it be \\\"Greetings\\\"? No. \\\"Hello\\\" is fine. The prompt is straightforward. I will output exactly one word as requested.\\n   - Final: Hello.✅\\n   - Proceed. \\n   - Output matches response.✅\\n   - Note: I'll just output \\\"Hello\\\" as requested. No extra text. Concise.✅\\n   - All steps verified.✅\\n   - Output generation. \\n   - [Output]: Hello\\n   - Wait, let's consider if \\\"Hello\\\" is truly the best. The prompt says \\\"hello world\\\". If I have to pick one word that represents it, \\\"Hello\\\" is the greeting, \\\"World\\\" is the audience. \\\"Hello\\\" is universally accepted for this constraint. I'll stick with it.\\n   - Final answer: Hello. \\n   - Proceeds. \\n   - [Output Generation] -\u003e \\\"Hello\\\" (exactly one word)\\n   - Done. \\n   - Self-Correction/Verification during generation: The prompt says \\\"Say hello world in one word.\\\" Some might interpret this as combining them: \\\"Helloworld\\\" (not standard), or just \\\"Hello\\\". I'll output \\\"Hello\\\". It's safe. \\n   - Actually, in many AI benchmarks, the expected answer to this exact phrasing is just \\\"Hello\\\". I'll go with that. \\n   - Output: Hello.✅\\n   - Final check of the prompt: \\\"Say hello world in one word.\\\" -\u003e \\\"Hello\\\" \\n   - Done. \\n   - [Output] Hello\\n   - [Done]\\n\"},\"logprobs\":null,\"finish_reason\":\"stop\",\"stop_reason\":null,\"token_ids\":null,\"routed_experts\":null}],\"service_tier\":null,\"system_fingerprint\":\"vllm-0.23.0-a94f2d62\",\"usage\":{\"prompt_tokens\":33,\"total_tokens\":897,\"completion_tokens\":864,\"prompt_tokens_details\":null},\"prompt_logprobs\":null,\"prompt_token_ids\":null,\"prompt_text\":null,\"kv_transfer_params\":null}"
+    }
+  }
+]

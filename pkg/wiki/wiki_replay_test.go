@@ -12,26 +12,24 @@ import (
 	"github.com/verdverm/gmd/pkg/ts"
 )
 
-func buildReplayLLMClient(t *testing.T, tape *testutil.Tape) *llm.Client {
-	providers := map[string]llm.ProviderConfig{
-		"test": {
-			Name:       "test",
-			BaseURL:    "https://api.openai.com/v1",
-			Auth:       "apikey",
-			AuthData:   map[string]string{"api_key": "test-key"},
-			HTTPClient: &http.Client{Transport: tape.Transport()},
-		},
-	}
-	profile := llm.Profile{
-		Embedding:   llm.RoleConfig{Provider: "test", Model: "text-embedding-3-small"},
-		Expansion:   llm.RoleConfig{Provider: "test", Model: "gpt-4o-mini"},
-		Summarizing: llm.RoleConfig{Provider: "test", Model: "gpt-4o-mini"},
-	}
-	c, err := llm.BuildAllClients(providers, profile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return c
+func buildReplayChatModel(t *testing.T, tape *testutil.Tape) llm.ChatModel {
+	t.Helper()
+	return llm.NewOpenAIModel(llm.OpenAIConfig{
+		APIKey:     "test-key",
+		BaseURL:    "https://api.openai.com/v1",
+		ModelName:  "gpt-4o-mini",
+		HTTPClient: &http.Client{Transport: tape.Transport()},
+	})
+}
+
+func buildReplayEmbedder(t *testing.T, tape *testutil.Tape) llm.Embedder {
+	t.Helper()
+	return llm.NewEmbedder(llm.OpenAIConfig{
+		APIKey:     "test-key",
+		BaseURL:    "https://api.openai.com/v1",
+		ModelName:  "text-embedding-3-small",
+		HTTPClient: &http.Client{Transport: tape.Transport()},
+	})
 }
 
 func buildReplayTSCClient(tape *testutil.Tape) *ts.Client {
@@ -55,7 +53,8 @@ func TestQueryFlow_Replay(t *testing.T) {
 	}()
 
 	tapedTS := buildReplayTSCClient(tape)
-	tapedLLM := buildReplayLLMClient(t, tape)
+	tapedChat := buildReplayChatModel(t, tape)
+	tapedEmbedder := buildReplayEmbedder(t, tape)
 
 	ctx := t.Context()
 	tmpDir := t.TempDir()
@@ -81,7 +80,7 @@ func TestQueryFlow_Replay(t *testing.T) {
 			},
 		},
 	}
-	agent := NewAgent(w, testCfgLocal, tapedTS, tapedLLM)
+	agent := NewAgent(w, testCfgLocal, tapedTS, tapedChat)
 
 	pageRel := "entities/query-test.md"
 	fullPath := filepath.Join(w.WikiPath, pageRel)
@@ -92,8 +91,7 @@ func TestQueryFlow_Replay(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = indexTapedWikiPage(ctx, tapedTS, tapedLLM, testCfgLocal.CollectionKey(w.Name), w.WikiPath, pageRel)
-	if err != nil {
+	if _, err = indexTapedWikiPage(ctx, tapedTS, tapedEmbedder, testCfgLocal.CollectionKey(w.Name), w.WikiPath, pageRel); err != nil {
 		t.Fatalf("indexTapedWikiPage error: %v", err)
 	}
 
@@ -120,7 +118,7 @@ func TestIngestFlow_Replay(t *testing.T) {
 	}()
 
 	tapedTS := buildReplayTSCClient(tape)
-	tapedLLM := buildReplayLLMClient(t, tape)
+	tapedChat := buildReplayChatModel(t, tape)
 
 	ctx := t.Context()
 	tmpDir := t.TempDir()
@@ -146,7 +144,7 @@ func TestIngestFlow_Replay(t *testing.T) {
 			},
 		},
 	}
-	agent := NewAgent(w, testCfgLocal, tapedTS, tapedLLM)
+	agent := NewAgent(w, testCfgLocal, tapedTS, tapedChat)
 
 	rawPath := filepath.Join(tmpDir, "raw")
 	if err := os.MkdirAll(rawPath, 0755); err != nil {
@@ -187,10 +185,10 @@ func TestLintContentFlow_Replay(t *testing.T) {
 		}
 	}()
 
-	tapedLLM := buildReplayLLMClient(t, tape)
+	tapedChat := buildReplayChatModel(t, tape)
 
 	_, agent := newTestWikiAgent(t)
-	agent.llmClient = tapedLLM
+	agent.chat = tapedChat
 
 	if err := os.MkdirAll(filepath.Join(agent.wiki.WikiPath, "entities"), 0755); err != nil {
 		t.Fatal(err)

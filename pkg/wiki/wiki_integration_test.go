@@ -20,10 +20,10 @@ import (
 const testCollKey = "wiki-int-test"
 
 var (
-	testTSClient  *ts.Client
-	testLLMClient *llm.Client
-	testCfg       *config.Config
-	testWikiDirs  = []string{"raw", "wiki"}
+	testTSClient *ts.Client
+	testRegistry *llm.Registry
+	testCfg      *config.Config
+	testWikiDirs = []string{"raw", "wiki"}
 
 	TestTSSrvURL string
 	TestTSSrvKey string
@@ -64,9 +64,9 @@ func TestMain(m *testing.M) {
 		fmt.Fprintf(os.Stderr, "wiki integration: FATAL: LLM config load failed (%v)\n", err)
 	} else {
 		var llmErr error
-		testLLMClient, llmErr = llm.ResolveLLMConfig(cfg)
+		testRegistry, llmErr = llm.NewRegistry(ctx, cfg)
 		if llmErr != nil {
-			fmt.Fprintf(os.Stderr, "wiki integration: FATAL: LLM config resolve failed (%v)\n", llmErr)
+			fmt.Fprintf(os.Stderr, "wiki integration: FATAL: LLM registry build failed (%v)\n", llmErr)
 		}
 		testCfg = cfg
 	}
@@ -93,7 +93,7 @@ func requireTSServices(t *testing.T) {
 
 func embedOrSkip(ctx context.Context, t *testing.T, text string) []float64 {
 	t.Helper()
-	vec, err := testLLMClient.Embed(ctx, text)
+	vec, err := llm.EmbedSingle(ctx, testRegistry.Embedder(), text)
 	if err != nil {
 		t.Fatalf("Embed: %v", err)
 	}
@@ -102,87 +102,8 @@ func embedOrSkip(ctx context.Context, t *testing.T, text string) []float64 {
 
 func requireLLMServices(t *testing.T) {
 	t.Helper()
-	if testLLMClient == nil {
+	if testRegistry == nil {
 		t.Fatal("LLM services not available — integration tests require an LLM provider configured in gmd config")
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Doctor (real TS + LLM)
-// ---------------------------------------------------------------------------
-
-func TestIntegrationDoctorRealServices(t *testing.T) {
-	requireTSServices(t)
-	requireLLMServices(t)
-
-	tmpDir := t.TempDir()
-	wc := &config.WikiConfig{
-		SourceConfig: config.SourceConfig{Path: tmpDir},
-		WikiDir:      "wiki",
-		RawDir:       "raw",
-		IndexFile:    "index.md",
-		LogFile:      "log.md",
-		GraphLinks:   true,
-	}
-	w, err := NewWiki("test-wiki", tmpDir, wc)
-	if err != nil {
-		t.Fatalf("NewWiki error: %v", err)
-	}
-	if err := w.Init(); err != nil {
-		t.Fatalf("Init error: %v", err)
-	}
-
-	result, err := Doctor(context.Background(), w, testCfg, testTSClient, testLLMClient)
-	if err != nil {
-		t.Fatalf("Doctor error: %v", err)
-	}
-
-	if result.WikiName != "test-wiki" {
-		t.Errorf("WikiName = %q, want %q", result.WikiName, "test-wiki")
-	}
-	if !result.TSConnected {
-		t.Error("TSConnected should be true with real client")
-	}
-	if len(result.LLMStatus) == 0 {
-		t.Fatal("expected LLM status entries")
-	}
-	for _, s := range result.LLMStatus {
-		if !s.OK {
-			t.Errorf("LLM endpoint %s (%s): %s", s.Label, s.URL, s.Err)
-		}
-		if len(s.Models) == 0 && s.OK {
-			t.Errorf("LLM endpoint %s: no models returned", s.Label)
-		}
-	}
-	if len(result.Errors) > 0 {
-		t.Errorf("unexpected errors: %v", result.Errors)
-	}
-}
-
-func TestIntegrationDoctorRealTSNilLLM(t *testing.T) {
-	requireTSServices(t)
-
-	tmpDir := t.TempDir()
-	wc := &config.WikiConfig{
-		SourceConfig: config.SourceConfig{Path: tmpDir},
-		WikiDir:      "wiki",
-		RawDir:       "raw",
-		IndexFile:    "index.md",
-		LogFile:      "log.md",
-		GraphLinks:   true,
-	}
-	w, _ := NewWiki("test", tmpDir, wc)
-	w.Init()
-
-	result, err := Doctor(context.Background(), w, testCfg, testTSClient, nil)
-	if err != nil {
-		t.Fatalf("Doctor error: %v", err)
-	}
-	if !result.TSConnected {
-		t.Error("TSConnected should be true with real TS client")
-	}
-	if len(result.LLMStatus) != 0 {
-		t.Errorf("expected 0 LLMStatus, got %d", len(result.LLMStatus))
 	}
 }
 
@@ -191,8 +112,8 @@ func TestIntegrationDoctorRealTSNilLLM(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestIntegrationTSChunkCRUD(t *testing.T) {
-	requireTSServices(t)
-	requireLLMServices(t)
+	c := tapeTest(t, "testdata/ts_chunk_crud.json")
+	defer c.Stop()
 
 	ctx := context.Background()
 	defer cleanupTestData(ctx, t, testCollKey)
@@ -205,13 +126,17 @@ func TestIntegrationTSChunkCRUD(t *testing.T) {
 		ChunkSeq:    0,
 		TotalChunks: 1,
 	}
-	doc.Embedding = embedOrSkip(ctx, t, doc.Content)
+	vec, err := llm.EmbedSingle(ctx, c.Embedder, doc.Content)
+	if err != nil {
+		t.Fatalf("Embed: %v", err)
+	}
+	doc.Embedding = vec
 
-	if err := testTSClient.UpsertChunks(ctx, []ts.ChunkDocument{doc}); err != nil {
+	if err := c.TS.UpsertChunks(ctx, []ts.ChunkDocument{doc}); err != nil {
 		t.Fatalf("UpsertChunks error: %v", err)
 	}
 
-	results, err := testTSClient.TextSearch(ctx, ts.HybridSearchParams{
+	results, err := c.TS.TextSearch(ctx, ts.HybridSearchParams{
 		Query:       "machine learning",
 		Collections: []string{testCollKey},
 		Limit:       10,
@@ -231,7 +156,7 @@ func TestIntegrationTSChunkCRUD(t *testing.T) {
 		t.Errorf("collection = %q, want %q", results[0].Collection, testCollKey)
 	}
 
-	count, err := testTSClient.CountByPath(ctx, "wiki/entities/test-entity.md")
+	count, err := c.TS.CountByPath(ctx, "wiki/entities/test-entity.md")
 	if err != nil {
 		t.Fatalf("CountByPath error: %v", err)
 	}
@@ -239,19 +164,19 @@ func TestIntegrationTSChunkCRUD(t *testing.T) {
 		t.Errorf("expected count 1, got %d", count)
 	}
 
-	if err := testTSClient.DeleteChunksByPath(ctx, "wiki/entities/test-entity.md"); err != nil {
+	if err := c.TS.DeleteChunksByPath(ctx, "wiki/entities/test-entity.md"); err != nil {
 		t.Fatalf("DeleteChunksByPath error: %v", err)
 	}
 
-	count, _ = testTSClient.CountByPath(ctx, "wiki/entities/test-entity.md")
+	count, _ = c.TS.CountByPath(ctx, "wiki/entities/test-entity.md")
 	if count != 0 {
 		t.Errorf("expected count 0 after delete, got %d", count)
 	}
 }
 
 func TestIntegrationTSSearchFiltersByCollection(t *testing.T) {
-	requireTSServices(t)
-	requireLLMServices(t)
+	c := tapeTest(t, "testdata/ts_search_filters.json")
+	defer c.Stop()
 
 	ctx := context.Background()
 	defer cleanupTestData(ctx, t, testCollKey)
@@ -275,15 +200,19 @@ func TestIntegrationTSSearchFiltersByCollection(t *testing.T) {
 		},
 	}
 	for i := range docs {
-		docs[i].Embedding = embedOrSkip(ctx, t, docs[i].Content)
+		vec, err := llm.EmbedSingle(ctx, c.Embedder, docs[i].Content)
+		if err != nil {
+			t.Fatalf("Embed: %v", err)
+		}
+		docs[i].Embedding = vec
 	}
 
-	if err := testTSClient.UpsertChunks(ctx, docs); err != nil {
+	if err := c.TS.UpsertChunks(ctx, docs); err != nil {
 		t.Fatalf("UpsertChunks error: %v", err)
 	}
-	defer testTSClient.DeleteChunksByCollection(ctx, testCollKey+"-other")
+	defer c.TS.DeleteChunksByCollection(ctx, testCollKey+"-other")
 
-	results, err := testTSClient.TextSearch(ctx, ts.HybridSearchParams{
+	results, err := c.TS.TextSearch(ctx, ts.HybridSearchParams{
 		Query:       "machine learning",
 		Collections: []string{testCollKey},
 		Limit:       10,
@@ -302,8 +231,8 @@ func TestIntegrationTSSearchFiltersByCollection(t *testing.T) {
 }
 
 func TestIntegrationTSHybridSearch(t *testing.T) {
-	requireTSServices(t)
-	requireLLMServices(t)
+	c := tapeTest(t, "testdata/ts_hybrid_search.json")
+	defer c.Stop()
 
 	ctx := context.Background()
 	defer cleanupTestData(ctx, t, testCollKey)
@@ -316,12 +245,16 @@ func TestIntegrationTSHybridSearch(t *testing.T) {
 		ChunkSeq:    0,
 		TotalChunks: 1,
 	}
-	doc.Embedding = embedOrSkip(ctx, t, doc.Content)
-	if err := testTSClient.UpsertChunks(ctx, []ts.ChunkDocument{doc}); err != nil {
+	vec, err := llm.EmbedSingle(ctx, c.Embedder, doc.Content)
+	if err != nil {
+		t.Fatalf("Embed: %v", err)
+	}
+	doc.Embedding = vec
+	if err := c.TS.UpsertChunks(ctx, []ts.ChunkDocument{doc}); err != nil {
 		t.Fatalf("UpsertChunks error: %v", err)
 	}
 
-	results, err := testTSClient.HybridSearch(ctx, ts.HybridSearchParams{
+	results, err := c.TS.HybridSearch(ctx, ts.HybridSearchParams{
 		Query:       "autonomous systems",
 		Collections: []string{testCollKey},
 		Limit:       10,
@@ -340,8 +273,8 @@ func TestIntegrationTSHybridSearch(t *testing.T) {
 }
 
 func TestIntegrationTSMultiChunkPerPath(t *testing.T) {
-	requireTSServices(t)
-	requireLLMServices(t)
+	c := tapeTest(t, "testdata/ts_multi_chunk.json")
+	defer c.Stop()
 
 	ctx := context.Background()
 	defer cleanupTestData(ctx, t, testCollKey)
@@ -351,13 +284,17 @@ func TestIntegrationTSMultiChunkPerPath(t *testing.T) {
 		{Collection: testCollKey, Path: "wiki/entities/long.md", Title: "Long", Content: "Second chunk of a long document.", ChunkSeq: 1, TotalChunks: 2},
 	}
 	for i := range docs {
-		docs[i].Embedding = embedOrSkip(ctx, t, docs[i].Content)
+		vec, err := llm.EmbedSingle(ctx, c.Embedder, docs[i].Content)
+		if err != nil {
+			t.Fatalf("Embed: %v", err)
+		}
+		docs[i].Embedding = vec
 	}
-	if err := testTSClient.UpsertChunks(ctx, docs); err != nil {
+	if err := c.TS.UpsertChunks(ctx, docs); err != nil {
 		t.Fatalf("UpsertChunks error: %v", err)
 	}
 
-	results, err := testTSClient.TextSearch(ctx, ts.HybridSearchParams{
+	results, err := c.TS.TextSearch(ctx, ts.HybridSearchParams{
 		Query:       "long document",
 		Collections: []string{testCollKey},
 		Limit:       10,
@@ -376,8 +313,8 @@ func TestIntegrationTSMultiChunkPerPath(t *testing.T) {
 }
 
 func TestIntegrationTSVectorSearch(t *testing.T) {
-	requireTSServices(t)
-	requireLLMServices(t)
+	c := tapeTest(t, "testdata/ts_vector_search.json")
+	defer c.Stop()
 
 	ctx := context.Background()
 	defer cleanupTestData(ctx, t, testCollKey)
@@ -390,14 +327,21 @@ func TestIntegrationTSVectorSearch(t *testing.T) {
 		ChunkSeq:    0,
 		TotalChunks: 1,
 	}
-	doc.Embedding = embedOrSkip(ctx, t, doc.Content)
-	if err := testTSClient.UpsertChunks(ctx, []ts.ChunkDocument{doc}); err != nil {
+	vec, err := llm.EmbedSingle(ctx, c.Embedder, doc.Content)
+	if err != nil {
+		t.Fatalf("Embed: %v", err)
+	}
+	doc.Embedding = vec
+	if err := c.TS.UpsertChunks(ctx, []ts.ChunkDocument{doc}); err != nil {
 		t.Fatalf("UpsertChunks error: %v", err)
 	}
 
-	queryVec := embedOrSkip(ctx, t, "semantic retrieval with vectors")
+	queryVec, err := llm.EmbedSingle(ctx, c.Embedder, "semantic retrieval with vectors")
+	if err != nil {
+		t.Fatalf("Embed: %v", err)
+	}
 
-	results, err := testTSClient.VectorSearch(ctx, ts.HybridSearchParams{
+	results, err := c.TS.VectorSearch(ctx, ts.HybridSearchParams{
 		QueryVector: queryVec,
 		Collections: []string{testCollKey},
 		Limit:       10,
@@ -420,10 +364,11 @@ func TestIntegrationTSVectorSearch(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestIntegrationLLMEmbed(t *testing.T) {
-	requireLLMServices(t)
+	c := tapeTest(t, "testdata/llm_embed.json")
+	defer c.Stop()
 
 	ctx := context.Background()
-	vec, err := testLLMClient.Embed(ctx, "machine learning")
+	vec, err := llm.EmbedSingle(ctx, c.Embedder, "machine learning")
 	if err != nil {
 		t.Fatalf("Embed error: %v", err)
 	}
@@ -434,13 +379,11 @@ func TestIntegrationLLMEmbed(t *testing.T) {
 }
 
 func TestIntegrationLLMChat(t *testing.T) {
-	requireLLMServices(t)
+	c := tapeTest(t, "testdata/llm_chat.json")
+	defer c.Stop()
 
 	ctx := context.Background()
-	resp, err := testLLMClient.Chat(ctx, []llm.ChatMessage{
-		{Role: "system", Content: "You are a helpful assistant. Answer concisely."},
-		{Role: "user", Content: "Say hello world in one word."},
-	})
+	resp, err := c.Chat.Chat(ctx, "You are a helpful assistant. Answer concisely.", "Say hello world in one word.")
 	if err != nil {
 		t.Fatalf("Chat error: %v", err)
 	}
@@ -455,8 +398,8 @@ func TestIntegrationLLMChat(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestIntegrationWikiIndexAndSearch(t *testing.T) {
-	requireTSServices(t)
-	requireLLMServices(t)
+	c := tapeTest(t, "testdata/wiki_index_and_search.json")
+	defer c.Stop()
 
 	ctx := context.Background()
 	defer cleanupTestData(ctx, t, testCollKey)
@@ -477,7 +420,7 @@ func TestIntegrationWikiIndexAndSearch(t *testing.T) {
 	if err := w.Init(); err != nil {
 		t.Fatalf("Init error: %v", err)
 	}
-	agent := NewAgent(w, testCfg, testTSClient, testLLMClient)
+	agent := NewAgent(w, testCfg, c.TS, c.Chat)
 
 	action := IngestAction{
 		Name:    "Machine Learning",
@@ -493,15 +436,15 @@ func TestIntegrationWikiIndexAndSearch(t *testing.T) {
 		t.Fatalf("createWikiPage error: %v", err)
 	}
 
-	chunks, err := indexWikiPage(ctx, testTSClient, testCfg.CollectionKey(w.Name), w.WikiPath, "entities/machine-learning.md")
+	chunks, err := indexTapedWikiPage(ctx, c.TS, c.Embedder, testCfg.CollectionKey(w.Name), w.WikiPath, "entities/machine-learning.md")
 	if err != nil {
-		t.Fatalf("indexWikiPage error: %v", err)
+		t.Fatalf("indexTapedWikiPage error: %v", err)
 	}
 	if len(chunks) == 0 {
 		t.Fatal("expected at least 1 chunk")
 	}
 
-	results, err := testTSClient.TextSearch(ctx, ts.HybridSearchParams{
+	results, err := c.TS.TextSearch(ctx, ts.HybridSearchParams{
 		Query:       "artificial intelligence",
 		Collections: []string{testCfg.CollectionKey(w.Name)},
 		Limit:       10,
@@ -516,8 +459,8 @@ func TestIntegrationWikiIndexAndSearch(t *testing.T) {
 }
 
 func TestIntegrationWikiCollectionCounts(t *testing.T) {
-	requireTSServices(t)
-	requireLLMServices(t)
+	c := tapeTest(t, "testdata/wiki_collection_counts.json")
+	defer c.Stop()
 
 	ctx := context.Background()
 	defer cleanupTestData(ctx, t, testCollKey)
@@ -527,13 +470,17 @@ func TestIntegrationWikiCollectionCounts(t *testing.T) {
 		{Collection: testCollKey, Path: "wiki/b.md", Title: "B", Content: "beta content", ChunkSeq: 0, TotalChunks: 1},
 	}
 	for i := range docs {
-		docs[i].Embedding = embedOrSkip(ctx, t, docs[i].Content)
+		vec, err := llm.EmbedSingle(ctx, c.Embedder, docs[i].Content)
+		if err != nil {
+			t.Fatalf("Embed: %v", err)
+		}
+		docs[i].Embedding = vec
 	}
-	if err := testTSClient.UpsertChunks(ctx, docs); err != nil {
+	if err := c.TS.UpsertChunks(ctx, docs); err != nil {
 		t.Fatalf("UpsertChunks error: %v", err)
 	}
 
-	counts, err := testTSClient.CountByCollection(ctx, []string{testCollKey, "nonexistent"})
+	counts, err := c.TS.CountByCollection(ctx, []string{testCollKey, "nonexistent"})
 	if err != nil {
 		t.Fatalf("CountByCollection error: %v", err)
 	}
@@ -679,7 +626,7 @@ func indexWikiPage(ctx context.Context, c *ts.Client, collectionKey, wikiPath, r
 		return nil, fmt.Errorf("delete existing: %w", err)
 	}
 
-	vec, err := testLLMClient.Embed(ctx, stripped)
+	vec, err := llm.EmbedSingle(ctx, testRegistry.Embedder(), stripped)
 	if err != nil {
 		return nil, fmt.Errorf("embed content: %w", err)
 	}

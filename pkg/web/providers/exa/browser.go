@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/verdverm/gmd/pkg/web"
-	exaclient "github.com/verdverm/gmd/pkg/web/exa"
 )
 
 type BrowserAdapter struct {

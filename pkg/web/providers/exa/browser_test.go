@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/verdverm/gmd/pkg/web"
-	exaclient "github.com/verdverm/gmd/pkg/web/exa"
 )
 
 func TestBrowserAdapter_GetContent(t *testing.T) {

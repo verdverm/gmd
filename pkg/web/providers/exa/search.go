@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/verdverm/gmd/pkg/web"
-	exaclient "github.com/verdverm/gmd/pkg/web/exa"
 )
 
 type SearchAdapter struct {

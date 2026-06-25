@@ -15,91 +15,7 @@
         "Content-Type": "application/json; charset=utf-8",
         "Vary": "accept-encoding"
       },
-      "body": "[{\"created_at\":1782353411,\"curation_sets\":[],\"default_sorting_field\":\"\",\"enable_nested_fields\":false,\"fields\":[{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"collection\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"path\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"title\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"content\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"hash\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"chunk_seq\",\"optional\":false,\"sort\":true,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"int32\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"total_chunks\",\"optional\":false,\"sort\":true,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"int32\"},{\"facet\":false,\"hnsw_params\":{\"M\":16,\"ef_construction\":200},\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"embedding\",\"num_dim\":768,\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"float[]\",\"vec_dist\":\"cosine\"},{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"links\",\"optional\":true,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string[]\"}],\"name\":\"chunks\",\"num_documents\":0,\"symbols_to_index\":[],\"synonym_sets\":[],\"token_separators\":[]}]"
-    }
-  },
-  {
-    "request": {
-      "method": "GET",
-      "url": "http://192.168.4.31:8000/v1/models",
-      "headers": {
-        "Accept": "application/json",
-        "User-Agent": "OpenAI/Go 3.37.0",
-        "X-Stainless-Arch": "arm64",
-        "X-Stainless-Lang": "go",
-        "X-Stainless-Os": "MacOS",
-        "X-Stainless-Package-Version": "3.37.0",
-        "X-Stainless-Retry-Count": "0",
-        "X-Stainless-Runtime": "go",
-        "X-Stainless-Runtime-Version": "go1.26.4"
-      },
-      "body": ""
-    },
-    "response": {
-      "status_code": 200,
-      "headers": {
-        "Content-Length": "484",
-        "Content-Type": "application/json",
-        "Date": "Thu, 25 Jun 2026 02:10:11 GMT",
-        "Server": "uvicorn"
-      },
-      "body": "{\"object\":\"list\",\"data\":[{\"id\":\"Qwen/Qwen3.6-35B-A3B-FP8\",\"object\":\"model\",\"created\":1782353411,\"owned_by\":\"vllm\",\"root\":\"Qwen/Qwen3.6-35B-A3B-FP8\",\"parent\":null,\"max_model_len\":262144,\"permission\":[{\"id\":\"modelperm-aaab6a688f5fb351\",\"object\":\"model_permission\",\"created\":1782353411,\"allow_create_engine\":false,\"allow_sampling\":true,\"allow_logprobs\":true,\"allow_search_indices\":false,\"allow_view\":true,\"allow_fine_tuning\":false,\"organization\":\"*\",\"group\":null,\"is_blocking\":false}]}]}"
-    }
-  },
-  {
-    "request": {
-      "method": "GET",
-      "url": "http://192.168.4.31:8001/v1/models",
-      "headers": {
-        "Accept": "application/json",
-        "User-Agent": "OpenAI/Go 3.37.0",
-        "X-Stainless-Arch": "arm64",
-        "X-Stainless-Lang": "go",
-        "X-Stainless-Os": "MacOS",
-        "X-Stainless-Package-Version": "3.37.0",
-        "X-Stainless-Retry-Count": "0",
-        "X-Stainless-Runtime": "go",
-        "X-Stainless-Runtime-Version": "go1.26.4"
-      },
-      "body": ""
-    },
-    "response": {
-      "status_code": 200,
-      "headers": {
-        "Content-Length": "486",
-        "Content-Type": "application/json",
-        "Date": "Thu, 25 Jun 2026 02:10:11 GMT",
-        "Server": "uvicorn"
-      },
-      "body": "{\"object\":\"list\",\"data\":[{\"id\":\"google/embeddinggemma-300m\",\"object\":\"model\",\"created\":1782353411,\"owned_by\":\"vllm\",\"root\":\"google/embeddinggemma-300m\",\"parent\":null,\"max_model_len\":2048,\"permission\":[{\"id\":\"modelperm-a10768b3c4d2d473\",\"object\":\"model_permission\",\"created\":1782353411,\"allow_create_engine\":false,\"allow_sampling\":true,\"allow_logprobs\":true,\"allow_search_indices\":false,\"allow_view\":true,\"allow_fine_tuning\":false,\"organization\":\"*\",\"group\":null,\"is_blocking\":false}]}]}"
-    }
-  },
-  {
-    "request": {
-      "method": "GET",
-      "url": "http://192.168.4.31:8002/v1/models",
-      "headers": {
-        "Accept": "application/json",
-        "User-Agent": "OpenAI/Go 3.37.0",
-        "X-Stainless-Arch": "arm64",
-        "X-Stainless-Lang": "go",
-        "X-Stainless-Os": "MacOS",
-        "X-Stainless-Package-Version": "3.37.0",
-        "X-Stainless-Retry-Count": "0",
-        "X-Stainless-Runtime": "go",
-        "X-Stainless-Runtime-Version": "go1.26.4"
-      },
-      "body": ""
-    },
-    "response": {
-      "status_code": 200,
-      "headers": {
-        "Content-Length": "464",
-        "Content-Type": "application/json",
-        "Date": "Thu, 25 Jun 2026 02:10:10 GMT",
-        "Server": "uvicorn"
-      },
-      "body": "{\"object\":\"list\",\"data\":[{\"id\":\"Qwen/Qwen3-1.7B\",\"object\":\"model\",\"created\":1782353411,\"owned_by\":\"vllm\",\"root\":\"Qwen/Qwen3-1.7B\",\"parent\":null,\"max_model_len\":8192,\"permission\":[{\"id\":\"modelperm-a16d73f3edfbd3d1\",\"object\":\"model_permission\",\"created\":1782353411,\"allow_create_engine\":false,\"allow_sampling\":true,\"allow_logprobs\":true,\"allow_search_indices\":false,\"allow_view\":true,\"allow_fine_tuning\":false,\"organization\":\"*\",\"group\":null,\"is_blocking\":false}]}]}"
+      "body": "[{\"created_at\":1782365063,\"curation_sets\":[],\"default_sorting_field\":\"\",\"enable_nested_fields\":false,\"fields\":[{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"collection\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"path\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"title\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"content\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"hash\",\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"chunk_seq\",\"optional\":false,\"sort\":true,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"int32\"},{\"facet\":false,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"total_chunks\",\"optional\":false,\"sort\":true,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"int32\"},{\"facet\":false,\"hnsw_params\":{\"M\":16,\"ef_construction\":200},\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"embedding\",\"num_dim\":768,\"optional\":false,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"float[]\",\"vec_dist\":\"cosine\"},{\"facet\":true,\"index\":true,\"infix\":false,\"locale\":\"\",\"name\":\"links\",\"optional\":true,\"sort\":false,\"stem\":false,\"stem_dictionary\":\"\",\"store\":true,\"truncate_len\":100,\"type\":\"string[]\"}],\"name\":\"chunks\",\"num_documents\":4,\"symbols_to_index\":[],\"synonym_sets\":[],\"token_separators\":[]}]"
     }
   },
   {
@@ -124,10 +40,94 @@
       "headers": {
         "Content-Length": "482",
         "Content-Type": "application/json",
-        "Date": "Thu, 25 Jun 2026 02:10:10 GMT",
+        "Date": "Thu, 25 Jun 2026 05:29:54 GMT",
         "Server": "uvicorn"
       },
-      "body": "{\"object\":\"list\",\"data\":[{\"id\":\"Qwen/Qwen3-Reranker-0.6B\",\"object\":\"model\",\"created\":1782353411,\"owned_by\":\"vllm\",\"root\":\"Qwen/Qwen3-Reranker-0.6B\",\"parent\":null,\"max_model_len\":8192,\"permission\":[{\"id\":\"modelperm-a7c3f72bcfb101aa\",\"object\":\"model_permission\",\"created\":1782353411,\"allow_create_engine\":false,\"allow_sampling\":true,\"allow_logprobs\":true,\"allow_search_indices\":false,\"allow_view\":true,\"allow_fine_tuning\":false,\"organization\":\"*\",\"group\":null,\"is_blocking\":false}]}]}"
+      "body": "{\"object\":\"list\",\"data\":[{\"id\":\"Qwen/Qwen3-Reranker-0.6B\",\"object\":\"model\",\"created\":1782365395,\"owned_by\":\"vllm\",\"root\":\"Qwen/Qwen3-Reranker-0.6B\",\"parent\":null,\"max_model_len\":8192,\"permission\":[{\"id\":\"modelperm-a840cdae5db50233\",\"object\":\"model_permission\",\"created\":1782365395,\"allow_create_engine\":false,\"allow_sampling\":true,\"allow_logprobs\":true,\"allow_search_indices\":false,\"allow_view\":true,\"allow_fine_tuning\":false,\"organization\":\"*\",\"group\":null,\"is_blocking\":false}]}]}"
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "http://192.168.4.31:8000/v1/models",
+      "headers": {
+        "Accept": "application/json",
+        "User-Agent": "OpenAI/Go 3.37.0",
+        "X-Stainless-Arch": "arm64",
+        "X-Stainless-Lang": "go",
+        "X-Stainless-Os": "MacOS",
+        "X-Stainless-Package-Version": "3.37.0",
+        "X-Stainless-Retry-Count": "0",
+        "X-Stainless-Runtime": "go",
+        "X-Stainless-Runtime-Version": "go1.26.4"
+      },
+      "body": ""
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Content-Length": "484",
+        "Content-Type": "application/json",
+        "Date": "Thu, 25 Jun 2026 05:29:55 GMT",
+        "Server": "uvicorn"
+      },
+      "body": "{\"object\":\"list\",\"data\":[{\"id\":\"Qwen/Qwen3.6-35B-A3B-FP8\",\"object\":\"model\",\"created\":1782365395,\"owned_by\":\"vllm\",\"root\":\"Qwen/Qwen3.6-35B-A3B-FP8\",\"parent\":null,\"max_model_len\":262144,\"permission\":[{\"id\":\"modelperm-bd9579249a59e431\",\"object\":\"model_permission\",\"created\":1782365395,\"allow_create_engine\":false,\"allow_sampling\":true,\"allow_logprobs\":true,\"allow_search_indices\":false,\"allow_view\":true,\"allow_fine_tuning\":false,\"organization\":\"*\",\"group\":null,\"is_blocking\":false}]}]}"
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "http://192.168.4.31:8001/v1/models",
+      "headers": {
+        "Accept": "application/json",
+        "User-Agent": "OpenAI/Go 3.37.0",
+        "X-Stainless-Arch": "arm64",
+        "X-Stainless-Lang": "go",
+        "X-Stainless-Os": "MacOS",
+        "X-Stainless-Package-Version": "3.37.0",
+        "X-Stainless-Retry-Count": "0",
+        "X-Stainless-Runtime": "go",
+        "X-Stainless-Runtime-Version": "go1.26.4"
+      },
+      "body": ""
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Content-Length": "486",
+        "Content-Type": "application/json",
+        "Date": "Thu, 25 Jun 2026 05:29:55 GMT",
+        "Server": "uvicorn"
+      },
+      "body": "{\"object\":\"list\",\"data\":[{\"id\":\"google/embeddinggemma-300m\",\"object\":\"model\",\"created\":1782365395,\"owned_by\":\"vllm\",\"root\":\"google/embeddinggemma-300m\",\"parent\":null,\"max_model_len\":2048,\"permission\":[{\"id\":\"modelperm-b17342e956959c17\",\"object\":\"model_permission\",\"created\":1782365395,\"allow_create_engine\":false,\"allow_sampling\":true,\"allow_logprobs\":true,\"allow_search_indices\":false,\"allow_view\":true,\"allow_fine_tuning\":false,\"organization\":\"*\",\"group\":null,\"is_blocking\":false}]}]}"
+    }
+  },
+  {
+    "request": {
+      "method": "GET",
+      "url": "http://192.168.4.31:8002/v1/models",
+      "headers": {
+        "Accept": "application/json",
+        "User-Agent": "OpenAI/Go 3.37.0",
+        "X-Stainless-Arch": "arm64",
+        "X-Stainless-Lang": "go",
+        "X-Stainless-Os": "MacOS",
+        "X-Stainless-Package-Version": "3.37.0",
+        "X-Stainless-Retry-Count": "0",
+        "X-Stainless-Runtime": "go",
+        "X-Stainless-Runtime-Version": "go1.26.4"
+      },
+      "body": ""
+    },
+    "response": {
+      "status_code": 200,
+      "headers": {
+        "Content-Length": "464",
+        "Content-Type": "application/json",
+        "Date": "Thu, 25 Jun 2026 05:29:55 GMT",
+        "Server": "uvicorn"
+      },
+      "body": "{\"object\":\"list\",\"data\":[{\"id\":\"Qwen/Qwen3-1.7B\",\"object\":\"model\",\"created\":1782365395,\"owned_by\":\"vllm\",\"root\":\"Qwen/Qwen3-1.7B\",\"parent\":null,\"max_model_len\":8192,\"permission\":[{\"id\":\"modelperm-bf80a3409bc4a581\",\"object\":\"model_permission\",\"created\":1782365395,\"allow_create_engine\":false,\"allow_sampling\":true,\"allow_logprobs\":true,\"allow_search_indices\":false,\"allow_view\":true,\"allow_fine_tuning\":false,\"organization\":\"*\",\"group\":null,\"is_blocking\":false}]}]}"
     }
   }
 ]

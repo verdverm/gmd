@@ -55,16 +55,16 @@ test.integration: clean-ts
 cover:
 	CGO_ENABLED=$(CGO_ENABLED) $(GO) test ./... -cover -count=1
 
-cover.integration:
-	CGO_ENABLED=$(CGO_ENABLED) $(GO) test ./... -cover -count=1 -tags=integration
+cover.integration: clean-ts
+	CGO_ENABLED=$(CGO_ENABLED) $(GO) test -p 1 ./... -cover -count=1 -tags=integration -timeout 30m
 
 cover.detailed:
 	CGO_ENABLED=$(CGO_ENABLED) $(GO) test ./... -coverprofile=coverage.out -count=1
 	$(GO) tool cover -html=coverage.out -o coverage.html
 	$(GO) tool cover -func=coverage.out
 
-cover.detailed.integration:
-	CGO_ENABLED=$(CGO_ENABLED) $(GO) test ./... -coverprofile=coverage.out -count=1 -tags=integration
+cover.detailed.integration: clean-ts
+	CGO_ENABLED=$(CGO_ENABLED) $(GO) test -p 1 ./... -coverprofile=coverage.out -count=1 -tags=integration -timeout 30m
 	$(GO) tool cover -html=coverage.out -o coverage.html
 	$(GO) tool cover -func=coverage.out
 

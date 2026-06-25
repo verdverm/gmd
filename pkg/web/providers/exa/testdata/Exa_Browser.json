@@ -14,13 +14,13 @@
         "Access-Control-Allow-Credentials": "true",
         "Access-Control-Expose-Headers": "PAYMENT-REQUIRED,PAYMENT-RESPONSE,payment-required,payment-response",
         "Cf-Cache-Status": "DYNAMIC",
-        "Cf-Ray": "a10e8b4d4f21be02-SEA",
+        "Cf-Ray": "a1118b64df3e75ba-SEA",
         "Content-Security-Policy": "frame-ancestors 'self'",
         "Content-Type": "application/json; charset=utf-8",
         "Cross-Origin-Opener-Policy": "same-origin",
         "Cross-Origin-Resource-Policy": "same-origin",
-        "Date": "Wed, 24 Jun 2026 20:39:50 GMT",
-        "Etag": "W/\"2f0-B/vNrVXjjE3YEfCIBikzV3SoDMw\"",
+        "Date": "Thu, 25 Jun 2026 05:24:11 GMT",
+        "Etag": "W/\"2f0-2XyL4+UZZl4clMCQG9CthAI/bJQ\"",
         "Origin-Agent-Cluster": "?1",
         "Referrer-Policy": "no-referrer",
         "Server": "cloudflare",
@@ -34,7 +34,7 @@
         "X-Permitted-Cross-Domain-Policies": "none",
         "X-Xss-Protection": "0"
       },
-      "body": "{\"requestId\":\"3b60b86324e12cc44a85d2aa99892fef\",\"results\":[{\"id\":\"https://example.com\",\"title\":\"Example Domain\",\"url\":\"https://example.com\",\"author\":null,\"text\":\"Example Domain\\n\\n# Example Domain\\n\\nThis domain is for use in documentation examples without needing permission. Avoid use in operations.\",\"favicon\":\"data:,\",\"entities\":[{\"id\":\"https://exa.ai/library/organization/qmfkd8nk6b1\",\"type\":\"company\",\"version\":1,\"properties\":{\"name\":\"Selbstständig\",\"foundedYear\":null,\"description\":\"sss\",\"workforce\":{\"total\":11136},\"headquarters\":null,\"financials\":null,\"webTraffic\":null}}]}],\"statuses\":[{\"id\":\"https://example.com\",\"status\":\"success\",\"source\":\"cached\"}],\"costDollars\":{\"total\":0.001,\"contents\":{\"text\":0.001}},\"searchTime\":16.018677999963984}"
+      "body": "{\"requestId\":\"2721fa3dc64be4dda4e4ce8b0ce78adc\",\"results\":[{\"id\":\"https://example.com\",\"title\":\"Example Domain\",\"url\":\"https://example.com\",\"author\":null,\"text\":\"Example Domain\\n\\n# Example Domain\\n\\nThis domain is for use in documentation examples without needing permission. Avoid use in operations.\",\"favicon\":\"data:,\",\"entities\":[{\"id\":\"https://exa.ai/library/organization/qmfkd8nk6b1\",\"type\":\"company\",\"version\":1,\"properties\":{\"name\":\"Selbstständig\",\"foundedYear\":null,\"description\":\"sss\",\"workforce\":{\"total\":11136},\"headquarters\":null,\"financials\":null,\"webTraffic\":null}}]}],\"statuses\":[{\"id\":\"https://example.com\",\"status\":\"success\",\"source\":\"cached\"}],\"costDollars\":{\"total\":0.001,\"contents\":{\"text\":0.001}},\"searchTime\":14.703472999972291}"
     }
   }
 ]

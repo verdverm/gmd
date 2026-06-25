@@ -126,7 +126,7 @@ func TestIntegrationLintContent_NilLLM(t *testing.T) {
 }
 
 func TestIntegrationLintContent_WithLLM(t *testing.T) {
-	c := tapeTest(t, "testdata/lint_content.json")
+	c := tapeTest(t, "testdata/Wiki_LintContent.json")
 	defer c.Stop()
 
 	_, agent := newTestWikiAgent(t)
@@ -158,7 +158,7 @@ func TestIntegrationLintGaps_NilLLM(t *testing.T) {
 }
 
 func TestIntegrationLintGaps_WithLLM(t *testing.T) {
-	c := tapeTest(t, "testdata/lint_gaps.json")
+	c := tapeTest(t, "testdata/Wiki_LintGaps.json")
 	defer c.Stop()
 
 	_, agent := newTestWikiAgent(t)
@@ -188,7 +188,7 @@ func TestIntegrationLint_WatchMode(t *testing.T) {
 }
 
 func TestIntegrationLint_Full(t *testing.T) {
-	c := tapeTest(t, "testdata/lint_full.json")
+	c := tapeTest(t, "testdata/Wiki_LintFull.json")
 	defer c.Stop()
 
 	_, agent := newTestWikiAgent(t)

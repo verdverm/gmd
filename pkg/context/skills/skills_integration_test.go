@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestIntegrationListSkillNames(t *testing.T) {
+func TestIntegrationSkills_ListSkillNames(t *testing.T) {
 	names, err := ListSkillNames()
 	if err != nil {
 		t.Fatalf("ListSkillNames error: %v", err)
@@ -47,7 +47,7 @@ func TestIntegrationHarnessDir_Unknown(t *testing.T) {
 func TestIntegrationCheckHarnessInstalled_None(t *testing.T) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		t.Skipf("no home directory: %v", err)
+		t.Fatalf("no home directory: %v", err)
 	}
 	for _, name := range HarnessNames() {
 		installed, err := CheckHarnessInstalled(home, true, name)
@@ -63,7 +63,7 @@ func TestIntegrationCheckHarnessInstalled_None(t *testing.T) {
 func TestIntegrationSkillInstalled_None(t *testing.T) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		t.Skipf("no home directory: %v", err)
+		t.Fatalf("no home directory: %v", err)
 	}
 	skills, err := ListSkillNames()
 	if err != nil {

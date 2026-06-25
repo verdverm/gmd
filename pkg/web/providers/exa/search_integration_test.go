@@ -34,18 +34,15 @@ func requireEnv(t *testing.T, key string) string {
 	t.Helper()
 	v := os.Getenv(key)
 	if v == "" {
-		if os.Getenv("GMD_WEB_INTEGRATION_FAIL") == "1" {
-			t.Fatalf("%s not set — integration test requires credentials", key)
-		}
-		t.Skipf("%s not set — skipping integration test", key)
+		t.Fatalf("%s not set — integration test requires credentials", key)
 	}
 	return v
 }
 
-func TestSearchAdapter_Integration(t *testing.T) {
+func TestIntegrationExa_Search(t *testing.T) {
 	apiKey := requireEnv(t, "EXA_API_KEY")
 
-	tape := maybeNewTape(t, "testdata/001_search.json")
+	tape := maybeNewTape(t, "testdata/Exa_Search.json")
 	var httpClient *http.Client
 	if tape != nil {
 		tape.Start()

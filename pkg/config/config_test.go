@@ -56,7 +56,7 @@ func TestWebPersistenceConfig_UserCustomDir(t *testing.T) {
 	}
 }
 
-func TestWebPersistenceConfig_Merge_ProjectOverridesGlobal(t *testing.T) {
+func TestWebPersistenceConfig_MergeProjectOverridesGlobal(t *testing.T) {
 	dst := defaultConfig()
 	dst.Web.Persistence = &WebPersistenceConfig{Enabled: true, Dir: ".gmd/web"}
 
@@ -73,7 +73,7 @@ func TestWebPersistenceConfig_Merge_ProjectOverridesGlobal(t *testing.T) {
 	}
 }
 
-func TestWebPersistenceConfig_Merge_ProjectAbsentKeepsGlobal(t *testing.T) {
+func TestWebPersistenceConfig_MergeProjectAbsentKeepsGlobal(t *testing.T) {
 	dst := defaultConfig()
 	dst.Web.Persistence = &WebPersistenceConfig{Enabled: true, Dir: "/custom/path"}
 
@@ -93,7 +93,7 @@ func TestWebPersistenceConfig_Merge_ProjectAbsentKeepsGlobal(t *testing.T) {
 	}
 }
 
-func TestWebPersistenceConfig_Merge_ProjectSetsDir(t *testing.T) {
+func TestWebPersistenceConfig_MergeProjectSetsDir(t *testing.T) {
 	dst := defaultConfig()
 	dst.Web.Persistence = &WebPersistenceConfig{Enabled: true, Dir: ".gmd/web"}
 

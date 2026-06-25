@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestValidNames(t *testing.T) {
+func TestAgentsMD_ValidNames(t *testing.T) {
 	names, err := ValidNames()
 	if err != nil {
 		t.Fatalf("ValidNames error: %v", err)
@@ -38,7 +38,7 @@ func TestValidNames(t *testing.T) {
 	}
 }
 
-func TestGetContent(t *testing.T) {
+func TestAgentsMD_GetContent(t *testing.T) {
 	allNames, err := ValidNames()
 	if err != nil {
 		t.Fatalf("ValidNames error: %v", err)

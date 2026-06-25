@@ -34,18 +34,15 @@ func requireTavilyKey(t *testing.T) string {
 	t.Helper()
 	apiKey := os.Getenv("TAVILY_API_KEY")
 	if apiKey == "" {
-		if os.Getenv("GMD_WEB_INTEGRATION_FAIL") == "1" {
-			t.Fatalf("TAVILY_API_KEY not set — integration test requires credentials")
-		}
-		t.Skip("TAVILY_API_KEY not set — skipping integration test")
+		t.Fatalf("TAVILY_API_KEY not set — integration test requires credentials")
 	}
 	return apiKey
 }
 
-func TestSearchClient_Integration(t *testing.T) {
+func TestIntegrationTavily_Search(t *testing.T) {
 	apiKey := requireTavilyKey(t)
 
-	tape := maybeNewTape(t, "testdata/001_search.json")
+	tape := maybeNewTape(t, "testdata/Tavily_Search.json")
 	var httpClient *http.Client
 	if tape != nil {
 		tape.Start()

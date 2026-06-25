@@ -123,7 +123,7 @@ func TestFormatVector(t *testing.T) {
 	})
 }
 
-func TestToFloat64(t *testing.T) {
+func TestTS_ToFloat64(t *testing.T) {
 	tests := []struct {
 		input interface{}
 		want  float64
@@ -148,7 +148,7 @@ func TestToFloat64(t *testing.T) {
 	}
 }
 
-func TestGroupedHitsToResults(t *testing.T) {
+func TestTS_GroupedHitsToResults(t *testing.T) {
 	t.Run("nil response", func(t *testing.T) {
 		results := groupedHitsToResults(nil)
 		if len(results) != 0 {
@@ -157,7 +157,7 @@ func TestGroupedHitsToResults(t *testing.T) {
 	})
 }
 
-func TestBoolPtr(t *testing.T) {
+func TestTS_BoolPtr(t *testing.T) {
 	b := boolPtr(true)
 	if b == nil {
 		t.Fatal("boolPtr returned nil")
@@ -167,7 +167,7 @@ func TestBoolPtr(t *testing.T) {
 	}
 }
 
-func TestIntPtr(t *testing.T) {
+func TestTS_IntPtr(t *testing.T) {
 	i := intPtr(42)
 	if i == nil {
 		t.Fatal("intPtr returned nil")
@@ -177,7 +177,7 @@ func TestIntPtr(t *testing.T) {
 	}
 }
 
-func TestStringPtr(t *testing.T) {
+func TestTS_StringPtr(t *testing.T) {
 	s := stringPtr("hello")
 	if s == nil {
 		t.Fatal("stringPtr returned nil")
@@ -187,7 +187,7 @@ func TestStringPtr(t *testing.T) {
 	}
 }
 
-func TestNewClient(t *testing.T) {
+func TestTS_NewClient(t *testing.T) {
 	cfg := Config{Host: "http://localhost:8108", APIKey: "test-key"}
 	c := New(cfg)
 	if c == nil {
@@ -198,7 +198,7 @@ func TestNewClient(t *testing.T) {
 	}
 }
 
-func TestDeleteChunksByCollection(t *testing.T) {
+func TestTS_DeleteChunksByCollection(t *testing.T) {
 	c := New(Config{Host: "http://localhost:8108", APIKey: "test-key"})
 	err := c.DeleteChunksByCollection(t.Context(), "nonexistent")
 	if err == nil {

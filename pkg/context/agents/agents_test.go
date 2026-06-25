@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestProjectAgentsDir(t *testing.T) {
+func TestAgents_ProjectAgentsDir(t *testing.T) {
 	got := ProjectAgentsDir("/project/root")
 	expected := filepath.Join("/project/root", ".gmd", "agents")
 	if got != expected {
@@ -14,7 +14,7 @@ func TestProjectAgentsDir(t *testing.T) {
 	}
 }
 
-func TestResolveDir(t *testing.T) {
+func TestAgents_ResolveDir(t *testing.T) {
 	t.Run("global", func(t *testing.T) {
 		dir, err := ResolveDir(true, "/irrelevant")
 		if err != nil {
@@ -42,7 +42,7 @@ func TestResolveDir(t *testing.T) {
 	})
 }
 
-func TestListAgents(t *testing.T) {
+func TestAgents_ListAgents(t *testing.T) {
 	t.Run("non-existent dir returns empty", func(t *testing.T) {
 		dir := t.TempDir()
 		names, err := ListAgents(false, dir)
@@ -99,7 +99,7 @@ func TestListAgents(t *testing.T) {
 	})
 }
 
-func TestShowAgent(t *testing.T) {
+func TestAgents_ShowAgent(t *testing.T) {
 	t.Run("existing agent with files", func(t *testing.T) {
 		dir := t.TempDir()
 		agentsDir := ProjectAgentsDir(dir)

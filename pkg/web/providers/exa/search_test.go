@@ -203,7 +203,7 @@ func TestSearchAdapter_HighlightsMode(t *testing.T) {
 	}
 }
 
-func TestExaCostSummary(t *testing.T) {
+func TestExa_CostSummary(t *testing.T) {
 	t.Run("nil cost", func(t *testing.T) {
 		if c := exaCostSummary(nil); c != nil {
 			t.Error("expected nil for nil input")
@@ -221,7 +221,7 @@ func TestExaCostSummary(t *testing.T) {
 	})
 }
 
-func TestParseDateExtra(t *testing.T) {
+func TestExa_ParseDateExtra(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		d, err := parseDateExtra("2026-01-15")
 		if err != nil {

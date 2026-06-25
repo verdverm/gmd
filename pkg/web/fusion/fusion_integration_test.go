@@ -32,10 +32,7 @@ func requireEnv(t *testing.T, key string) string {
 	t.Helper()
 	v := os.Getenv(key)
 	if v == "" {
-		if os.Getenv("GMD_WEB_INTEGRATION_FAIL") == "1" {
-			t.Fatalf("%s not set — integration test requires credentials", key)
-		}
-		t.Skipf("%s not set — skipping integration test", key)
+		t.Fatalf("%s not set — integration test requires credentials", key)
 	}
 	return v
 }
@@ -119,35 +116,35 @@ func availableSearchProviders(t *testing.T) []web.SearchProvider {
 	return providers
 }
 
-func llmClientOrSkip(t *testing.T) llm.ChatModel {
+func requireLLMClient(t *testing.T) llm.ChatModel {
 	t.Helper()
 
 	cfg, err := config.Load(".")
 	if err != nil {
-		t.Skipf("config load failed: %v", err)
+		t.Fatalf("config load failed: %v", err)
 	}
 
 	reg, err := llm.NewRegistry(context.Background(), cfg)
 	if err != nil {
-		t.Skipf("LLM registry build failed: %v", err)
+		t.Fatalf("LLM registry build failed: %v", err)
 	}
 
 	chat := reg.Model(llm.RoleSummarizing)
 	if chat == nil {
-		t.Skip("no LLM model configured for summarizing")
+		t.Fatal("no LLM model configured for summarizing")
 	}
 
 	return chat
 }
 
-func TestMultiSearch_Integration(t *testing.T) {
-	exaTape := maybeNewTape(t, "testdata/fusion_exa.json", "https://api.exa.ai")
-	tavilyTape := maybeNewTape(t, "testdata/fusion_tavily.json", "https://api.tavily.com")
+func TestIntegrationFusion_MultiSearch(t *testing.T) {
+	exaTape := maybeNewTape(t, "testdata/Fusion_Exa.json", "https://api.exa.ai")
+	tavilyTape := maybeNewTape(t, "testdata/Fusion_Tavily.json", "https://api.tavily.com")
 
 	searxngURL := os.Getenv("SEARXNG_BASE_URL")
 	var searxngTape *testutil.Tape
 	if searxngURL != "" {
-		searxngTape = maybeNewTape(t, "testdata/fusion_searxng.json", searxngURL)
+		searxngTape = maybeNewTape(t, "testdata/Fusion_Searxng.json", searxngURL)
 	}
 
 	var exaHC, tavilyHC, searxngHC *http.Client
@@ -178,7 +175,7 @@ func TestMultiSearch_Integration(t *testing.T) {
 
 	providers := tapedSearchProviders(t, exaHC, tavilyHC, searxngHC)
 	if len(providers) == 0 {
-		t.Skip("no search providers available")
+		t.Fatal("no search providers available")
 	}
 
 	results, _, _, err := MultiSearch(context.Background(), "golang standard library features",
@@ -212,10 +209,10 @@ func TestMultiSearch_Integration(t *testing.T) {
 	t.Logf("provider distribution: %v", providersSeen)
 }
 
-func TestRun_HeuristicDedup_Integration(t *testing.T) {
+func TestIntegrationFusion_HeuristicDedup(t *testing.T) {
 	providers := availableSearchProviders(t)
 	if len(providers) == 0 {
-		t.Skip("no search providers available")
+		t.Fatal("no search providers available")
 	}
 
 	result, err := Run(context.Background(), "react vs vue comparison",
@@ -246,16 +243,13 @@ func TestRun_HeuristicDedup_Integration(t *testing.T) {
 	t.Logf("no duplicate URLs found")
 }
 
-func TestRun_Synthesis_Integration(t *testing.T) {
+func TestIntegrationFusion_Synthesis(t *testing.T) {
 	providers := availableSearchProviders(t)
 	if len(providers) == 0 {
-		t.Skip("no search providers available")
+		t.Fatal("no search providers available")
 	}
 
-	summarizer := llmClientOrSkip(t)
-	if summarizer == nil {
-		t.Skip("llm client not available")
-	}
+	summarizer := requireLLMClient(t)
 
 	result, err := Run(context.Background(), "python vs javascript for web development",
 		providers,
@@ -278,13 +272,13 @@ func TestRun_Synthesis_Integration(t *testing.T) {
 	}
 }
 
-func TestRun_LLMDedup_Integration(t *testing.T) {
+func TestIntegrationFusion_LLMDedup(t *testing.T) {
 	providers := availableSearchProviders(t)
 	if len(providers) == 0 {
-		t.Skip("no search providers available")
+		t.Fatal("no search providers available")
 	}
 
-	summarizer := llmClientOrSkip(t)
+	summarizer := requireLLMClient(t)
 
 	result, err := Run(context.Background(), "rust programming language features",
 		providers,
@@ -305,13 +299,13 @@ func TestRun_LLMDedup_Integration(t *testing.T) {
 	}
 }
 
-func TestRun_CustomSynthesisPrompt_Integration(t *testing.T) {
+func TestIntegrationFusion_CustomSynthesisPrompt(t *testing.T) {
 	providers := availableSearchProviders(t)
 	if len(providers) == 0 {
-		t.Skip("no search providers available")
+		t.Fatal("no search providers available")
 	}
 
-	summarizer := llmClientOrSkip(t)
+	summarizer := requireLLMClient(t)
 
 	customPrompt := `You are a concise search synthesizer. Answer in exactly 3 bullet points. Cite sources with [](url).`
 
@@ -340,10 +334,10 @@ func TestRun_CustomSynthesisPrompt_Integration(t *testing.T) {
 	}
 }
 
-func TestRun_SingleProvider_Integration(t *testing.T) {
+func TestIntegrationFusion_SingleProvider(t *testing.T) {
 	key := os.Getenv("EXA_API_KEY")
 	if key == "" {
-		t.Skip("EXA_API_KEY not set")
+		t.Fatal("EXA_API_KEY not set")
 	}
 
 	provider, err := exaprovider.NewSearchAdapter(web.ProviderConfig{
@@ -374,10 +368,10 @@ func TestRun_SingleProvider_Integration(t *testing.T) {
 	}
 }
 
-func TestRun_DedupNone_Integration(t *testing.T) {
+func TestIntegrationFusion_DedupNone(t *testing.T) {
 	providers := availableSearchProviders(t)
 	if len(providers) < 2 {
-		t.Skip("need at least 2 providers for dedup-none test")
+		t.Fatal("need at least 2 providers for dedup-none test")
 	}
 
 	result, err := Run(context.Background(), "docker containers",

@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestDefaultBaseURL(t *testing.T) {
+func TestAuth_DefaultBaseURL(t *testing.T) {
 	tests := []struct {
 		provider string
 		want     string
@@ -51,7 +51,7 @@ func TestBuildHTTPClient_UnknownMethod(t *testing.T) {
 	}
 }
 
-func TestMethodConstants(t *testing.T) {
+func TestAuth_MethodConstants(t *testing.T) {
 	if AuthNone != "none" {
 		t.Error("AuthNone mismatch")
 	}

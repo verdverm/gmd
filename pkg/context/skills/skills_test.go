@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestListSkillNames(t *testing.T) {
+func TestSkills_ListSkillNames(t *testing.T) {
 	names, err := ListSkillNames()
 	if err != nil {
 		t.Fatalf("ListSkillNames error: %v", err)
@@ -17,7 +17,7 @@ func TestListSkillNames(t *testing.T) {
 	}
 }
 
-func TestGetSkillContent(t *testing.T) {
+func TestSkills_GetSkillContent(t *testing.T) {
 	t.Run("existing skill", func(t *testing.T) {
 		content, err := GetSkillContent("gmd-wiki")
 		if err != nil {
@@ -36,7 +36,7 @@ func TestGetSkillContent(t *testing.T) {
 	})
 }
 
-func TestHarnessNames(t *testing.T) {
+func TestSkills_HarnessNames(t *testing.T) {
 	names := HarnessNames()
 	if len(names) != 3 {
 		t.Errorf("expected 3 harnesses, got %d: %v", len(names), names)

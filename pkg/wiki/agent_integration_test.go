@@ -389,7 +389,7 @@ func TestIntegrationSaveQueryResult(t *testing.T) {
 }
 
 func TestIntegrationSearchOverlap_WithResults(t *testing.T) {
-	c := tapeTest(t, "testdata/search_overlap.json")
+	c := tapeTest(t, "testdata/Wiki_SearchOverlap.json")
 	defer c.Stop()
 
 	ctx := context.Background()
@@ -432,7 +432,7 @@ func TestIntegrationSearchOverlap_WithResults(t *testing.T) {
 }
 
 func TestIntegrationQuery_Basic(t *testing.T) {
-	c := tapeTest(t, "testdata/query_basic.json")
+	c := tapeTest(t, "testdata/Wiki_QueryBasic.json")
 	defer c.Stop()
 
 	ctx := context.Background()
@@ -478,7 +478,7 @@ func TestIntegrationQuery_Basic(t *testing.T) {
 }
 
 func TestIntegrationQuery_DefaultLimit(t *testing.T) {
-	c := tapeTest(t, "testdata/query_default_limit.json")
+	c := tapeTest(t, "testdata/Wiki_QueryDefaultLimit.json")
 	defer c.Stop()
 
 	ctx := context.Background()
@@ -522,7 +522,7 @@ func TestIntegrationQuery_DefaultLimit(t *testing.T) {
 }
 
 func TestIntegrationQuery_WithSave(t *testing.T) {
-	c := tapeTest(t, "testdata/query_with_save.json")
+	c := tapeTest(t, "testdata/Wiki_QueryWithSave.json")
 	defer c.Stop()
 
 	ctx := context.Background()
@@ -566,7 +566,7 @@ func TestIntegrationQuery_WithSave(t *testing.T) {
 }
 
 func TestIntegrationIngest_CreatesPagesAndUpdatesIndex(t *testing.T) {
-	c := tapeTest(t, "testdata/ingest_create.json")
+	c := tapeTest(t, "testdata/Agent_IngestCreate.json")
 	defer c.Stop()
 
 	ctx := context.Background()

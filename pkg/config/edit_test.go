@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestAddCollection(t *testing.T) {
+func TestEdit_AddCollection(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "project")
 	gmdDir := filepath.Join(root, ".gmd")
@@ -76,7 +76,7 @@ Config: {
 	})
 }
 
-func TestRemoveCollection(t *testing.T) {
+func TestEdit_RemoveCollection(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "project")
 	gmdDir := filepath.Join(root, ".gmd")
@@ -135,7 +135,7 @@ Config: {
 	})
 }
 
-func TestRenameCollection(t *testing.T) {
+func TestEdit_RenameCollection(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "project")
 	gmdDir := filepath.Join(root, ".gmd")
@@ -188,7 +188,7 @@ Config: {
 	}
 }
 
-func TestAddCollectionPatterns(t *testing.T) {
+func TestEdit_AddCollectionPatterns(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "project")
 	gmdDir := filepath.Join(root, ".gmd")
@@ -263,7 +263,7 @@ Config: {
 	})
 }
 
-func TestIgnorePatterns(t *testing.T) {
+func TestEdit_IgnorePatterns(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "project")
 	gmdDir := filepath.Join(root, ".gmd")
@@ -353,7 +353,7 @@ Config: {
 	})
 }
 
-func TestContextDoc(t *testing.T) {
+func TestEdit_ContextDoc(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "project")
 	gmdDir := filepath.Join(root, ".gmd")
@@ -427,7 +427,7 @@ Config: {
 	})
 }
 
-func TestProjectConfigPath(t *testing.T) {
+func TestEdit_ProjectConfigPath(t *testing.T) {
 	got := ProjectConfigPath("/my/project")
 	want := "/my/project/.gmd/config.cue"
 	if got != want {

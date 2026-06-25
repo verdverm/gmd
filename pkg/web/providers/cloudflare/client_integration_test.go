@@ -25,15 +25,12 @@ func requireEnvCF(t *testing.T) (string, string) {
 	apiKey := os.Getenv("CLOUDFLARE_API_KEY")
 	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
 	if apiKey == "" || accountID == "" {
-		if os.Getenv("GMD_WEB_INTEGRATION_FAIL") == "1" {
-			t.Fatalf("CLOUDFLARE_API_KEY and CLOUDFLARE_ACCOUNT_ID required for integration test")
-		}
-		t.Skip("CLOUDFLARE_API_KEY and CLOUDFLARE_ACCOUNT_ID not set — skipping integration test")
+		t.Fatalf("CLOUDFLARE_API_KEY and CLOUDFLARE_ACCOUNT_ID required for integration test")
 	}
 	return apiKey, accountID
 }
 
-func TestBrowserClient_Integration_GetContent(t *testing.T) {
+func TestIntegrationBrowserClient_GetContent(t *testing.T) {
 	apiKey, accountID := requireEnvCF(t)
 
 	c, err := NewBrowserClient(web.ProviderConfig{
@@ -58,7 +55,7 @@ func TestBrowserClient_Integration_GetContent(t *testing.T) {
 	t.Logf("Content length: %d, cost=%+v", len(result.Content), result.Cost)
 }
 
-func TestBrowserClient_Integration_Crawl(t *testing.T) {
+func TestIntegrationBrowserClient_Crawl(t *testing.T) {
 	apiKey, accountID := requireEnvCF(t)
 
 	c, err := NewBrowserClient(web.ProviderConfig{
@@ -93,7 +90,7 @@ func TestBrowserClient_Integration_Crawl(t *testing.T) {
 	}
 }
 
-func TestBrowserClient_Integration_Capabilities(t *testing.T) {
+func TestIntegrationBrowserClient_Capabilities(t *testing.T) {
 	c, _ := NewBrowserClient(web.ProviderConfig{
 		Extra: map[string]any{
 			"api_key":    "test",

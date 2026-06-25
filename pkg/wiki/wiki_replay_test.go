@@ -41,7 +41,7 @@ func buildReplayTSCClient(tape *testutil.Tape) *ts.Client {
 }
 
 func TestQueryFlow_Replay(t *testing.T) {
-	tape, err := testutil.NewReplayTape("testdata/query_flow.json")
+	tape, err := testutil.NewReplayTape("testdata/Wiki_QueryFlow.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +106,7 @@ func TestQueryFlow_Replay(t *testing.T) {
 }
 
 func TestIngestFlow_Replay(t *testing.T) {
-	tape, err := testutil.NewReplayTape("testdata/ingest_flow.json")
+	tape, err := testutil.NewReplayTape("testdata/Wiki_IngestFlow.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,7 +174,7 @@ func TestIngestFlow_Replay(t *testing.T) {
 }
 
 func TestLintContentFlow_Replay(t *testing.T) {
-	tape, err := testutil.NewReplayTape("testdata/lint_content.json")
+	tape, err := testutil.NewReplayTape("testdata/Wiki_LintContent.json")
 	if err != nil {
 		t.Fatal(err)
 	}

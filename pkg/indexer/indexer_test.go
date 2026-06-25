@@ -12,7 +12,7 @@ import (
 	"github.com/verdverm/gmd/pkg/ts"
 )
 
-func TestScanFilesFS(t *testing.T) {
+func TestIndexer_ScanFilesFS(t *testing.T) {
 	t.Run("single file", func(t *testing.T) {
 		fsys := fstest.MapFS{
 			"doc.md": {Data: []byte("# Hello")},
@@ -143,7 +143,7 @@ func TestScanFilesFS(t *testing.T) {
 	})
 }
 
-func TestFileHashFS(t *testing.T) {
+func TestIndexer_FileHashFS(t *testing.T) {
 	t.Run("consistent hash for same content", func(t *testing.T) {
 		fsys := fstest.MapFS{
 			"a.md": {Data: []byte("# Hello\nWorld")},
@@ -183,7 +183,7 @@ func TestFileHashFS(t *testing.T) {
 	})
 }
 
-func TestIndexerConstruction(t *testing.T) {
+func TestIndexer_Construction(t *testing.T) {
 	t.Run("New creates indexer", func(t *testing.T) {
 		idx := New(nil, nil, nil)
 		if idx == nil {
@@ -225,7 +225,7 @@ func TestIndexerConstruction(t *testing.T) {
 	})
 }
 
-func TestIndexResult(t *testing.T) {
+func TestIndexer_IndexResult(t *testing.T) {
 	t.Run("empty result has zero values", func(t *testing.T) {
 		r := &IndexResult{}
 		if r.TotalFiles != 0 || r.Indexed != 0 || r.Skipped != 0 || r.ChunkCount != 0 {
@@ -259,7 +259,7 @@ func TestIndexResult(t *testing.T) {
 	})
 }
 
-func TestUpdateCollectionErrors(t *testing.T) {
+func TestIndexer_UpdateCollectionErrors(t *testing.T) {
 	t.Run("nonexistent directory returns error", func(t *testing.T) {
 		fsys := fstest.MapFS{}
 		cfg := testConfig(t)
@@ -289,7 +289,7 @@ func TestUpdateCollectionErrors(t *testing.T) {
 	})
 }
 
-func TestFileHash(t *testing.T) {
+func TestIndexer_FileHash(t *testing.T) {
 	t.Run("produces 64-char hex", func(t *testing.T) {
 		h, err := fileHashFS(fstest.MapFS{"f": {Data: []byte("data")}}, "f")
 		if err != nil {
@@ -307,7 +307,7 @@ func TestFileHash(t *testing.T) {
 	})
 }
 
-func TestScanFilesFSWithTempDir(t *testing.T) {
+func TestIndexer_ScanFilesFSWithTempDir(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "test.md"), []byte("# test"), 0600); err != nil {
 		t.Fatal(err)
@@ -329,7 +329,7 @@ func TestScanFilesFSWithTempDir(t *testing.T) {
 	}
 }
 
-func TestFileHashWithTempDir(t *testing.T) {
+func TestIndexer_FileHashWithTempDir(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.md")
 	if err := os.WriteFile(path, []byte("# Hello\nWorld"), 0600); err != nil {
@@ -366,7 +366,7 @@ func TestFileHashWithTempDir(t *testing.T) {
 	}
 }
 
-func TestWithFSChaining(t *testing.T) {
+func TestIndexer_WithFSChaining(t *testing.T) {
 	fsys1 := fstest.MapFS{
 		"a.md": {Data: []byte("# A")},
 	}
@@ -462,7 +462,7 @@ func (m *mockTSClient) DeleteDocByPath(ctx context.Context, path string) error {
 	return nil
 }
 
-func TestStalePaths(t *testing.T) {
+func TestIndexer_StalePaths(t *testing.T) {
 	dir := t.TempDir()
 
 	// Create a file that exists on disk
@@ -511,7 +511,7 @@ func TestStalePaths(t *testing.T) {
 	})
 }
 
-func TestCleanupDeleted(t *testing.T) {
+func TestIndexer_CleanupDeleted(t *testing.T) {
 	dir := t.TempDir()
 
 	existing := filepath.Join(dir, "keep.md")
@@ -549,7 +549,7 @@ func TestCleanupDeleted(t *testing.T) {
 	})
 }
 
-func TestCleanupAllCollections(t *testing.T) {
+func TestIndexer_CleanupAllCollections(t *testing.T) {
 	dir := t.TempDir()
 
 	if err := os.WriteFile(filepath.Join(dir, "a.md"), []byte("# A"), 0600); err != nil {
@@ -581,7 +581,7 @@ func TestCleanupAllCollections(t *testing.T) {
 	}
 }
 
-func TestStalePathsNonexistentCollection(t *testing.T) {
+func TestIndexer_StalePathsNonexistentCollection(t *testing.T) {
 	idx := New(&config.Config{}, nil, nil)
 	_, err := idx.StalePaths(t.Context(), "nonexistent")
 	if err == nil {

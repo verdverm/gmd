@@ -13,9 +13,9 @@ import (
 )
 
 func TestMultiSearch_Replay(t *testing.T) {
-	exaTape, exaErr := testutil.NewReplayTape("testdata/fusion_exa.json")
-	tavilyTape, tavErr := testutil.NewReplayTape("testdata/fusion_tavily.json")
-	searxngTape, searxngErr := testutil.NewReplayTape("testdata/fusion_searxng.json")
+	exaTape, exaErr := testutil.NewReplayTape("testdata/Fusion_Exa.json")
+	tavilyTape, tavErr := testutil.NewReplayTape("testdata/Fusion_Tavily.json")
+	searxngTape, searxngErr := testutil.NewReplayTape("testdata/Fusion_Searxng.json")
 
 	var providers []web.SearchProvider
 	if exaErr == nil {
@@ -53,7 +53,7 @@ func TestMultiSearch_Replay(t *testing.T) {
 	}
 
 	if len(providers) == 0 {
-		t.Skip("no tape files available — run integration tests to generate tapes")
+		t.Fatal("no tape files available — run integration tests to generate tapes")
 	}
 
 	results, _, _, err := MultiSearch(context.Background(), "golang standard library features",

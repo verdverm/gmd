@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestDefaultConfig(t *testing.T) {
+func TestChunking_DefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
 	if cfg.TargetTokens != 900 {
 		t.Errorf("TargetTokens = %d, want 900", cfg.TargetTokens)
@@ -22,7 +22,7 @@ func TestDefaultConfig(t *testing.T) {
 	}
 }
 
-func TestTokenCount(t *testing.T) {
+func TestChunking_TokenCount(t *testing.T) {
 	tests := []struct {
 		input string
 		want  int
@@ -41,7 +41,7 @@ func TestTokenCount(t *testing.T) {
 	}
 }
 
-func TestExtractHeadings(t *testing.T) {
+func TestChunking_ExtractHeadings(t *testing.T) {
 	tests := []struct {
 		name  string
 		input string
@@ -97,7 +97,7 @@ func TestExtractHeadings(t *testing.T) {
 	}
 }
 
-func TestSplitIntoSegments(t *testing.T) {
+func TestChunking_SplitIntoSegments(t *testing.T) {
 	tests := []struct {
 		name     string
 		lines    []string
@@ -133,7 +133,7 @@ func TestSplitIntoSegments(t *testing.T) {
 	}
 }
 
-func TestChunkMarkdownSmallDoc(t *testing.T) {
+func TestChunkMarkdown_SmallDoc(t *testing.T) {
 	content := "Small document content"
 	cfg := DefaultConfig()
 	chunks := ChunkMarkdown(content, cfg)
@@ -151,7 +151,7 @@ func TestChunkMarkdownSmallDoc(t *testing.T) {
 	}
 }
 
-func TestChunkMarkdownSplitByHeadings(t *testing.T) {
+func TestChunkMarkdown_SplitByHeadings(t *testing.T) {
 	content := strings.Repeat("intro text ", 100) + "\n# Section 1\n" + strings.Repeat("section1 content ", 100) + "\n## Section 2\n" + strings.Repeat("section2 content ", 50)
 	cfg := DefaultConfig()
 	cfg.TargetTokens = 50
@@ -174,7 +174,7 @@ func TestChunkMarkdownSplitByHeadings(t *testing.T) {
 	}
 }
 
-func TestChunkMarkdownTitleFromH1(t *testing.T) {
+func TestChunkMarkdown_TitleFromH1(t *testing.T) {
 	content := "# Document Title\n\nSome content here."
 	cfg := DefaultConfig()
 	chunks := ChunkMarkdown(content, cfg)
@@ -187,7 +187,7 @@ func TestChunkMarkdownTitleFromH1(t *testing.T) {
 	}
 }
 
-func TestChunkMarkdownNoTitleWhenNoH1(t *testing.T) {
+func TestChunkMarkdown_NoTitleWhenNoH1(t *testing.T) {
 	content := "## Section\n\nSome content."
 	cfg := DefaultConfig()
 	chunks := ChunkMarkdown(content, cfg)
@@ -200,7 +200,7 @@ func TestChunkMarkdownNoTitleWhenNoH1(t *testing.T) {
 	}
 }
 
-func TestChunkMarkdownOverlap(t *testing.T) {
+func TestChunkMarkdown_Overlap(t *testing.T) {
 	content := "# H1\n" + strings.Repeat("word ", 100) + "\n# H2\n" + strings.Repeat("word ", 100) + "\n# H3\n" + strings.Repeat("word ", 100)
 	cfg := DefaultConfig()
 	cfg.TargetTokens = 50
@@ -212,7 +212,7 @@ func TestChunkMarkdownOverlap(t *testing.T) {
 	}
 }
 
-func TestChunkMarkdownWithMixedElements(t *testing.T) {
+func TestChunkMarkdown_WithMixedElements(t *testing.T) {
 	content := `# Introduction
 
 This is the introduction paragraph.
@@ -249,7 +249,7 @@ This is the introduction paragraph.
 	}
 }
 
-func TestChunkMarkdownLargeDoc(t *testing.T) {
+func TestChunkMarkdown_LargeDoc(t *testing.T) {
 	content := "# One\n" + strings.Repeat("word ", 200) + "\n# Two\n" + strings.Repeat("word ", 200) + "\n# Three\n" + strings.Repeat("word ", 200)
 	cfg := DefaultConfig()
 	cfg.TargetTokens = 50
@@ -267,7 +267,7 @@ func TestChunkMarkdownLargeDoc(t *testing.T) {
 	}
 }
 
-func TestChunkMarkdownOverlapCarryFullPrev(t *testing.T) {
+func TestChunkMarkdown_OverlapCarryFullPrev(t *testing.T) {
 	content := "# H1\nhello\n# H2\n" + strings.Repeat("word ", 100)
 	cfg := DefaultConfig()
 	cfg.TargetTokens = 50
@@ -283,7 +283,7 @@ func TestChunkMarkdownOverlapCarryFullPrev(t *testing.T) {
 	}
 }
 
-func TestChunkMarkdownUTF8(t *testing.T) {
+func TestChunkMarkdown_UTF8(t *testing.T) {
 	content := strings.Repeat("こんにちは世界", 500)
 	cfg := DefaultConfig()
 	cfg.TargetTokens = 100
@@ -300,7 +300,7 @@ func TestChunkMarkdownUTF8(t *testing.T) {
 	}
 }
 
-func TestExtractWikilinks(t *testing.T) {
+func TestChunking_ExtractWikilinks(t *testing.T) {
 	tests := []struct {
 		name string
 		in   string
@@ -357,7 +357,7 @@ func TestExtractWikilinks(t *testing.T) {
 	}
 }
 
-func TestExtractFrontmatter(t *testing.T) {
+func TestChunking_ExtractFrontmatter(t *testing.T) {
 	tests := []struct {
 		name   string
 		in     string
@@ -420,7 +420,7 @@ func TestExtractFrontmatter(t *testing.T) {
 	}
 }
 
-func TestChunkMarkdownWithMeta(t *testing.T) {
+func TestChunkMarkdown_WithMeta(t *testing.T) {
 	tests := []struct {
 		name      string
 		in        string

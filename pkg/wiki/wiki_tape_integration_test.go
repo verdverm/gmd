@@ -51,7 +51,7 @@ func TestIntegrationQueryFlow_Record(t *testing.T) {
 
 	ctx := context.Background()
 
-	tape := maybeNewTape(t, "testdata/query_flow.json")
+	tape := maybeNewTape(t, "testdata/Wiki_QueryFlow.json")
 
 	var (
 		tsClient  *ts.Client
@@ -124,23 +124,12 @@ func TestIntegrationIngestFlow_Record(t *testing.T) {
 	requireTSServices(t)
 	requireLLMServices(t)
 
-	tape := maybeNewTape(t, "testdata/ingest_flow.json")
-	if tape == nil {
-		t.Skip("GMD_NORECORD=1, skipping tape recording")
-	}
-	tape.Start()
-	defer func() {
-		if err := tape.Stop(); err != nil {
-			t.Fatal(err)
-		}
-	}()
-
-	tapedTS := buildTapedTSCWikiClient(t, tape)
-	tapedRegistry := buildTapedRegistry(t, tape)
+	tc := tapeTest(t, "testdata/Wiki_IngestFlow.json")
+	defer tc.Stop()
 
 	ctx := context.Background()
 	defer func() {
-		if err := tapedTS.DeleteChunksByCollection(ctx, testCollKey); err != nil {
+		if err := tc.TS.DeleteChunksByCollection(ctx, testCollKey); err != nil {
 			t.Logf("cleanup: %v", err)
 		}
 	}()
@@ -161,7 +150,7 @@ func TestIntegrationIngestFlow_Record(t *testing.T) {
 	if err := w.Init(); err != nil {
 		t.Fatalf("Init error: %v", err)
 	}
-	agent := NewAgent(w, testCfg, tapedTS, tapedRegistry.Model(llm.RoleGeneralBig))
+	agent := NewAgent(w, testCfg, tc.TS, tc.Chat)
 
 	sourceContent := `# Go Channels
 
@@ -213,21 +202,11 @@ Always close channels when done sending. Use range to receive values until the c
 func TestIntegrationLintContentFlow_Record(t *testing.T) {
 	requireLLMServices(t)
 
-	tape := maybeNewTape(t, "testdata/lint_content.json")
-	if tape == nil {
-		t.Skip("GMD_NORECORD=1, skipping tape recording")
-	}
-	tape.Start()
-	defer func() {
-		if err := tape.Stop(); err != nil {
-			t.Fatal(err)
-		}
-	}()
-
-	tapedRegistry := buildTapedRegistry(t, tape)
+	tc := tapeTest(t, "testdata/Wiki_LintContent.json")
+	defer tc.Stop()
 
 	_, agent := newTestWikiAgent(t)
-	agent.chat = tapedRegistry.Model(llm.RoleGeneralBig)
+	agent.chat = tc.Chat
 
 	os.MkdirAll(filepath.Join(agent.wiki.WikiPath, "entities"), 0755)
 	os.WriteFile(filepath.Join(agent.wiki.WikiPath, "entities", "a.md"), []byte("# Page A\nMachine learning is a field of AI.\n"), 0644)

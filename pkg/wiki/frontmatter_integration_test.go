@@ -57,7 +57,7 @@ func TestIntegrationParseFrontmatter_InvalidYAML(t *testing.T) {
 	}
 }
 
-func TestIntegrationStripFrontmatter(t *testing.T) {
+func TestIntegrationFrontmatter_Strip(t *testing.T) {
 	tests := []struct {
 		input    string
 		expected string

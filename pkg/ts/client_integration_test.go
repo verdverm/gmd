@@ -81,11 +81,11 @@ func newTapeClient(t *testing.T, tape *testutil.Tape) *Client {
 	})
 }
 
-func TestIntegrationGetSchemaFields(t *testing.T) {
+func TestIntegrationTS_GetSchemaFields(t *testing.T) {
 	requireTS(t)
 	ctx := context.Background()
 
-	tape := maybeNewTape(t, "testdata/007_schema_fields.json")
+	tape := maybeNewTape(t, "testdata/TS_GetSchemaFields.json")
 	if tape != nil {
 		tape.Start()
 		defer func() {
@@ -119,11 +119,11 @@ func TestIntegrationGetSchemaFields(t *testing.T) {
 	}
 }
 
-func TestIntegrationExtraFields(t *testing.T) {
+func TestIntegrationTS_ExtraFields(t *testing.T) {
 	requireTS(t)
 	ctx := context.Background()
 
-	tape := maybeNewTape(t, "testdata/008_extra_fields.json")
+	tape := maybeNewTape(t, "testdata/TS_ExtraFields.json")
 	if tape != nil {
 		tape.Start()
 		defer func() {
@@ -163,12 +163,12 @@ func TestIntegrationExtraFields(t *testing.T) {
 
 // --- Chunks ---
 
-func TestIntegrationChunkCRUD(t *testing.T) {
+func TestIntegrationTS_ChunkCRUD(t *testing.T) {
 	requireTS(t)
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
-	tape := maybeNewTape(t, "testdata/001_chunk_crud.json")
+	tape := maybeNewTape(t, "testdata/TS_ChunkCRUD.json")
 	if tape != nil {
 		tape.Start()
 		defer func() {
@@ -264,12 +264,12 @@ func TestIntegrationChunkCRUD(t *testing.T) {
 	}
 }
 
-func TestIntegrationChunkDynamicFields(t *testing.T) {
+func TestIntegrationTS_ChunkDynamicFields(t *testing.T) {
 	requireTS(t)
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
-	tape := maybeNewTape(t, "testdata/009_dynamic_fields.json")
+	tape := maybeNewTape(t, "testdata/TS_ChunkDynamicFields.json")
 	if tape != nil {
 		tape.Start()
 		defer func() {
@@ -303,12 +303,12 @@ func TestIntegrationChunkDynamicFields(t *testing.T) {
 	}
 }
 
-func TestIntegrationChunkLinks(t *testing.T) {
+func TestIntegrationTS_ChunkLinks(t *testing.T) {
 	requireTS(t)
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
-	tape := maybeNewTape(t, "testdata/010_chunk_links.json")
+	tape := maybeNewTape(t, "testdata/TS_ChunkLinks.json")
 	if tape != nil {
 		tape.Start()
 		defer func() {
@@ -349,12 +349,12 @@ func TestIntegrationChunkLinks(t *testing.T) {
 
 // --- Documents ---
 
-func TestIntegrationDocCRUD(t *testing.T) {
+func TestIntegrationTS_DocCRUD(t *testing.T) {
 	requireTS(t)
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
-	tape := maybeNewTape(t, "testdata/005_doc_crud.json")
+	tape := maybeNewTape(t, "testdata/TS_DocCRUD.json")
 	if tape != nil {
 		tape.Start()
 		defer func() {
@@ -435,12 +435,12 @@ func TestIntegrationDocCRUD(t *testing.T) {
 	}
 }
 
-func TestIntegrationDocLinks(t *testing.T) {
+func TestIntegrationTS_DocLinks(t *testing.T) {
 	requireTS(t)
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
-	tape := maybeNewTape(t, "testdata/011_doc_links.json")
+	tape := maybeNewTape(t, "testdata/TS_DocLinks.json")
 	if tape != nil {
 		tape.Start()
 		defer func() {
@@ -485,12 +485,12 @@ func TestIntegrationDocLinks(t *testing.T) {
 	}
 }
 
-func TestIntegrationFetchDocs(t *testing.T) {
+func TestIntegrationTS_FetchDocs(t *testing.T) {
 	requireTS(t)
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
-	tape := maybeNewTape(t, "testdata/012_fetch_docs.json")
+	tape := maybeNewTape(t, "testdata/TS_FetchDocs.json")
 	if tape != nil {
 		tape.Start()
 		defer func() {
@@ -547,12 +547,12 @@ func TestIntegrationFetchDocs(t *testing.T) {
 
 // --- Search ---
 
-func TestIntegrationTextSearch(t *testing.T) {
+func TestIntegrationTS_TextSearch(t *testing.T) {
 	requireTS(t)
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
-	tape := maybeNewTape(t, "testdata/002_text_search.json")
+	tape := maybeNewTape(t, "testdata/TS_TextSearch.json")
 	if tape != nil {
 		tape.Start()
 		defer func() {
@@ -638,12 +638,12 @@ func TestIntegrationTextSearch(t *testing.T) {
 	}
 }
 
-func TestIntegrationHybridSearch(t *testing.T) {
+func TestIntegrationTS_HybridSearch(t *testing.T) {
 	requireTS(t)
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
-	tape := maybeNewTape(t, "testdata/003_hybrid_search.json")
+	tape := maybeNewTape(t, "testdata/TS_HybridSearch.json")
 	if tape != nil {
 		tape.Start()
 		defer func() {
@@ -702,12 +702,12 @@ func TestIntegrationHybridSearch(t *testing.T) {
 	}
 }
 
-func TestIntegrationVectorSearch(t *testing.T) {
+func TestIntegrationTS_VectorSearch(t *testing.T) {
 	requireTS(t)
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
-	tape := maybeNewTape(t, "testdata/004_vector_search.json")
+	tape := maybeNewTape(t, "testdata/TS_VectorSearch.json")
 	if tape != nil {
 		tape.Start()
 		defer func() {
@@ -757,12 +757,12 @@ func TestIntegrationVectorSearch(t *testing.T) {
 
 // --- Path operations ---
 
-func TestIntegrationSearchDistinctPaths(t *testing.T) {
+func TestIntegrationTS_SearchDistinctPaths(t *testing.T) {
 	requireTS(t)
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
-	tape := maybeNewTape(t, "testdata/013_search_distinct_paths.json")
+	tape := maybeNewTape(t, "testdata/TS_SearchDistinctPaths.json")
 	if tape != nil {
 		tape.Start()
 		defer func() {
@@ -801,12 +801,12 @@ func TestIntegrationSearchDistinctPaths(t *testing.T) {
 	}
 }
 
-func TestIntegrationListDocuments(t *testing.T) {
+func TestIntegrationTS_ListDocuments(t *testing.T) {
 	requireTS(t)
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
-	tape := maybeNewTape(t, "testdata/014_list_documents.json")
+	tape := maybeNewTape(t, "testdata/TS_ListDocuments.json")
 	if tape != nil {
 		tape.Start()
 		defer func() {
@@ -837,12 +837,12 @@ func TestIntegrationListDocuments(t *testing.T) {
 	}
 }
 
-func TestIntegrationSearchChunksByPath(t *testing.T) {
+func TestIntegrationTS_SearchChunksByPath(t *testing.T) {
 	requireTS(t)
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
-	tape := maybeNewTape(t, "testdata/015_search_chunks_by_path.json")
+	tape := maybeNewTape(t, "testdata/TS_SearchChunksByPath.json")
 	if tape != nil {
 		tape.Start()
 		defer func() {
@@ -878,11 +878,11 @@ func TestIntegrationSearchChunksByPath(t *testing.T) {
 
 // --- Edge cases ---
 
-func TestIntegrationNonExistentPaths(t *testing.T) {
+func TestIntegrationTS_NonExistentPaths(t *testing.T) {
 	requireTS(t)
 	ctx := context.Background()
 
-	tape := maybeNewTape(t, "testdata/016_non_existent_paths.json")
+	tape := maybeNewTape(t, "testdata/TS_NonExistentPaths.json")
 	if tape != nil {
 		tape.Start()
 		defer func() {
@@ -922,12 +922,12 @@ func TestIntegrationNonExistentPaths(t *testing.T) {
 	}
 }
 
-func TestIntegrationEmptyCollectionSearch(t *testing.T) {
+func TestIntegrationTS_EmptyCollectionSearch(t *testing.T) {
 	requireTS(t)
 	ctx := context.Background()
 	defer cleanupTestData(t)
 
-	tape := maybeNewTape(t, "testdata/006_empty_results.json")
+	tape := maybeNewTape(t, "testdata/TS_EmptyCollectionSearch.json")
 	if tape != nil {
 		tape.Start()
 		defer func() {

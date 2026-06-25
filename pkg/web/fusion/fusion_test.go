@@ -207,7 +207,7 @@ func TestDedup_InvalidMethod(t *testing.T) {
 	}
 }
 
-func TestParseKeepIndices(t *testing.T) {
+func TestFusion_ParseKeepIndices(t *testing.T) {
 	tests := []struct {
 		input  string
 		maxIdx int
@@ -238,7 +238,7 @@ func TestParseKeepIndices(t *testing.T) {
 	}
 }
 
-func TestTruncateStr(t *testing.T) {
+func TestFusion_TruncateStr(t *testing.T) {
 	if got := truncateStr("hello", 3); got != "hel..." {
 		t.Errorf("expected 'hel...', got %q", got)
 	}
@@ -247,7 +247,7 @@ func TestTruncateStr(t *testing.T) {
 	}
 }
 
-func TestProviderName(t *testing.T) {
+func TestFusion_ProviderName(t *testing.T) {
 	m := &mockSearchProvider{name: "test"}
 	got := providerName(m)
 	if got == "" {

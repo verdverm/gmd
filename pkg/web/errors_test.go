@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestSentinelErrors(t *testing.T) {
+func TestErrors_SentinelErrors(t *testing.T) {
 	tests := []struct {
 		name string
 		err  error
@@ -32,7 +32,7 @@ func TestSentinelErrors(t *testing.T) {
 	}
 }
 
-func TestProviderError(t *testing.T) {
+func TestErrors_ProviderError(t *testing.T) {
 	cases := []struct {
 		name     string
 		pe       *ProviderError
@@ -59,7 +59,7 @@ func TestProviderError(t *testing.T) {
 	}
 }
 
-func TestProviderErrorUnwrap(t *testing.T) {
+func TestErrors_ProviderErrorUnwrap(t *testing.T) {
 	pe := &ProviderError{Provider: "exa", Err: ErrRateLimited}
 	if !errors.Is(pe, ErrRateLimited) {
 		t.Error("expected errors.Is(pe, ErrRateLimited) to be true")
@@ -69,7 +69,7 @@ func TestProviderErrorUnwrap(t *testing.T) {
 	}
 }
 
-func TestWrapProviderError(t *testing.T) {
+func TestErrors_WrapProviderError(t *testing.T) {
 	t.Run("nil error returns nil", func(t *testing.T) {
 		if err := WrapProviderError("exa", "search", nil); err != nil {
 			t.Errorf("expected nil, got %v", err)

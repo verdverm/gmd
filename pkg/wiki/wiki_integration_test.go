@@ -111,8 +111,8 @@ func requireLLMServices(t *testing.T) {
 // Typesense chunk CRUD for wiki content
 // ---------------------------------------------------------------------------
 
-func TestIntegrationTSChunkCRUD(t *testing.T) {
-	c := tapeTest(t, "testdata/ts_chunk_crud.json")
+func TestIntegrationWiki_TSChunkCRUD(t *testing.T) {
+	c := tapeTest(t, "testdata/Wiki_TSChunkCRUD.json")
 	defer c.Stop()
 
 	ctx := context.Background()
@@ -174,8 +174,8 @@ func TestIntegrationTSChunkCRUD(t *testing.T) {
 	}
 }
 
-func TestIntegrationTSSearchFiltersByCollection(t *testing.T) {
-	c := tapeTest(t, "testdata/ts_search_filters.json")
+func TestIntegrationWiki_TSSearchFiltersByCollection(t *testing.T) {
+	c := tapeTest(t, "testdata/Wiki_TSSearchFilters.json")
 	defer c.Stop()
 
 	ctx := context.Background()
@@ -230,8 +230,8 @@ func TestIntegrationTSSearchFiltersByCollection(t *testing.T) {
 	}
 }
 
-func TestIntegrationTSHybridSearch(t *testing.T) {
-	c := tapeTest(t, "testdata/ts_hybrid_search.json")
+func TestIntegrationWiki_TSHybridSearch(t *testing.T) {
+	c := tapeTest(t, "testdata/Wiki_TSHybridSearch.json")
 	defer c.Stop()
 
 	ctx := context.Background()
@@ -272,8 +272,8 @@ func TestIntegrationTSHybridSearch(t *testing.T) {
 	}
 }
 
-func TestIntegrationTSMultiChunkPerPath(t *testing.T) {
-	c := tapeTest(t, "testdata/ts_multi_chunk.json")
+func TestIntegrationWiki_TSMultiChunkPerPath(t *testing.T) {
+	c := tapeTest(t, "testdata/Wiki_TSMultiChunk.json")
 	defer c.Stop()
 
 	ctx := context.Background()
@@ -312,8 +312,8 @@ func TestIntegrationTSMultiChunkPerPath(t *testing.T) {
 	}
 }
 
-func TestIntegrationTSVectorSearch(t *testing.T) {
-	c := tapeTest(t, "testdata/ts_vector_search.json")
+func TestIntegrationWiki_TSVectorSearch(t *testing.T) {
+	c := tapeTest(t, "testdata/Wiki_TSVectorSearch.json")
 	defer c.Stop()
 
 	ctx := context.Background()
@@ -363,8 +363,8 @@ func TestIntegrationTSVectorSearch(t *testing.T) {
 // LLM integration
 // ---------------------------------------------------------------------------
 
-func TestIntegrationLLMEmbed(t *testing.T) {
-	c := tapeTest(t, "testdata/llm_embed.json")
+func TestIntegrationWiki_LLMEmbed(t *testing.T) {
+	c := tapeTest(t, "testdata/Wiki_LLMEmbed.json")
 	defer c.Stop()
 
 	ctx := context.Background()
@@ -378,8 +378,8 @@ func TestIntegrationLLMEmbed(t *testing.T) {
 	t.Logf("embedding dimension: %d", len(vec))
 }
 
-func TestIntegrationLLMChat(t *testing.T) {
-	c := tapeTest(t, "testdata/llm_chat.json")
+func TestIntegrationWiki_LLMChat(t *testing.T) {
+	c := tapeTest(t, "testdata/Wiki_LLMChat.json")
 	defer c.Stop()
 
 	ctx := context.Background()
@@ -397,8 +397,8 @@ func TestIntegrationLLMChat(t *testing.T) {
 // Full pipeline: index wiki content in TS, then search it
 // ---------------------------------------------------------------------------
 
-func TestIntegrationWikiIndexAndSearch(t *testing.T) {
-	c := tapeTest(t, "testdata/wiki_index_and_search.json")
+func TestIntegrationWiki_IndexAndSearch(t *testing.T) {
+	c := tapeTest(t, "testdata/Wiki_IndexAndSearch.json")
 	defer c.Stop()
 
 	ctx := context.Background()
@@ -458,8 +458,8 @@ func TestIntegrationWikiIndexAndSearch(t *testing.T) {
 	}
 }
 
-func TestIntegrationWikiCollectionCounts(t *testing.T) {
-	c := tapeTest(t, "testdata/wiki_collection_counts.json")
+func TestIntegrationWiki_CollectionCounts(t *testing.T) {
+	c := tapeTest(t, "testdata/Wiki_CollectionCounts.json")
 	defer c.Stop()
 
 	ctx := context.Background()

@@ -6,7 +6,7 @@ import (
 	"google.golang.org/genai"
 )
 
-func TestConvertRole(t *testing.T) {
+func TestLLM_ConvertRole(t *testing.T) {
 	tests := []struct {
 		input string
 		want  string
@@ -23,7 +23,7 @@ func TestConvertRole(t *testing.T) {
 	}
 }
 
-func TestConvertFinishReason(t *testing.T) {
+func TestLLM_ConvertFinishReason(t *testing.T) {
 	tests := []struct {
 		input string
 		want  genai.FinishReason
@@ -43,7 +43,7 @@ func TestConvertFinishReason(t *testing.T) {
 	}
 }
 
-func TestSchemaTypeToString(t *testing.T) {
+func TestLLM_SchemaTypeToString(t *testing.T) {
 	tests := []struct {
 		input genai.Type
 		want  string
@@ -63,7 +63,7 @@ func TestSchemaTypeToString(t *testing.T) {
 	}
 }
 
-func TestExtractText(t *testing.T) {
+func TestLLM_ExtractText(t *testing.T) {
 	tests := []struct {
 		name    string
 		content *genai.Content
@@ -82,7 +82,7 @@ func TestExtractText(t *testing.T) {
 	}
 }
 
-func TestJoinTexts(t *testing.T) {
+func TestLLM_JoinTexts(t *testing.T) {
 	tests := []struct {
 		input []string
 		want  string
@@ -98,7 +98,7 @@ func TestJoinTexts(t *testing.T) {
 	}
 }
 
-func TestParseJSONArgs(t *testing.T) {
+func TestLLM_ParseJSONArgs(t *testing.T) {
 	tests := []struct {
 		input string
 		want  map[string]any
@@ -122,7 +122,7 @@ func TestParseJSONArgs(t *testing.T) {
 	}
 }
 
-func TestEnsureObjectProperties(t *testing.T) {
+func TestLLM_EnsureObjectProperties(t *testing.T) {
 	tests := []struct {
 		name   string
 		schema map[string]any
@@ -148,7 +148,7 @@ func TestEnsureObjectProperties(t *testing.T) {
 	}
 }
 
-func TestConvertSchema(t *testing.T) {
+func TestLLM_ConvertSchema(t *testing.T) {
 	schema := &genai.Schema{
 		Type:        genai.TypeObject,
 		Description: "test schema",
@@ -177,7 +177,7 @@ func TestConvertSchema(t *testing.T) {
 	}
 }
 
-func TestConvertSchemaNil(t *testing.T) {
+func TestLLM_ConvertSchemaNil(t *testing.T) {
 	result, err := convertSchema(nil)
 	if err != nil {
 		t.Fatalf("convertSchema(nil) error: %v", err)
@@ -187,7 +187,7 @@ func TestConvertSchemaNil(t *testing.T) {
 	}
 }
 
-func TestConvertToFunctionParams(t *testing.T) {
+func TestLLM_ConvertToFunctionParams(t *testing.T) {
 	params := map[string]any{
 		"type": "object",
 		"properties": map[string]any{
@@ -203,13 +203,13 @@ func TestConvertToFunctionParams(t *testing.T) {
 	}
 }
 
-func TestConvertToFunctionParamsNil(t *testing.T) {
+func TestLLM_ConvertToFunctionParamsNil(t *testing.T) {
 	if got := convertToFunctionParams(nil); got != nil {
 		t.Errorf("convertToFunctionParams(nil) = %v, want nil", got)
 	}
 }
 
-func TestBuildUserMessage(t *testing.T) {
+func TestLLM_BuildUserMessage(t *testing.T) {
 	msg := buildUserMessage([]string{"hello"}, nil)
 	if msg == nil {
 		t.Fatal("buildUserMessage returned nil")
@@ -219,7 +219,7 @@ func TestBuildUserMessage(t *testing.T) {
 	}
 }
 
-func TestBuildAssistantMessage(t *testing.T) {
+func TestLLM_BuildAssistantMessage(t *testing.T) {
 	msg := buildAssistantMessage([]string{"response"}, nil)
 	if msg == nil {
 		t.Fatal("buildAssistantMessage returned nil")
@@ -229,7 +229,7 @@ func TestBuildAssistantMessage(t *testing.T) {
 	}
 }
 
-func TestBuildRoleMessage(t *testing.T) {
+func TestLLM_BuildRoleMessage(t *testing.T) {
 	tests := []struct {
 		role string
 		want string
@@ -254,14 +254,14 @@ func TestBuildRoleMessage(t *testing.T) {
 	}
 }
 
-func TestOpenAIModelName(t *testing.T) {
+func TestLLM_OpenAIModelName(t *testing.T) {
 	m := &OpenAIModel{modelName: "test-model"}
 	if got := m.Name(); got != "test-model" {
 		t.Errorf("Name() = %q, want %q", got, "test-model")
 	}
 }
 
-func TestNormalizeToolCallID(t *testing.T) {
+func TestLLM_NormalizeToolCallID(t *testing.T) {
 	m := &OpenAIModel{toolCallIDMap: make(map[string]string)}
 	short := m.normalizeToolCallID("short")
 	if short != "short" {

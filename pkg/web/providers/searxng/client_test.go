@@ -42,7 +42,7 @@ func searxngOkServer(t *testing.T) *httptest.Server {
 	}))
 }
 
-func TestNewSearchClient(t *testing.T) {
+func TestSearchClient_New(t *testing.T) {
 	t.Run("valid config", func(t *testing.T) {
 		c, err := NewSearchClient(web.ProviderConfig{
 			Extra: map[string]any{"base_url": "https://searx.example.com"},

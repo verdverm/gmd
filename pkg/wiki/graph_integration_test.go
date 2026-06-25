@@ -115,8 +115,8 @@ func TestIntegrationNeighbors_PageWithoutLinks(t *testing.T) {
 	}
 }
 
-func TestIntegrationNeighborsFromTS(t *testing.T) {
-	c := tapeTest(t, "testdata/neighbors_from_ts.json")
+func TestIntegrationGraph_NeighborsFromTS(t *testing.T) {
+	c := tapeTest(t, "testdata/Graph_NeighborsFromTS.json")
 	defer c.Stop()
 
 	ctx := context.Background()
@@ -270,14 +270,14 @@ func TestIntegrationFormatGraph_Sanitized(t *testing.T) {
 	_ = out
 }
 
-func TestIntegrationPageName(t *testing.T) {
+func TestIntegrationGraph_PageName(t *testing.T) {
 	name := pageName("/wiki", "/wiki/entities/test.md")
 	if name != "entities/test" {
 		t.Errorf("got %q, want %q", name, "entities/test")
 	}
 }
 
-func TestIntegrationSanitizeNode(t *testing.T) {
+func TestIntegrationGraph_SanitizeNode(t *testing.T) {
 	tests := []struct {
 		input string
 		want  string

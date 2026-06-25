@@ -9,7 +9,7 @@ import (
 )
 
 func TestBrowserAdapter_Replay(t *testing.T) {
-	tape, err := testutil.NewReplayTape("testdata/002_browser.json")
+	tape, err := testutil.NewReplayTape("testdata/Exa_Browser.json")
 	if err != nil {
 		t.Fatal(err)
 	}

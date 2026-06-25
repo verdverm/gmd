@@ -20,7 +20,7 @@ func makeResult(path string, score float64) ts.HybridSearchResult {
 	}
 }
 
-func TestRRFFuse(t *testing.T) {
+func TestSearch_RRFFuse(t *testing.T) {
 	t.Run("single variant", func(t *testing.T) {
 		results := []variantResult{{
 			weight: 1.0,
@@ -155,7 +155,7 @@ func TestRRFFuse(t *testing.T) {
 	})
 }
 
-func TestBlend(t *testing.T) {
+func TestSearch_Blend(t *testing.T) {
 	makeFused := func(rrfScore, rerankScore float64) fusedDoc {
 		return fusedDoc{
 			key:         "docs:test.md",
@@ -242,7 +242,7 @@ func TestBlend(t *testing.T) {
 	})
 }
 
-func TestTsResultsToResults(t *testing.T) {
+func TestSearch_TsResultsToResults(t *testing.T) {
 	tsResults := []ts.HybridSearchResult{
 		{Collection: "docs", Path: "a.md", Title: "Doc A", Content: "content a", ChunkSeq: 0, Score: 0.95},
 		{Collection: "docs", Path: "b.md", Title: "Doc B", Content: "content b", ChunkSeq: 1, Score: 0.85},
@@ -261,14 +261,14 @@ func TestTsResultsToResults(t *testing.T) {
 	}
 }
 
-func TestTsResultsToResultsEmpty(t *testing.T) {
+func TestSearch_TsResultsToResultsEmpty(t *testing.T) {
 	results := tsResultsToResults(nil)
 	if len(results) != 0 {
 		t.Errorf("expected 0 results, got %d", len(results))
 	}
 }
 
-func TestGenerateVariantsParsing(t *testing.T) {
+func TestSearch_GenerateVariantsParsing(t *testing.T) {
 	parseExpansion := func(expansion string, original string) []variant {
 		variants := []variant{{
 			text:    original,
@@ -384,7 +384,7 @@ func TestGenerateVariantsParsing(t *testing.T) {
 	})
 }
 
-func TestStrongSignalThresholds(t *testing.T) {
+func TestSearch_StrongSignalThresholds(t *testing.T) {
 	t.Run("strong signal with score and gap", func(t *testing.T) {
 		strong := 0.90 >= 0.85 && (0.90-0.70) >= 0.15
 		if !strong {
@@ -410,7 +410,7 @@ func TestStrongSignalThresholds(t *testing.T) {
 	})
 }
 
-func TestExpansionPrompt(t *testing.T) {
+func TestSearch_ExpansionPrompt(t *testing.T) {
 	p := expansionPrompt()
 	if p == "" {
 		t.Fatal("expansionPrompt should not be empty")
@@ -426,7 +426,7 @@ func TestExpansionPrompt(t *testing.T) {
 	}
 }
 
-func TestGenerateVariantsStrongSignal(t *testing.T) {
+func TestSearch_GenerateVariantsStrongSignal(t *testing.T) {
 	cfg := &config.Config{
 		Pipeline: config.PipelineConfig{
 			RRF: config.RRFConfig{OriginalWeight: 2.0, ExpansionWeight: 1.0},
@@ -446,7 +446,7 @@ func TestGenerateVariantsStrongSignal(t *testing.T) {
 	}
 }
 
-func TestSearchModeValues(t *testing.T) {
+func TestSearch_SearchModeValues(t *testing.T) {
 	if ModeText != 0 {
 		t.Errorf("ModeText should be 0, got %d", ModeText)
 	}

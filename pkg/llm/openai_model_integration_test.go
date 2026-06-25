@@ -10,7 +10,7 @@ import (
 	"github.com/verdverm/gmd/pkg/config"
 )
 
-func TestIntegrationListModels(t *testing.T) {
+func TestIntegrationLLM_ListModels(t *testing.T) {
 	config.LoadEnvFiles(config.FindProjectRoot("."), nil, nil)
 	cfg, err := config.Load(".")
 	if err != nil {
@@ -20,7 +20,7 @@ func TestIntegrationListModels(t *testing.T) {
 	for name, pc := range cfg.LLM.Providers {
 		t.Run(name, func(t *testing.T) {
 			if pc.BaseURL == "" {
-				t.Skip("no base_url configured")
+				t.Fatalf("no base_url configured for provider %q", name)
 			}
 
 			m := NewOpenAIModel(OpenAIConfig{

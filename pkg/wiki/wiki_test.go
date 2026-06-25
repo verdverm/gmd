@@ -13,7 +13,7 @@ import (
 // frontmatter.go
 // ---------------------------------------------------------------------------
 
-func TestParseFrontmatter(t *testing.T) {
+func TestWiki_ParseFrontmatter(t *testing.T) {
 	t.Run("no frontmatter", func(t *testing.T) {
 		input := "# Just content\n\nhello"
 		fm, remaining, err := ParseFrontmatter(input)
@@ -129,7 +129,7 @@ func TestParseFrontmatter(t *testing.T) {
 	})
 }
 
-func TestStripFrontmatter(t *testing.T) {
+func TestWiki_StripFrontmatter(t *testing.T) {
 	t.Run("no frontmatter", func(t *testing.T) {
 		input := "# Just content\n\nhello"
 		got := StripFrontmatter(input)
@@ -155,7 +155,7 @@ func TestStripFrontmatter(t *testing.T) {
 	})
 }
 
-func TestValidateFrontmatter(t *testing.T) {
+func TestWiki_ValidateFrontmatter(t *testing.T) {
 	t.Run("nil config", func(t *testing.T) {
 		err := ValidateFrontmatter(map[string]interface{}{"x": 1}, nil)
 		if err != nil {
@@ -340,7 +340,7 @@ func TestValidateFrontmatter(t *testing.T) {
 	})
 }
 
-func TestFrontmatterToFilter(t *testing.T) {
+func TestWiki_FrontmatterToFilter(t *testing.T) {
 	t.Run("nil config", func(t *testing.T) {
 		got := FrontmatterToFilter(map[string]interface{}{"x": 1}, nil)
 		if got != "" {
@@ -476,7 +476,7 @@ func TestFrontmatterToFilter(t *testing.T) {
 // graph.go
 // ---------------------------------------------------------------------------
 
-func TestPageName(t *testing.T) {
+func TestWiki_PageName(t *testing.T) {
 	tests := []struct {
 		wikiDir string
 		path    string
@@ -495,7 +495,7 @@ func TestPageName(t *testing.T) {
 	}
 }
 
-func TestSanitizeNode(t *testing.T) {
+func TestWiki_SanitizeNode(t *testing.T) {
 	tests := []struct {
 		input string
 		want  string
@@ -515,7 +515,7 @@ func TestSanitizeNode(t *testing.T) {
 	}
 }
 
-func TestFormatGraphDot(t *testing.T) {
+func TestFormatGraph_Dot(t *testing.T) {
 	g := &Graph{
 		Nodes: []string{"a", "b"},
 		Edges: []GraphEdge{
@@ -534,7 +534,7 @@ func TestFormatGraphDot(t *testing.T) {
 	}
 }
 
-func TestFormatGraphMermaid(t *testing.T) {
+func TestFormatGraph_Mermaid(t *testing.T) {
 	g := &Graph{
 		Nodes: []string{"entity-foo", "concept-bar"},
 		Edges: []GraphEdge{
@@ -550,7 +550,7 @@ func TestFormatGraphMermaid(t *testing.T) {
 	}
 }
 
-func TestFormatGraphJSON(t *testing.T) {
+func TestFormatGraph_JSON(t *testing.T) {
 	g := &Graph{
 		Nodes: []string{"a", "b"},
 		Edges: []GraphEdge{
@@ -572,7 +572,7 @@ func TestFormatGraphJSON(t *testing.T) {
 	}
 }
 
-func TestFormatGraphUnknownFormat(t *testing.T) {
+func TestFormatGraph_UnknownFormat(t *testing.T) {
 	g := &Graph{
 		Nodes: []string{"a"},
 		Edges: []GraphEdge{
@@ -585,7 +585,7 @@ func TestFormatGraphUnknownFormat(t *testing.T) {
 	}
 }
 
-func TestFormatGraphEmpty(t *testing.T) {
+func TestFormatGraph_Empty(t *testing.T) {
 	g := &Graph{}
 	got := FormatGraph(g, "dot")
 	if !strings.Contains(got, "digraph wiki") {
@@ -597,7 +597,7 @@ func TestFormatGraphEmpty(t *testing.T) {
 // agent.go — pure helper functions
 // ---------------------------------------------------------------------------
 
-func TestTruncate(t *testing.T) {
+func TestWiki_Truncate(t *testing.T) {
 	t.Run("short string unchanged", func(t *testing.T) {
 		got := truncate("hello", 10)
 		if got != "hello" {
@@ -627,7 +627,7 @@ func TestTruncate(t *testing.T) {
 	})
 }
 
-func TestCleanJSON(t *testing.T) {
+func TestWiki_CleanJSON(t *testing.T) {
 	t.Run("already clean", func(t *testing.T) {
 		got := cleanJSON(`{"key": "val"}`)
 		if string(got) != `{"key": "val"}` {
@@ -666,7 +666,7 @@ func TestCleanJSON(t *testing.T) {
 	})
 }
 
-func TestSlugify(t *testing.T) {
+func TestWiki_Slugify(t *testing.T) {
 	tests := []struct {
 		input string
 		want  string
@@ -691,7 +691,7 @@ func TestSlugify(t *testing.T) {
 	}
 }
 
-func TestMarshalYAML(t *testing.T) {
+func TestWiki_MarshalYAML(t *testing.T) {
 	t.Run("empty map", func(t *testing.T) {
 		got, err := marshalYAML(map[string]interface{}{})
 		if err != nil {
@@ -756,7 +756,7 @@ func TestMarshalYAML(t *testing.T) {
 	})
 }
 
-func TestExtractKeyTerms(t *testing.T) {
+func TestWiki_ExtractKeyTerms(t *testing.T) {
 	t.Run("extracts word pairs", func(t *testing.T) {
 		content := "This is a long document about machine learning and artificial intelligence"
 		terms := extractKeyTerms(content, 5)
@@ -818,7 +818,7 @@ func TestExtractKeyTerms(t *testing.T) {
 // wiki.go
 // ---------------------------------------------------------------------------
 
-func TestNewWiki(t *testing.T) {
+func TestWiki_New(t *testing.T) {
 	t.Run("with WikiConfig", func(t *testing.T) {
 		wc := &config.WikiConfig{
 			SourceConfig: config.SourceConfig{
@@ -875,7 +875,7 @@ func TestNewWiki(t *testing.T) {
 	})
 }
 
-func TestWikiIndexFilePath(t *testing.T) {
+func TestWiki_IndexFilePath(t *testing.T) {
 	wc := &config.WikiConfig{SourceConfig: config.SourceConfig{Path: "/tmp/test-wiki"}, WikiDir: "wiki", RawDir: "raw", IndexFile: "index.md", LogFile: "log.md"}
 	w, _ := NewWiki("test", "/tmp/test-wiki", wc)
 	got := w.IndexFilePath()
@@ -885,7 +885,7 @@ func TestWikiIndexFilePath(t *testing.T) {
 	}
 }
 
-func TestWikiLogFilePath(t *testing.T) {
+func TestWiki_LogFilePath(t *testing.T) {
 	wc := &config.WikiConfig{SourceConfig: config.SourceConfig{Path: "/tmp/test-wiki"}, WikiDir: "wiki", RawDir: "raw", IndexFile: "index.md", LogFile: "log.md"}
 	w, _ := NewWiki("test", "/tmp/test-wiki", wc)
 	got := w.LogFilePath()
@@ -895,7 +895,7 @@ func TestWikiLogFilePath(t *testing.T) {
 	}
 }
 
-func TestWikiInit(t *testing.T) {
+func TestWiki_Init(t *testing.T) {
 	tmpDir := t.TempDir()
 	wc := &config.WikiConfig{SourceConfig: config.SourceConfig{Path: tmpDir}, WikiDir: "wiki", RawDir: "raw", IndexFile: "index.md", LogFile: "log.md", OkfVersion: "0.1"}
 	w, err := NewWiki("test", tmpDir, wc)
@@ -935,7 +935,7 @@ func TestWikiInit(t *testing.T) {
 	}
 }
 
-func TestInitWiki(t *testing.T) {
+func TestWiki_InitWiki(t *testing.T) {
 	tmpDir := t.TempDir()
 	wc := &config.WikiConfig{SourceConfig: config.SourceConfig{Path: tmpDir}, WikiDir: "wiki", RawDir: "raw", IndexFile: "index.md", LogFile: "log.md", OkfVersion: "0.1"}
 
@@ -953,7 +953,7 @@ func TestInitWiki(t *testing.T) {
 // agent.go — NewAgent
 // ---------------------------------------------------------------------------
 
-func TestNewAgent(t *testing.T) {
+func TestWiki_NewAgent(t *testing.T) {
 	wc := &config.WikiConfig{SourceConfig: config.SourceConfig{Path: "/tmp/test-wiki"}, WikiDir: "wiki", RawDir: "raw", IndexFile: "index.md", LogFile: "log.md"}
 	w, _ := NewWiki("test", "/tmp/test-wiki", wc)
 
@@ -976,7 +976,7 @@ func TestNewAgent(t *testing.T) {
 // agent_prompts.go
 // ---------------------------------------------------------------------------
 
-func TestSchemaPrompt(t *testing.T) {
+func TestWiki_SchemaPrompt(t *testing.T) {
 	content := SchemaPrompt()
 	if content == "" {
 		t.Fatal("SchemaPrompt() returned empty string")
@@ -989,7 +989,7 @@ func TestSchemaPrompt(t *testing.T) {
 	}
 }
 
-func TestIngestSystemPrompt(t *testing.T) {
+func TestWiki_IngestSystemPrompt(t *testing.T) {
 	prompt := IngestSystemPrompt("## Existing Pages\n- [[foo]]")
 	if prompt == "" {
 		t.Fatal("IngestSystemPrompt() returned empty")
@@ -1008,7 +1008,7 @@ func TestIngestSystemPrompt(t *testing.T) {
 	}
 }
 
-func TestQuerySystemPrompt(t *testing.T) {
+func TestWiki_QuerySystemPrompt(t *testing.T) {
 	prompt := QuerySystemPrompt("## Relevant Pages\n- [foo](/wiki/foo.md)")
 	if prompt == "" {
 		t.Fatal("QuerySystemPrompt() returned empty")

@@ -49,18 +49,15 @@ func requireSearXNGURL(t *testing.T) string {
 		baseURL = testCfg.Web.SearXNG.BaseURL
 	}
 	if baseURL == "" {
-		if os.Getenv("GMD_WEB_INTEGRATION_FAIL") == "1" {
-			t.Fatalf("SEARXNG_BASE_URL not set — set in env var, env file, or config.cue")
-		}
-		t.Skip("SEARXNG_BASE_URL not set — skipping integration test")
+		t.Fatalf("SEARXNG_BASE_URL not set — set in env var, env file, or config.cue")
 	}
 	return baseURL
 }
 
-func TestSearchClient_Integration(t *testing.T) {
+func TestIntegrationSearxng_Search(t *testing.T) {
 	baseURL := requireSearXNGURL(t)
 
-	tape := maybeNewTape(t, "testdata/001_search.json")
+	tape := maybeNewTape(t, "testdata/Searxng_Search.json")
 	var httpClient *http.Client
 	if tape != nil {
 		tape.Start()

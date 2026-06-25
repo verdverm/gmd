@@ -10,10 +10,10 @@ import (
 	"github.com/verdverm/gmd/pkg/web"
 )
 
-func TestBrowserAdapter_Integration(t *testing.T) {
+func TestIntegrationExa_Browser(t *testing.T) {
 	apiKey := requireEnv(t, "EXA_API_KEY")
 
-	tape := maybeNewTape(t, "testdata/002_browser.json")
+	tape := maybeNewTape(t, "testdata/Exa_Browser.json")
 	var httpClient *http.Client
 	if tape != nil {
 		tape.Start()

@@ -19,7 +19,7 @@ func makeResult(path, title, content string, score float64) search.Result {
 	}
 }
 
-func TestMakeSnippet(t *testing.T) {
+func TestOutput_MakeSnippet(t *testing.T) {
 	tests := []struct {
 		name    string
 		content string
@@ -73,7 +73,7 @@ func TestMakeSnippet(t *testing.T) {
 	}
 }
 
-func TestFormatCLI(t *testing.T) {
+func TestOutput_FormatCLI(t *testing.T) {
 	t.Run("no results", func(t *testing.T) {
 		got := formatCLI(nil)
 		if got != "No results found." {
@@ -138,7 +138,7 @@ func TestFormatCLI(t *testing.T) {
 	})
 }
 
-func TestFormatJSON(t *testing.T) {
+func TestOutput_FormatJSON(t *testing.T) {
 	t.Run("valid JSON output", func(t *testing.T) {
 		results := []search.Result{
 			makeResult("test.md", "Test", "content", 0.95),
@@ -156,7 +156,7 @@ func TestFormatJSON(t *testing.T) {
 	})
 }
 
-func TestFormatResults(t *testing.T) {
+func TestOutput_FormatResults(t *testing.T) {
 	results := []search.Result{
 		makeResult("test.md", "Test", "content", 0.95),
 	}
@@ -212,7 +212,7 @@ func TestFormatResults(t *testing.T) {
 	})
 }
 
-func TestSnippetTruncation(t *testing.T) {
+func TestOutput_SnippetTruncation(t *testing.T) {
 	longText := strings.Repeat("word ", 100)
 	snippet := makeSnippet(longText, 20)
 	if len(snippet) > 20+3 {
@@ -223,7 +223,7 @@ func TestSnippetTruncation(t *testing.T) {
 	}
 }
 
-func TestSnippetNoTruncation(t *testing.T) {
+func TestOutput_SnippetNoTruncation(t *testing.T) {
 	text := "short text"
 	snippet := makeSnippet(text, 200)
 	if snippet != text {
@@ -241,7 +241,7 @@ func makeTSResult(collection, path string) ts.HybridSearchResult {
 	}
 }
 
-func TestFormatLS(t *testing.T) {
+func TestOutput_FormatLS(t *testing.T) {
 	t.Run("no results", func(t *testing.T) {
 		got := FormatLS(nil)
 		if got != "No indexed documents." {

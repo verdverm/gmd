@@ -11,7 +11,7 @@ import (
 	"github.com/verdverm/gmd/pkg/web/fusion"
 )
 
-func TestSluggify(t *testing.T) {
+func TestPersist_Sluggify(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
@@ -38,7 +38,7 @@ func TestSluggify(t *testing.T) {
 	}
 }
 
-func TestURLSlug(t *testing.T) {
+func TestPersist_URLSlug(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
@@ -62,7 +62,7 @@ func TestURLSlug(t *testing.T) {
 	}
 }
 
-func TestTimestamp(t *testing.T) {
+func TestPersist_Timestamp(t *testing.T) {
 	ts := timestamp()
 	if ts == "" {
 		t.Error("timestamp() returned empty string")
@@ -75,7 +75,7 @@ func TestTimestamp(t *testing.T) {
 	}
 }
 
-func TestTimestampDir(t *testing.T) {
+func TestPersist_TimestampDir(t *testing.T) {
 	ts := "2026-06-10T15_30_00_123456789Z"
 	slug := "test-slug"
 	got := timestampDir(ts, slug)
@@ -84,7 +84,7 @@ func TestTimestampDir(t *testing.T) {
 	}
 }
 
-func TestFetch(t *testing.T) {
+func TestPersist_Fetch(t *testing.T) {
 	dir := t.TempDir()
 	result := &web.GetContentResult{
 		Content: "# Hello\n\nThis is test content.",
@@ -131,7 +131,7 @@ func TestFetch(t *testing.T) {
 	}
 }
 
-func TestPersistFetchResultNil(t *testing.T) {
+func TestPersist_FetchResultNil(t *testing.T) {
 	dir := t.TempDir()
 	meta := Metadata{Caller: "human"}
 
@@ -160,7 +160,7 @@ func TestPersistFetchResultNil(t *testing.T) {
 	}
 }
 
-func TestCrawl(t *testing.T) {
+func TestPersist_Crawl(t *testing.T) {
 	dir := t.TempDir()
 	pages := []web.Page{
 		{URL: "https://example.com", Title: "Home", Content: "Home page content", Depth: 0},
@@ -188,7 +188,7 @@ func TestCrawl(t *testing.T) {
 	}
 }
 
-func TestSearch(t *testing.T) {
+func TestPersist_Search(t *testing.T) {
 	dir := t.TempDir()
 	result := &fusion.Result{
 		Answer: "Synthesized answer",
@@ -259,7 +259,7 @@ func TestSearch(t *testing.T) {
 	}
 }
 
-func TestPersistSearchResultEmptyResults(t *testing.T) {
+func TestPersist_SearchResultEmptyResults(t *testing.T) {
 	dir := t.TempDir()
 	result := &fusion.Result{}
 	meta := Metadata{Caller: "human"}
@@ -270,7 +270,7 @@ func TestPersistSearchResultEmptyResults(t *testing.T) {
 	}
 }
 
-func TestAgent(t *testing.T) {
+func TestPersist_Agent(t *testing.T) {
 	dir := t.TempDir()
 	result := &web.AgentResult{
 		Answer: "Agent answer",
@@ -320,7 +320,7 @@ func TestAgent(t *testing.T) {
 	}
 }
 
-func TestPersistAgentResultEmptySteps(t *testing.T) {
+func TestPersist_AgentResultEmptySteps(t *testing.T) {
 	dir := t.TempDir()
 	result := &web.AgentResult{
 		Answer: "Quick answer",
@@ -333,7 +333,7 @@ func TestPersistAgentResultEmptySteps(t *testing.T) {
 	}
 }
 
-func TestPersistWithCaller(t *testing.T) {
+func TestPersist_WithCaller(t *testing.T) {
 	dir := t.TempDir()
 	result := &web.GetContentResult{
 		Content: "Test",
@@ -364,10 +364,7 @@ func TestPersistWithCaller(t *testing.T) {
 	}
 }
 
-func TestPersistDirUnwritable(t *testing.T) {
-	if os.Getuid() == 0 {
-		t.Skip("skipping unwritable test when running as root")
-	}
+func TestPersist_DirUnwritable(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "readonly")
 	if err := os.Mkdir(dir, 0444); err != nil {
 		t.Fatal(err)
@@ -378,12 +375,16 @@ func TestPersistDirUnwritable(t *testing.T) {
 	meta := Metadata{Caller: "human"}
 
 	err := Fetch(dir, "https://example.com", result, meta)
+	if os.Getuid() == 0 {
+		// root bypasses filesystem permission checks, so no error expected
+		return
+	}
 	if err == nil {
 		t.Error("expected error for unwritable directory")
 	}
 }
 
-func TestPersistTimestampCollision(t *testing.T) {
+func TestPersist_TimestampCollision(t *testing.T) {
 	dir := t.TempDir()
 	result := &web.GetContentResult{Content: "First"}
 	meta := Metadata{
@@ -407,7 +408,7 @@ func TestPersistTimestampCollision(t *testing.T) {
 	}
 }
 
-func TestPersistEmptyContent(t *testing.T) {
+func TestPersist_EmptyContent(t *testing.T) {
 	dir := t.TempDir()
 	result := &web.GetContentResult{
 		Content: "",
@@ -432,7 +433,7 @@ func TestPersistEmptyContent(t *testing.T) {
 	}
 }
 
-func TestURLSlugEdgeCases(t *testing.T) {
+func TestPersist_URLSlugEdgeCases(t *testing.T) {
 	tests := []struct {
 		name string
 		url  string
@@ -452,7 +453,7 @@ func TestURLSlugEdgeCases(t *testing.T) {
 	}
 }
 
-func TestMetadataFlags(t *testing.T) {
+func TestPersist_MetadataFlags(t *testing.T) {
 	dir := t.TempDir()
 	result := &web.GetContentResult{Content: "Test"}
 	meta := Metadata{
@@ -492,7 +493,7 @@ func TestMetadataFlags(t *testing.T) {
 	}
 }
 
-func TestURLSlugFallback(t *testing.T) {
+func TestPersist_URLSlugFallback(t *testing.T) {
 	// urlSlug uses url.Parse which handles various edge cases
 	result := urlSlug("://invalid")
 	if result == "" {

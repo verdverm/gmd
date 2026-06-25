@@ -9,7 +9,7 @@ import (
 )
 
 func TestSearchAdapter_Replay(t *testing.T) {
-	tape, err := testutil.NewReplayTape("testdata/001_search.json")
+	tape, err := testutil.NewReplayTape("testdata/Exa_Search.json")
 	if err != nil {
 		t.Fatal(err)
 	}

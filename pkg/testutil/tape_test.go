@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-func TestRecordThenReplayRoundTrip(t *testing.T) {
+func TestTape_RecordThenReplayRoundTrip(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		w.Header().Set("Content-Type", "application/json")
@@ -69,7 +69,7 @@ func TestRecordThenReplayRoundTrip(t *testing.T) {
 	}
 }
 
-func TestHeaderStripping(t *testing.T) {
+func TestTape_HeaderStripping(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, "ok")
@@ -131,7 +131,7 @@ func TestHeaderStripping(t *testing.T) {
 	}
 }
 
-func TestResponseHeaderStripping(t *testing.T) {
+func TestTape_ResponseHeaderStripping(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Set-Cookie", "session=xyz")
 		w.Header().Set("X-Typesense-Api-Key", "echo-key")
@@ -177,7 +177,7 @@ func TestResponseHeaderStripping(t *testing.T) {
 	}
 }
 
-func TestParentDirectoryCreation(t *testing.T) {
+func TestTape_ParentDirectoryCreation(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, "ok")
@@ -205,7 +205,7 @@ func TestParentDirectoryCreation(t *testing.T) {
 	}
 }
 
-func TestTapeExhaustion(t *testing.T) {
+func TestTape_Exhaustion(t *testing.T) {
 	tapeFile := filepath.Join(t.TempDir(), "tape.json")
 	exchanges := []Exchange{{}}
 	exchanges[0].Request.Method = "GET"
@@ -242,7 +242,7 @@ func TestTapeExhaustion(t *testing.T) {
 	}
 }
 
-func TestEmptyTape(t *testing.T) {
+func TestTape_EmptyTape(t *testing.T) {
 	tapeFile := filepath.Join(t.TempDir(), "tape.json")
 	data, _ := json.MarshalIndent([]Exchange{}, "", "  ")
 	if err := os.WriteFile(tapeFile, data, 0644); err != nil {
@@ -263,7 +263,7 @@ func TestEmptyTape(t *testing.T) {
 	}
 }
 
-func TestStartStopGate(t *testing.T) {
+func TestTape_StartStopGate(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, "ok")
@@ -310,7 +310,7 @@ func TestStartStopGate(t *testing.T) {
 	}
 }
 
-func TestResponseBodyReReadability(t *testing.T) {
+func TestTape_ResponseBodyReReadability(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, "response body content")
@@ -362,7 +362,7 @@ func TestResponseBodyReReadability(t *testing.T) {
 	}
 }
 
-func TestLargeResponseBodyRoundTrip(t *testing.T) {
+func TestTape_LargeResponseBodyRoundTrip(t *testing.T) {
 	largeBody := make([]byte, 1*1024*1024)
 	for i := range largeBody {
 		largeBody[i] = byte('a' + (i % 26))
@@ -419,7 +419,7 @@ func TestLargeResponseBodyRoundTrip(t *testing.T) {
 	}
 }
 
-func TestInvalidTapeJSON(t *testing.T) {
+func TestTape_InvalidTapeJSON(t *testing.T) {
 	tapeFile := filepath.Join(t.TempDir(), "tape.json")
 
 	if err := os.WriteFile(tapeFile, []byte(`not json`), 0644); err != nil {
@@ -447,7 +447,7 @@ func TestInvalidTapeJSON(t *testing.T) {
 	}
 }
 
-func TestFileWriteFailure(t *testing.T) {
+func TestTape_FileWriteFailure(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, "ok")
@@ -477,7 +477,7 @@ func TestFileWriteFailure(t *testing.T) {
 	}
 }
 
-func TestNonexistentTapeFile(t *testing.T) {
+func TestTape_NonexistentTapeFile(t *testing.T) {
 	tapeFile := filepath.Join(t.TempDir(), "nonexistent.json")
 	_, err := NewReplayTape(tapeFile)
 	if err == nil {
@@ -485,7 +485,7 @@ func TestNonexistentTapeFile(t *testing.T) {
 	}
 }
 
-func TestCustomStripHeaders(t *testing.T) {
+func TestTape_CustomStripHeaders(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, "ok")

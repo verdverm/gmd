@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestNewRegistry(t *testing.T) {
+func TestRegistry_NewRegistry(t *testing.T) {
 	search := map[string]ProviderConstructor{
 		"exa": func(cfg ProviderConfig) (any, error) { return "exa", nil },
 	}
@@ -21,7 +21,7 @@ func TestNewRegistry(t *testing.T) {
 	}
 }
 
-func TestRegistryResolve(t *testing.T) {
+func TestRegistry_Resolve(t *testing.T) {
 	r := NewRegistry(
 		map[string]ProviderConstructor{
 			"exa":    func(cfg ProviderConfig) (any, error) { return "exa-search", nil },
@@ -75,7 +75,7 @@ func TestRegistryResolve(t *testing.T) {
 	})
 }
 
-func TestRegistryValidateName(t *testing.T) {
+func TestRegistry_ValidateName(t *testing.T) {
 	r := NewRegistry(
 		map[string]ProviderConstructor{"exa": nil},
 		map[string]ProviderConstructor{"cloudflare": nil},
@@ -106,7 +106,7 @@ func TestRegistryValidateName(t *testing.T) {
 	})
 }
 
-func TestRegistryNilMaps(t *testing.T) {
+func TestRegistry_NilMaps(t *testing.T) {
 	r := NewRegistry(nil, nil)
 	if r == nil {
 		t.Fatal("expected non-nil registry with nil maps")

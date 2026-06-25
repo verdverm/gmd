@@ -26,7 +26,7 @@ func cloudflareOkServer(t *testing.T) *httptest.Server {
 	}))
 }
 
-func TestNewBrowserClient(t *testing.T) {
+func TestBrowserClient_New(t *testing.T) {
 	t.Run("valid config", func(t *testing.T) {
 		c, err := NewBrowserClient(web.ProviderConfig{
 			Extra: map[string]any{
@@ -218,7 +218,7 @@ func TestBrowserClient_Capabilities(t *testing.T) {
 	}
 }
 
-func TestNormalizeURL(t *testing.T) {
+func TestCloudflare_NormalizeURL(t *testing.T) {
 	tests := []struct {
 		raw, expected string
 	}{
@@ -238,7 +238,7 @@ func TestNormalizeURL(t *testing.T) {
 	}
 }
 
-func TestIsSameDomain(t *testing.T) {
+func TestCloudflare_IsSameDomain(t *testing.T) {
 	tests := []struct {
 		a, b string
 		same bool
@@ -255,7 +255,7 @@ func TestIsSameDomain(t *testing.T) {
 	}
 }
 
-func TestExtractLinks(t *testing.T) {
+func TestCloudflare_ExtractLinks(t *testing.T) {
 	content := `[Home](https://example.com/) [About](/about) [Contact](https://example.com/contact) [External](https://other.com)`
 	links := extractLinks(content, "https://example.com/")
 
@@ -275,7 +275,7 @@ func TestExtractLinks(t *testing.T) {
 	}
 }
 
-func TestExtractLinksSkipsAnchors(t *testing.T) {
+func TestCloudflare_ExtractLinksSkipsAnchors(t *testing.T) {
 	content := `[top](#top) [page](/page)`
 	links := extractLinks(content, "https://example.com/")
 	if len(links) != 1 || links[0] != "https://example.com/page" {

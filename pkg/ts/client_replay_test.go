@@ -15,8 +15,8 @@ func replayClient(tape *testutil.Tape) *Client {
 	})
 }
 
-func TestReplayDemo(t *testing.T) {
-	tape, err := testutil.NewReplayTape("testdata/replay_demo.json")
+func TestReplay_Demo(t *testing.T) {
+	tape, err := testutil.NewReplayTape("testdata/Replay_Demo.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,8 +44,8 @@ func TestReplayDemo(t *testing.T) {
 }
 
 //nolint:gocyclo
-func TestReplayChunkCRUD(t *testing.T) {
-	tape, err := testutil.NewReplayTape("testdata/001_chunk_crud.json")
+func TestReplay_ChunkCRUD(t *testing.T) {
+	tape, err := testutil.NewReplayTape("testdata/TS_ChunkCRUD.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,8 +145,8 @@ func TestReplayChunkCRUD(t *testing.T) {
 	}
 }
 
-func TestReplayTextSearch(t *testing.T) {
-	tape, err := testutil.NewReplayTape("testdata/002_text_search.json")
+func TestReplay_TextSearch(t *testing.T) {
+	tape, err := testutil.NewReplayTape("testdata/TS_TextSearch.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,8 +206,8 @@ func TestReplayTextSearch(t *testing.T) {
 	}
 }
 
-func TestReplayHybridSearch(t *testing.T) {
-	tape, err := testutil.NewReplayTape("testdata/003_hybrid_search.json")
+func TestReplay_HybridSearch(t *testing.T) {
+	tape, err := testutil.NewReplayTape("testdata/TS_HybridSearch.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,8 +256,8 @@ func TestReplayHybridSearch(t *testing.T) {
 	}
 }
 
-func TestReplayVectorSearch(t *testing.T) {
-	tape, err := testutil.NewReplayTape("testdata/004_vector_search.json")
+func TestReplay_VectorSearch(t *testing.T) {
+	tape, err := testutil.NewReplayTape("testdata/TS_VectorSearch.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -300,8 +300,8 @@ func TestReplayVectorSearch(t *testing.T) {
 }
 
 //nolint:gocyclo
-func TestReplayDocCRUD(t *testing.T) {
-	tape, err := testutil.NewReplayTape("testdata/005_doc_crud.json")
+func TestReplay_DocCRUD(t *testing.T) {
+	tape, err := testutil.NewReplayTape("testdata/TS_DocCRUD.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -376,8 +376,8 @@ func TestReplayDocCRUD(t *testing.T) {
 	}
 }
 
-func TestReplayEmptyCollectionSearch(t *testing.T) {
-	tape, err := testutil.NewReplayTape("testdata/006_empty_results.json")
+func TestReplay_EmptyCollectionSearch(t *testing.T) {
+	tape, err := testutil.NewReplayTape("testdata/TS_EmptyCollectionSearch.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -415,8 +415,8 @@ func TestReplayEmptyCollectionSearch(t *testing.T) {
 	}
 }
 
-func TestReplayGetSchemaFields(t *testing.T) {
-	tape, err := testutil.NewReplayTape("testdata/007_schema_fields.json")
+func TestReplay_GetSchemaFields(t *testing.T) {
+	tape, err := testutil.NewReplayTape("testdata/TS_GetSchemaFields.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -454,8 +454,8 @@ func TestReplayGetSchemaFields(t *testing.T) {
 	}
 }
 
-func TestReplayExtraFields(t *testing.T) {
-	tape, err := testutil.NewReplayTape("testdata/008_extra_fields.json")
+func TestReplay_ExtraFields(t *testing.T) {
+	tape, err := testutil.NewReplayTape("testdata/TS_ExtraFields.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -497,8 +497,8 @@ func TestReplayExtraFields(t *testing.T) {
 	}
 }
 
-func TestReplayChunkDynamicFields(t *testing.T) {
-	tape, err := testutil.NewReplayTape("testdata/009_dynamic_fields.json")
+func TestReplay_ChunkDynamicFields(t *testing.T) {
+	tape, err := testutil.NewReplayTape("testdata/TS_ChunkDynamicFields.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -536,8 +536,8 @@ func TestReplayChunkDynamicFields(t *testing.T) {
 	}
 }
 
-func TestReplayChunkLinks(t *testing.T) {
-	tape, err := testutil.NewReplayTape("testdata/010_chunk_links.json")
+func TestReplay_ChunkLinks(t *testing.T) {
+	tape, err := testutil.NewReplayTape("testdata/TS_ChunkLinks.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -580,8 +580,8 @@ func TestReplayChunkLinks(t *testing.T) {
 	}
 }
 
-func TestReplayDocLinks(t *testing.T) {
-	tape, err := testutil.NewReplayTape("testdata/011_doc_links.json")
+func TestReplay_DocLinks(t *testing.T) {
+	tape, err := testutil.NewReplayTape("testdata/TS_DocLinks.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -630,8 +630,8 @@ func TestReplayDocLinks(t *testing.T) {
 	}
 }
 
-func TestReplayFetchDocs(t *testing.T) {
-	tape, err := testutil.NewReplayTape("testdata/012_fetch_docs.json")
+func TestReplay_FetchDocs(t *testing.T) {
+	tape, err := testutil.NewReplayTape("testdata/TS_FetchDocs.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -686,8 +686,8 @@ func TestReplayFetchDocs(t *testing.T) {
 	}
 }
 
-func TestReplaySearchDistinctPaths(t *testing.T) {
-	tape, err := testutil.NewReplayTape("testdata/013_search_distinct_paths.json")
+func TestReplay_SearchDistinctPaths(t *testing.T) {
+	tape, err := testutil.NewReplayTape("testdata/TS_SearchDistinctPaths.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -730,8 +730,8 @@ func TestReplaySearchDistinctPaths(t *testing.T) {
 	}
 }
 
-func TestReplayListDocuments(t *testing.T) {
-	tape, err := testutil.NewReplayTape("testdata/014_list_documents.json")
+func TestReplay_ListDocuments(t *testing.T) {
+	tape, err := testutil.NewReplayTape("testdata/TS_ListDocuments.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -766,8 +766,8 @@ func TestReplayListDocuments(t *testing.T) {
 	}
 }
 
-func TestReplaySearchChunksByPath(t *testing.T) {
-	tape, err := testutil.NewReplayTape("testdata/015_search_chunks_by_path.json")
+func TestReplay_SearchChunksByPath(t *testing.T) {
+	tape, err := testutil.NewReplayTape("testdata/TS_SearchChunksByPath.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -805,8 +805,8 @@ func TestReplaySearchChunksByPath(t *testing.T) {
 	}
 }
 
-func TestReplayNonExistentPaths(t *testing.T) {
-	tape, err := testutil.NewReplayTape("testdata/016_non_existent_paths.json")
+func TestReplay_NonExistentPaths(t *testing.T) {
+	tape, err := testutil.NewReplayTape("testdata/TS_NonExistentPaths.json")
 	if err != nil {
 		t.Fatal(err)
 	}

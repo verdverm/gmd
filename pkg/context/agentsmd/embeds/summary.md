@@ -22,12 +22,7 @@ gmd agent list                # List configured agent harnesses and profiles
 gmd agent mytask --profile wiki  # Launch external AI agent harness
 ```
 
-## Setup
-
-1. **Typesense must be running** (default: `http://localhost:8108`). Set `GMD_TYPESENSE_API_KEY` if auth is enabled.
-2. **Configure LLM providers and profiles** in CUE (see `gmd init` scaffold). Named providers with provider type (openai, anthropic, vertex, opencode, custom), base_url, and auth method (none, apikey, service-account). Profiles map roles (embedding, expansion, rerank, summarizing, general_big/mid/small) to provider+model pairs. API keys are resolved from env vars by provider type: `OPENAI_API_KEY` (openai), `ANTHROPIC_API_KEY` (anthropic), `OPENCODE_API_KEY` (opencode), `GMD_LLM_API_KEY` (custom). Use `gmd llm status` to test connectivity.
-3. **Run `gmd init`** in your project root to create `.gmd/config.cue`. Edit it to set your LLM endpoints and configure which files to index.
-4. **Run `gmd update`** to scan, chunk, embed, and index all configured collections.
+For setup requirements and quick start instructions, see [setup](setup.md).
 
 ## Key Behavior
 

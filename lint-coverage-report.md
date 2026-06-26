@@ -172,13 +172,9 @@ Run via `make cover.detailed`. All packages passed (`ok`).
 
 ## 3. Integration Coverage Results
 
-### Overall: Integration tests required external services (Typesense Docker, LLM endpoints)
+### Overall: Integration tests completed for most packages; `pkg/wiki` ingest tests timed out
 
-Run via `make cover.detailed.integration`. Some tests failed due to missing LLM/TS services:
-
-- Fusions synthesis tests failed with 404 Not Found for model `Qwen/Qwen3.6-35B-A3B-FP8`
-- Wiki integration tests failed with connection refused to LLM embedding endpoints (`192.168.4.31:8001`)
-- LLM chat endpoints returned 404 Not Found
+Run via `make cover.detailed.integration`. LLM and Typesense services were available. Most integration tests passed. The `pkg/wiki` integration test `TestIntegrationIngest_CreatesPagesAndUpdatesIndex` timed out after 30 minutes during LLM description generation.
 
 ### Per-package coverage (integration where passed)
 
@@ -186,31 +182,31 @@ Run via `make cover.detailed.integration`. Some tests failed due to missing LLM/
 |---|---|---|
 | `cmd/gmd` | 0.0% | — |
 | `pkg/agent` | 0.0% | — |
-| `pkg/chunking` | 66.9% | 0.2s |
+| `pkg/chunking` | 66.9% | 0.3s |
 | `pkg/config` | 32.6% | 0.3s |
 | `pkg/context/agents` | 88.1% | 0.2s |
-| `pkg/context/agentsmd` | 85.7% | 0.2s |
-| `pkg/context/skills` | 52.0% | 0.2s |
+| `pkg/context/agentsmd` | 85.7% | 0.1s |
+| `pkg/context/skills` | 52.0% | 0.1s |
 | `pkg/indexer` | 42.9% | 0.3s |
-| `pkg/llm` | 23.2% | 13.1s |
+| `pkg/llm` | 23.2% | 9.7s |
 | `pkg/llm/auth` | 40.0% | 0.2s |
 | `pkg/mcp` | 0.0% | — |
 | `pkg/output` | 95.3% | 0.3s |
 | `pkg/runtime` | 0.0% | — |
 | `pkg/search` | 36.4% | 0.3s |
 | `pkg/testutil` | 91.7% | 0.2s |
-| `pkg/ts` | 82.7% | 4.7s |
+| `pkg/ts` | 82.7% | 4.5s |
 | `pkg/ts/testserver` | 0.0% | — |
 | `pkg/web` | 16.9% | 0.3s |
 | `pkg/web/builders` | 0.0% | — |
 | `pkg/web/exa` | 0.0% | — |
-| `pkg/web/fusion` | 88.9% | 8.9s |
+| `pkg/web/fusion` | 92.4% | 425.5s |
 | `pkg/web/persist` | 80.2% | 0.3s |
-| `pkg/web/providers/cloudflare` | 86.4% | 1.6s |
-| `pkg/web/providers/exa` | 79.0% | 3.4s |
-| `pkg/web/providers/searxng` | 89.6% | 1.5s |
-| `pkg/web/providers/tavily` | 87.5% | 1.2s |
-| `pkg/wiki` | 69.8% | 27.4s |
+| `pkg/web/providers/cloudflare` | 86.4% | 2.2s |
+| `pkg/web/providers/exa` | 79.0% | 3.3s |
+| `pkg/web/providers/searxng` | 89.6% | 1.2s |
+| `pkg/web/providers/tavily` | 87.5% | 1.4s |
+| `pkg/wiki` | timeout | 1804.7s |
 
 ---
 
@@ -233,7 +229,7 @@ Run via `make cover.detailed.integration`. Some tests failed due to missing LLM/
 - **gofmt**: clean
 - **golangci-lint**: 58 issues — dominated by `gocyclo` (34 high-complexity functions) and `prealloc` (9 slice pre-allocation hints). Test files account for ~12 of the 58 issues.
 - **Unit test coverage**: 38.9% overall.
-- **Integration test coverage**: 69.8% for `pkg/wiki`, 88.9% for `pkg/web/fusion`, but integration tests require Typesense and LLM endpoints to be running.
+- **Integration test coverage**: Most packages passed with LLM/TS services available. `pkg/web/fusion` integration coverage is 92.4%. `pkg/wiki` ingest integration tests timed out after 30 minutes during LLM description generation.
 - **Coverage profile**: written to `coverage.out`; HTML report in `coverage.html`.
 
 (End of file - total 197 lines)

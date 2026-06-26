@@ -11,9 +11,9 @@ skills, and harness configurations are exportable for use in your tools.
 
 ```
 gmd init                        # scaffold .gmd/config.cue
-gmd agentsmd summary            # get AGENTS.md for AI assistants
+gmd context agentsmd show summary # get AGENTS.md for AI assistants
 
-gmd collection create docs --path ./guide --pattern "**/*.md"
+gmd collection create docs --path ./guide --patterns "**/*.md"
 gmd update                      # index your markdown files
 
 gmd query "how do I deploy?"    # full hybrid search
@@ -21,8 +21,8 @@ gmd search "error X"            # fast text-only search
 gmd status                      # see what's indexed
 
 gmd web search "topic"          # multi-provider web search
-gmd wiki create <name> --from docs
-gmd wiki ingest                 # ingest source into wiki
+gmd wiki create <name> [--path <path>] [--wiki-dir <dir>] [--raw-dir <dir>] [--skills] [--from <source>]
+gmd wiki ingest <name> <src>    # ingest source into wiki
 gmd wiki lint                   # health checks
 ```
 
@@ -106,15 +106,20 @@ gmd get <path>                         # Get document content by path
 gmd multi-get <pattern>                # Batch fetch documents
 gmd ls [source]                        # List indexed documents
 gmd collection list                    # List collections + wikis with "referenced by"
-gmd collection create <name> --path --pattern
+gmd collection create <name> --path --patterns
 gmd collection show <name>             # Shows collections or wikis + chunk count
 gmd collection remove <name>           # Remove collection or wiki
 gmd collection rename <old> <new>      # Rename collection or wiki
 gmd collection include <name> <patterns...>
 gmd collection exclude <name> <patterns...>
-gmd context add <source> "text"
-gmd context list
-gmd context rm <source>
+gmd context status                     # Show installed skills and available context items
+gmd context install [--target all]     # Install skills to harness discovery paths
+gmd context uninstall [--target all]   # Uninstall skills from harness discovery paths
+gmd context list                       # List all context items across categories
+gmd context show [category] [name]     # Show context item content
+gmd context agentsmd [list|show]       # AGENTS.md reference documents
+gmd context skills [list|show]         # Skill templates
+gmd context agents [list|show]         # Agent role definitions
 gmd doctor                             # Diagnostics (collections + wikis)
 gmd env                                # Print resolved config with secrets masked
 gmd cleanup                            # Remove stale chunks for deleted files
@@ -125,7 +130,6 @@ gmd web agent <query> [--steps] [--save] # Tier 2: LLM-orchestrated research age
 gmd web research <query> [--depth]       # Tier 3: Deep structured research (stub)
 gmd serve [--port] [--host]              # REST API server (stub, Phase 5)
 gmd mcp [--http]                       # MCP server (stub, Phase 6)
-gmd agentsmd [oneline|summary|detailed|full]  # Output AGENTS.md content for users
 gmd llm status                          # Health check all LLM providers and roles
 gmd llm providers                       # List configured LLM providers
 gmd llm profiles                        # List configured LLM profiles
@@ -139,7 +143,7 @@ gmd agent session list                   # List active sessions + workspaces
 gmd agent session kill <name>            # Kill tmux session + remove workspace
 gmd agent session merge <name>           # Merge workspace into current branch
 gmd wiki export <name> [--output <dir>]  # Export wiki as a self-contained directory
-gmd wiki create <name> [--path] [--wiki-dir] [--raw-dir] [--skills]
+gmd wiki create <name> [--path] [--wiki-dir] [--raw-dir] [--skills] [--from <source>]
 gmd wiki list                          # List all wikis
 gmd wiki show <name>                   # Wiki config details + chunk count
 gmd wiki remove <name>                 # Remove wiki + Typesense chunks
@@ -348,7 +352,7 @@ testdata/WikiDoctor_WithTSNilLLM.json
 - Tests live alongside source files (`*_test.go`).
 - Integration tests requiring external systems (Typesense, LLMs) use `//go:build integration`
   build tag and are excluded from `make test`. Run `make test.integration` to include them.
-- The `gmd agentsmd` command outputs embedded content from `pkg/agentsmd/content/`. Those files are
+- The `gmd context agentsmd show` command outputs embedded content from `pkg/context/agentsmd/embeds/`. Those files are
   user-facing (for end users and AI agents consuming gmd), not developer-facing. Update them
   when CLI commands or architecture change, but keep content focused on usage, not development.
 - Never commit `bin/` or `qmd/` (both in .gitignore).

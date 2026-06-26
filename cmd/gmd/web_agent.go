@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/verdverm/gmd/pkg/llm"
 	"github.com/verdverm/gmd/pkg/web"
+	"github.com/verdverm/gmd/pkg/web/exa"
 	"github.com/verdverm/gmd/pkg/web/persist"
-	"github.com/verdverm/gmd/pkg/web/providers/exa"
 )
 
 var (

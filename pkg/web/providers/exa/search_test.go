@@ -16,15 +16,15 @@ func TestSearchAdapter_Search(t *testing.T) {
 			t.Errorf("expected POST, got %s", r.Method)
 		}
 
-		var req exaclient.SearchRequest
+		var req SearchRequest
 		_ = json.NewDecoder(r.Body).Decode(&req)
 
 		if req.Query == "" {
 			t.Error("expected non-empty query")
 		}
 
-		resp := exaclient.SearchResponse{
-			Results: []exaclient.SearchResult{
+		resp := SearchResponse{
+			Results: []SearchResult{
 				{
 					Title: "Test Result",
 					URL:   "https://example.com",
@@ -32,7 +32,7 @@ func TestSearchAdapter_Search(t *testing.T) {
 					Score: ptr(0.95),
 				},
 			},
-			CostDollars: &exaclient.CostDollars{Total: 0.0015},
+			CostDollars: &CostDollars{Total: 0.0015},
 		}
 		_ = json.NewEncoder(w).Encode(resp)
 	}))
@@ -81,7 +81,7 @@ func TestSearchAdapter_Search(t *testing.T) {
 
 func TestSearchAdapter_SearchEmpty(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(exaclient.SearchResponse{})
+		_ = json.NewEncoder(w).Encode(SearchResponse{})
 	}))
 	defer ts.Close()
 
@@ -99,11 +99,11 @@ func TestSearchAdapter_SearchEmpty(t *testing.T) {
 }
 
 func TestSearchAdapter_ExtraMapping(t *testing.T) {
-	var captured exaclient.SearchRequest
+	var captured SearchRequest
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&captured)
-		_ = json.NewEncoder(w).Encode(exaclient.SearchResponse{})
+		_ = json.NewEncoder(w).Encode(SearchResponse{})
 	}))
 	defer ts.Close()
 
@@ -178,11 +178,11 @@ func TestSearchAdapter_ErrorPropagation(t *testing.T) {
 }
 
 func TestSearchAdapter_HighlightsMode(t *testing.T) {
-	var captured exaclient.SearchRequest
+	var captured SearchRequest
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&captured)
-		_ = json.NewEncoder(w).Encode(exaclient.SearchResponse{})
+		_ = json.NewEncoder(w).Encode(SearchResponse{})
 	}))
 	defer ts.Close()
 
@@ -210,7 +210,7 @@ func TestExa_CostSummary(t *testing.T) {
 	})
 
 	t.Run("non-nil cost", func(t *testing.T) {
-		c := exaCostSummary(&exaclient.CostDollars{Total: 0.005})
+		c := exaCostSummary(&CostDollars{Total: 0.005})
 		if c == nil {
 			t.Fatal("expected non-nil")
 		}

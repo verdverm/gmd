@@ -12,18 +12,18 @@ import (
 
 func TestBrowserAdapter_GetContent(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var req exaclient.ContentsRequest
+		var req ContentsRequest
 		_ = json.NewDecoder(r.Body).Decode(&req)
 
 		if len(req.URLs) != 1 || req.URLs[0] != "https://example.com/article" {
 			t.Errorf("unexpected URLs: %v", req.URLs)
 		}
 
-		resp := exaclient.ContentsResponse{
-			Results: []exaclient.SearchResult{
+		resp := ContentsResponse{
+			Results: []SearchResult{
 				{URL: "https://example.com/article", Text: "article content", Summary: "summary text"},
 			},
-			CostDollars: &exaclient.CostDollars{Total: 0.001},
+			CostDollars: &CostDollars{Total: 0.001},
 		}
 		_ = json.NewEncoder(w).Encode(resp)
 	}))
@@ -49,11 +49,11 @@ func TestBrowserAdapter_GetContent(t *testing.T) {
 }
 
 func TestBrowserAdapter_GetContentWithOptions(t *testing.T) {
-	var captured exaclient.ContentsRequest
+	var captured ContentsRequest
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&captured)
-		_ = json.NewEncoder(w).Encode(exaclient.ContentsResponse{Results: []exaclient.SearchResult{{}}})
+		_ = json.NewEncoder(w).Encode(ContentsResponse{Results: []SearchResult{{}}})
 	}))
 	defer ts.Close()
 
@@ -84,7 +84,7 @@ func TestBrowserAdapter_GetContentWithOptions(t *testing.T) {
 
 func TestBrowserAdapter_GetContentEmpty(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(exaclient.ContentsResponse{})
+		_ = json.NewEncoder(w).Encode(ContentsResponse{})
 	}))
 	defer ts.Close()
 

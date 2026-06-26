@@ -15,6 +15,7 @@ func TestAgentsMD_ValidNames(t *testing.T) {
 		"summary":  false,
 		"detailed": false,
 		"full":     false,
+		"setup":    false,
 	}
 	if len(names) != len(expected) {
 		t.Errorf("expected %d names, got %d: %v", len(expected), len(names), names)

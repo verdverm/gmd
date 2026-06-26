@@ -8,7 +8,7 @@ import (
 )
 
 type SearchAdapter struct {
-	client *exaclient.Client
+	client *Client
 	name   string
 }
 
@@ -16,15 +16,15 @@ func NewSearchAdapter(cfg web.ProviderConfig) (*SearchAdapter, error) {
 	apiKey, _ := cfg.Extra["api_key"].(string)
 	baseURL, _ := cfg.Extra["base_url"].(string)
 	if baseURL != "" {
-		return &SearchAdapter{client: exaclient.NewWithServer(apiKey, baseURL, cfg.HTTPClient), name: cfg.Name}, nil
+		return &SearchAdapter{client: NewWithServer(apiKey, baseURL, cfg.HTTPClient), name: cfg.Name}, nil
 	}
-	return &SearchAdapter{client: exaclient.New(apiKey, cfg.HTTPClient), name: cfg.Name}, nil
+	return &SearchAdapter{client: New(apiKey, cfg.HTTPClient), name: cfg.Name}, nil
 }
 
 func (a *SearchAdapter) Name() string { return a.name }
 
 func (a *SearchAdapter) Search(ctx context.Context, opts web.SearchOptions) ([]web.SearchResult, error) {
-	req := exaclient.SearchRequest{
+	req := SearchRequest{
 		Query:      opts.Query,
 		NumResults: opts.NumResults,
 	}
@@ -61,14 +61,14 @@ func (a *SearchAdapter) Search(ctx context.Context, opts web.SearchOptions) ([]w
 	maxChars, _ := opts.Extra["max_chars"].(int)
 
 	if withText {
-		req.Contents = &exaclient.ContentsOptions{
-			Text: &exaclient.ContentsText{
+		req.Contents = &ContentsOptions{
+			Text: &ContentsText{
 				MaxCharacters: maxChars,
 			},
 		}
 	} else if withHighlights || (!withText && maxChars == 0) {
-		req.Contents = &exaclient.ContentsOptions{
-			Highlights: &exaclient.HighlightOpts{},
+		req.Contents = &ContentsOptions{
+			Highlights: &HighlightOpts{},
 		}
 	}
 
@@ -108,7 +108,7 @@ func (a *SearchAdapter) Search(ctx context.Context, opts web.SearchOptions) ([]w
 	return results, nil
 }
 
-func exaCostSummary(cost *exaclient.CostDollars) *web.CostSummary {
+func exaCostSummary(cost *CostDollars) *web.CostSummary {
 	if cost == nil {
 		return nil
 	}

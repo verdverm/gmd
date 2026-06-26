@@ -7,20 +7,20 @@ import (
 )
 
 type BrowserAdapter struct {
-	client *exaclient.Client
+	client *Client
 }
 
 func NewBrowserAdapter(cfg web.ProviderConfig) (*BrowserAdapter, error) {
 	apiKey, _ := cfg.Extra["api_key"].(string)
 	baseURL, _ := cfg.Extra["base_url"].(string)
 	if baseURL != "" {
-		return &BrowserAdapter{client: exaclient.NewWithServer(apiKey, baseURL, cfg.HTTPClient)}, nil
+		return &BrowserAdapter{client: NewWithServer(apiKey, baseURL, cfg.HTTPClient)}, nil
 	}
-	return &BrowserAdapter{client: exaclient.New(apiKey, cfg.HTTPClient)}, nil
+	return &BrowserAdapter{client: New(apiKey, cfg.HTTPClient)}, nil
 }
 
 func (a *BrowserAdapter) GetContent(ctx context.Context, url string, opts *web.GetContentOptions) (*web.GetContentResult, error) {
-	req := exaclient.ContentsRequest{
+	req := ContentsRequest{
 		URLs: []string{url},
 	}
 
@@ -35,7 +35,7 @@ func (a *BrowserAdapter) GetContent(ctx context.Context, url string, opts *web.G
 		}
 	}
 
-	req.Text = &exaclient.ContentsText{
+	req.Text = &ContentsText{
 		MaxCharacters: maxChars,
 	}
 

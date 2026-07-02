@@ -27,19 +27,10 @@ var llmStatusCmd = &cobra.Command{
 		statuses := registry.CheckProviders(context.Background())
 		for _, s := range statuses {
 			if !s.OK {
-				fmt.Printf("  FAIL   %-15s %-50s (%s)\n", s.Label, s.URL, s.Err)
+				fmt.Printf("  FAIL   %-15s %-20s (%s)\n", s.Label, s.Provider, s.Err)
 				continue
 			}
-			fmt.Printf("  OK     %-15s model=%s\n", s.Label, s.Model)
-		}
-
-		fmt.Println()
-		fmt.Println("Configured Roles:")
-		for _, role := range registry.Roles() {
-			m := registry.Model(role)
-			if m != nil {
-				fmt.Printf("  %-15s -> %s\n", role, m.Name())
-			}
+			fmt.Printf("  OK     %-15s %-20s model=%s\n", s.Label, s.Provider, s.Model)
 		}
 
 		return nil

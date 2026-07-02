@@ -1,0 +1,80 @@
+server:
+  port: "9999"
+
+virtual_models:
+- source: qwen-coder
+  targets:
+  - provider: uranium-8000
+    model: Qwen/Qwen3.6-35B-A3B-FP8
+  - provider: plutonium-8000
+    model: Qwen/Qwen3.6-35B-A3B-FP8
+# - source: gemma-general
+#   targets:
+#   - provider: plutonium-8001
+#     model: nvidia/Gemma-4-26B-A4B-NVFP4
+- source: embedding
+  targets:
+  - provider: uranium-8001
+    model: google/embeddinggemma-300m
+- source: microllm
+  targets:
+  - provider: uranium-8002
+    model: Qwen/Qwen3-1.7B
+- source: reranker
+  targets:
+  - provider: uranium-8003
+    model: Qwen/Qwen3-Reranker-0.6B
+
+models:
+  enabled_by_default: true # env: MODELS_ENABLED_BY_DEFAULT; when false, models stay unavailable until an access override allows one or more user paths
+  configured_provider_models_mode: "fallback" # env: CONFIGURED_PROVIDER_MODELS_MODE; "fallback" uses configured lists only when upstream /models is unavailable/empty, "allowlist" exposes only configured models and skips upstream /models for configured lists
+
+providers:
+  uranium-8000:
+    type: vllm
+    base_url: "http://192.168.4.31:8000/v1"
+  uranium-8001:
+    type: vllm
+    base_url: "http://192.168.4.31:8001/v1"
+  uranium-8002:
+    type: vllm
+    base_url: "http://192.168.4.31:8002/v1"
+  uranium-8003:
+    type: vllm
+    base_url: "http://192.168.4.31:8003/v1"
+  plutonium-8000:
+    type: vllm
+    base_url: "http://192.168.4.35:8000/v1"
+  # plutonium-8001:
+  #   type: vllm
+  #   base_url: "http://192.168.4.35:8001/v1"
+
+logging:
+  enabled: true
+  log_bodies: true # WARNING: may contain sensitive data
+  log_headers: true
+  buffer_size: 1000
+  flush_interval: 5 # seconds
+  retention_days: 30 # 0 = keep forever
+  only_model_interactions: true
+
+metrics:
+  enabled: true
+  endpoint: "/metrics"
+
+http:
+  timeout: 1800 # seconds (30 minutes)
+  response_header_timeout: 1800
+
+workflows:
+  refresh_interval: 1m
+
+# Global resilience settings (applied to all providers by default)
+# Individual providers can override any of these values.
+resilience:
+  retry:
+    max_retries: 3
+    initial_backoff: 6s
+    max_backoff: 30s
+    backoff_factor: 2.0
+    jitter_factor: 0.1

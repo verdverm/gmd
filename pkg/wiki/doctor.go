@@ -189,7 +189,7 @@ func FormatDoctorResult(result *DoctorResult) string {
 			if !s.OK {
 				mark = "\u2717"
 			}
-			b.WriteString(fmt.Sprintf("    %s %s (%s)\n", mark, s.Label, s.Model))
+			b.WriteString(fmt.Sprintf("    %s %s (%s) model=%s\n", mark, s.Label, s.Provider, s.Model))
 			if s.Err != "" {
 				b.WriteString(fmt.Sprintf("      error: %s\n", s.Err))
 			}

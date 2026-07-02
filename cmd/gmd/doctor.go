@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/verdverm/gmd/pkg/llm"
 	"github.com/verdverm/gmd/pkg/ts"
 )
 
@@ -119,33 +118,11 @@ when search returns no results or indexing fails.`,
 		statuses := registry.CheckProviders(context.Background())
 		for _, s := range statuses {
 			if !s.OK {
-				fmt.Printf("FAIL   %-10s %s  (%s)\n", s.Label, s.URL, s.Err)
+				fmt.Printf("FAIL   %-15s %s  (%s)\n", s.Label, s.Provider, s.Err)
 				continue
 			}
-			fmt.Printf("OK     %-10s %s  model=%s\n", s.Label, s.URL, s.Model)
+			fmt.Printf("OK     %-15s %s  model=%s\n", s.Label, s.Provider, s.Model)
 		}
-		modelCheck := func(name string, m llm.ChatModel) {
-			if m == nil {
-				return
-			}
-			modelName := m.Name()
-			if modelName == "" {
-				return
-			}
-			found := false
-			for _, s := range statuses {
-				if s.Model == modelName {
-					found = true
-					break
-				}
-			}
-			if !found {
-				fmt.Printf("WARN   %s model not found: %s\n", name, modelName)
-			}
-		}
-		modelCheck("embedding", registry.Model(llm.RoleEmbedding))
-		modelCheck("expansion", registry.Model(llm.RoleExpansion))
-		modelCheck("rerank", registry.Model(llm.RoleRerank))
 
 		return nil
 	},

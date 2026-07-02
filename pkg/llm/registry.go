@@ -22,14 +22,15 @@ const (
 	RoleGeneralSmall = "general_small"
 )
 
-// ProviderHealth holds the health check result for one LLM provider.
+// ProviderHealth holds the health check result for one LLM role binding.
 type ProviderHealth struct {
-	Label  string   `json:"label"`
-	URL    string   `json:"url"`
-	Model  string   `json:"model"`
-	OK     bool     `json:"ok"`
-	Models []string `json:"models,omitempty"`
-	Err    string   `json:"err,omitempty"`
+	Label    string   `json:"label"`
+	URL      string   `json:"url"`
+	Model    string   `json:"model"`
+	Provider string   `json:"provider,omitempty"`
+	OK       bool     `json:"ok"`
+	Models   []string `json:"models,omitempty"`
+	Err      string   `json:"err,omitempty"`
 }
 
 // Registry holds resolved LLM clients indexed by role, plus the shared
@@ -68,21 +69,73 @@ func (r *Registry) Roles() []string {
 	return roles
 }
 
-// CheckProviders runs health checks against providers referenced by the active profile.
+// CheckProviders runs health checks against roles referenced by the active profile.
+// Each entry corresponds to one role binding (provider + optional model override).
 func (r *Registry) CheckProviders(ctx context.Context) []ProviderHealth {
 	var results []ProviderHealth
-	for name, m := range r.providerModels {
+	providerModels := make(map[string][]string)
+	for _, m := range r.providerModels {
+		if m != nil {
+			name := m.Name()
+			if name != "" {
+				providerModels[name] = nil
+			}
+		}
+	}
+	for _, m := range r.providerModels {
+		if m == nil {
+			continue
+		}
+		key := m.Name()
+		if key == "" {
+			continue
+		}
+		if _, exists := providerModels[key]; !exists {
+			models, _ := m.ListModels(ctx)
+			providerModels[key] = models
+		}
+	}
+	for name, m := range r.models {
 		h := ProviderHealth{
 			Label: name,
-			Model: m.Name(),
 			OK:    true,
 		}
-		models, listErr := m.ListModels(ctx)
-		if listErr != nil {
-			h.OK = false
-			h.Err = fmt.Sprintf("list models: %v", listErr)
+		if om, ok := m.(*OpenAIModel); ok {
+			h.Model = om.Name()
+			pname := ""
+			for pn, pm := range r.providerModels {
+				if pm == om || (pm != nil && om.client == pm.client && om.modelName == pm.modelName) {
+					pname = pn
+					break
+				}
+			}
+			if pname == "" {
+				for pn, pm := range r.providerModels {
+					if pm != nil && om.client == pm.client {
+						pname = pn
+						break
+					}
+				}
+			}
+			h.Provider = pname
+			if h.Model != "" {
+				allModels := providerModels[pname]
+				if allModels == nil {
+					allModels, _ = om.ListModels(context.Background())
+					providerModels[pname] = allModels
+				}
+				found := false
+				for _, am := range allModels {
+					if am == h.Model {
+						found = true
+						break
+					}
+				}
+				if !found {
+					h.Err = fmt.Sprintf("model %q not in provider's available models (%d total)", h.Model, len(allModels))
+				}
+			}
 		}
-		h.Models = models
 		results = append(results, h)
 	}
 	sort.Slice(results, func(i, j int) bool { return results[i].Label < results[j].Label })
